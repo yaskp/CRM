@@ -1,4 +1,8 @@
+import dotenv from 'dotenv'
+dotenv.config()
+
 import { sequelize } from './connection'
+import '../models/index' // Import all models to set up associations
 import Company from '../models/Company'
 import Role from '../models/Role'
 import Permission from '../models/Permission'
@@ -85,17 +89,25 @@ const seedDatabase = async () => {
     )
     console.log('Roles created')
 
+    // Reload roles to get their IDs
+    const roles = await Role.findAll()
+    const adminRoleReloaded = roles.find(r => r.name === 'Admin')
+    const siteEngineerRoleReloaded = roles.find(r => r.name === 'Site Engineer')
+    const storeManagerRoleReloaded = roles.find(r => r.name === 'Store Manager')
+    const operationManagerRoleReloaded = roles.find(r => r.name === 'Operation Manager')
+    const headAccountsRoleReloaded = roles.find(r => r.name === 'Head/Accounts')
+
     // Assign permissions to roles
     const allPermissions = await Permission.findAll()
     const permissionMap = new Map(allPermissions.map((p) => [p.name, p]))
 
     // Admin gets all permissions
-    if (adminRole && permissionMap.size > 0) {
-      await adminRole.setPermissions(allPermissions)
+    if (adminRoleReloaded && allPermissions.length > 0) {
+      await adminRoleReloaded.setPermissions(allPermissions)
     }
 
     // Site Engineer permissions
-    if (siteEngineerRole) {
+    if (siteEngineerRoleReloaded) {
       const siteEngineerPerms = [
         'projects.read',
         'leads.create',
@@ -107,12 +119,14 @@ const seedDatabase = async () => {
         'expenses.read',
         'materials.read',
         'warehouses.read',
-      ].map((name) => permissionMap.get(name)).filter(Boolean)
-      await siteEngineerRole.setPermissions(siteEngineerPerms)
+      ].map((name) => permissionMap.get(name)).filter(Boolean) as Permission[]
+      if (siteEngineerPerms.length > 0) {
+        await siteEngineerRoleReloaded.setPermissions(siteEngineerPerms)
+      }
     }
 
     // Store Manager permissions
-    if (storeManagerRole) {
+    if (storeManagerRoleReloaded) {
       const storeManagerPerms = [
         'materials.create',
         'materials.read',
@@ -125,12 +139,14 @@ const seedDatabase = async () => {
         'store.approve',
         'expenses.approve',
         'projects.read',
-      ].map((name) => permissionMap.get(name)).filter(Boolean)
-      await storeManagerRole.setPermissions(storeManagerPerms)
+      ].map((name) => permissionMap.get(name)).filter(Boolean) as Permission[]
+      if (storeManagerPerms.length > 0) {
+        await storeManagerRoleReloaded.setPermissions(storeManagerPerms)
+      }
     }
 
     // Operation Manager permissions
-    if (operationManagerRole) {
+    if (operationManagerRoleReloaded) {
       const operationManagerPerms = [
         'projects.read',
         'projects.update',
@@ -142,12 +158,14 @@ const seedDatabase = async () => {
         'equipment.update',
         'materials.read',
         'warehouses.read',
-      ].map((name) => permissionMap.get(name)).filter(Boolean)
-      await operationManagerRole.setPermissions(operationManagerPerms)
+      ].map((name) => permissionMap.get(name)).filter(Boolean) as Permission[]
+      if (operationManagerPerms.length > 0) {
+        await operationManagerRoleReloaded.setPermissions(operationManagerPerms)
+      }
     }
 
     // Head/Accounts permissions
-    if (headAccountsRole) {
+    if (headAccountsRoleReloaded) {
       const headAccountsPerms = [
         'projects.read',
         'leads.read',
@@ -158,24 +176,30 @@ const seedDatabase = async () => {
         'equipment.read',
         'materials.read',
         'warehouses.read',
-      ].map((name) => permissionMap.get(name)).filter(Boolean)
-      await headAccountsRole.setPermissions(headAccountsPerms)
+      ].map((name) => permissionMap.get(name)).filter(Boolean) as Permission[]
+      if (headAccountsPerms.length > 0) {
+        await headAccountsRoleReloaded.setPermissions(headAccountsPerms)
+      }
     }
 
     console.log('Permissions assigned to roles')
 
+    // Reload company to get ID
+    const companiesReloaded = await Company.findAll()
+    const vhptCompanyReloaded = companiesReloaded.find(c => c.code === 'VHPT')
+
     // Create default admin user
     const adminUser = await User.findOne({ where: { email: 'admin@crm.com' } })
-    if (!adminUser) {
+    if (!adminUser && adminRoleReloaded && vhptCompanyReloaded) {
       const newAdmin = await User.create({
         employee_id: 'ADMIN001',
         name: 'System Administrator',
         email: 'admin@crm.com',
         password_hash: 'admin123', // Will be hashed by hook
-        company_id: vhptCompany.id,
+        company_id: vhptCompanyReloaded.id,
         is_active: true,
       })
-      await newAdmin.setRoles([adminRole])
+      await newAdmin.setRoles([adminRoleReloaded])
       console.log('Admin user created: admin@crm.com / admin123')
     }
 
@@ -186,18 +210,16 @@ const seedDatabase = async () => {
   }
 }
 
-// Run seed if called directly
-if (require.main === module) {
-  seedDatabase()
-    .then(() => {
-      console.log('Seeding completed')
-      process.exit(0)
-    })
-    .catch((error) => {
-      console.error('Seeding failed:', error)
-      process.exit(1)
-    })
-}
+// Run seed
+seedDatabase()
+  .then(() => {
+    console.log('Seeding completed')
+    process.exit(0)
+  })
+  .catch((error) => {
+    console.error('Seeding failed:', error)
+    process.exit(1)
+  })
 
 export default seedDatabase
 

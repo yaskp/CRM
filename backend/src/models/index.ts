@@ -10,6 +10,8 @@ import WorkOrder from './WorkOrder'
 import WorkOrderItem from './WorkOrderItem'
 import Material from './Material'
 import Warehouse from './Warehouse'
+import UserRole from './UserRole'
+import RolePermission from './RolePermission'
 
 // Define associations
 User.belongsTo(Company, { foreignKey: 'company_id', as: 'company' })
@@ -37,12 +39,28 @@ Warehouse.belongsTo(User, { foreignKey: 'warehouse_manager_id', as: 'manager' })
 Company.hasMany(Warehouse, { foreignKey: 'company_id', as: 'warehouses' })
 
 // User-Role associations (Many-to-Many)
-User.belongsToMany(Role, { through: 'user_roles', foreignKey: 'user_id', as: 'roles' })
-Role.belongsToMany(User, { through: 'user_roles', foreignKey: 'role_id', as: 'users' })
+User.belongsToMany(Role, { 
+  through: UserRole,
+  foreignKey: 'user_id', 
+  as: 'roles' 
+})
+Role.belongsToMany(User, { 
+  through: UserRole,
+  foreignKey: 'role_id', 
+  as: 'users' 
+})
 
 // Role-Permission associations (Many-to-Many)
-Role.belongsToMany(Permission, { through: 'role_permissions', foreignKey: 'role_id', as: 'permissions' })
-Permission.belongsToMany(Role, { through: 'role_permissions', foreignKey: 'permission_id', as: 'roles' })
+Role.belongsToMany(Permission, { 
+  through: RolePermission,
+  foreignKey: 'role_id', 
+  as: 'permissions' 
+})
+Permission.belongsToMany(Role, { 
+  through: RolePermission,
+  foreignKey: 'permission_id', 
+  as: 'roles' 
+})
 
 export {
   User,

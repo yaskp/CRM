@@ -37,14 +37,13 @@ const Login = () => {
           autoComplete="off"
         >
           <Form.Item
-            label="Email"
+            label="Email or Username (Employee ID)"
             name="email"
             rules={[
-              { required: true, message: 'Please input your email!' },
-              { type: 'email', message: 'Please enter a valid email!' }
+              { required: true, message: 'Please input your email or username!' },
             ]}
           >
-            <Input />
+            <Input placeholder="Enter email or employee ID" />
           </Form.Item>
 
           <Form.Item

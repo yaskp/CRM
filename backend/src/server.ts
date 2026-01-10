@@ -2,12 +2,13 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
+dotenv.config()
+// Import models FIRST to ensure all associations are loaded
+import './models/index'
 import { sequelize } from './database/connection'
 import routes from './routes'
 import { errorHandler } from './middleware/errorHandler'
 import { logger } from './utils/logger'
-
-dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -17,6 +18,9 @@ app.use(helmet())
 app.use(cors())
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
+
+// Serve static files (uploads)
+app.use('/uploads', express.static('uploads'))
 
 // Routes
 app.use('/api', routes)
@@ -41,8 +45,21 @@ const startServer = async () => {
       logger.info('Database synced')
     }
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       logger.info(`Server running on port ${PORT}`)
+    })
+
+    // Handle server errors
+    server.on('error', (error: any) => {
+      if (error.code === 'EADDRINUSE') {
+        logger.error(`Port ${PORT} is already in use. Please stop the existing server or use a different port.`)
+        logger.info(`To find and kill the process using port ${PORT}, run: netstat -ano | findstr :${PORT}`)
+        logger.info(`Then kill it with: taskkill /PID <PID> /F`)
+        process.exit(1)
+      } else {
+        logger.error('Server error:', error)
+        process.exit(1)
+      }
     })
   } catch (error) {
     logger.error('Unable to start server:', error)

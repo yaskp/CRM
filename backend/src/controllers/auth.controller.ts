@@ -1,8 +1,11 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
+import '../models/index' // Import all models to ensure associations are loaded
 import User from '../models/User'
+import Role from '../models/Role'
 import { createError } from '../middleware/errorHandler'
 import { AuthRequest } from '../middleware/auth.middleware'
+import { Op } from 'sequelize'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'default-secret'
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
@@ -72,19 +75,32 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { email, password } = req.body
+    const { email, username, password } = req.body
+    const loginIdentifier = email || username
 
-    if (!email || !password) {
-      throw createError('Email and password are required', 400)
+    if (!loginIdentifier || !password) {
+      throw createError('Email/Username and password are required', 400)
     }
 
-    // Find user
+    // Find user by email or username (employee_id)
     const user = await User.findOne({
-      where: { email },
+      where: {
+        [Op.or]: [
+          { email: loginIdentifier },
+          { employee_id: loginIdentifier },
+        ],
+      },
+      include: [
+        {
+          model: Role,
+          as: 'roles',
+          attributes: ['id', 'name', 'description'],
+        },
+      ],
     })
 
     if (!user) {
-      throw createError('Invalid email or password', 401)
+      throw createError('Invalid email/username or password', 401)
     }
 
     if (!user.is_active) {
@@ -94,15 +110,19 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     // Check password
     const isPasswordValid = await user.comparePassword(password)
     if (!isPasswordValid) {
-      throw createError('Invalid email or password', 401)
+      throw createError('Invalid email/username or password', 401)
     }
 
     // Update last login
     await user.update({ last_login: new Date() })
 
+    // Get user roles and permissions
+    const roles = user.roles?.map((role: any) => role.name) || []
+    const roleIds = user.roles?.map((role: any) => role.id) || []
+
     // Generate token
     const token = jwt.sign(
-      { id: user.id, email: user.email, employee_id: user.employee_id },
+      { id: user.id, email: user.email, employee_id: user.employee_id, roles },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     )
@@ -116,6 +136,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         name: user.name,
         email: user.email,
         employee_id: user.employee_id,
+        roles,
+        roleIds,
       },
     })
   } catch (error) {
@@ -127,15 +149,35 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
   try {
     const user = await User.findByPk(req.user!.id, {
       attributes: ['id', 'name', 'email', 'employee_id', 'phone', 'company_id'],
+      include: [
+        {
+          model: Role,
+          as: 'roles',
+          attributes: ['id', 'name', 'description'],
+          through: { attributes: [] },
+        },
+      ],
     })
 
     if (!user) {
       throw createError('User not found', 404)
     }
 
+    const roles = (user as any).roles?.map((role: any) => role.name) || []
+    const roleIds = (user as any).roles?.map((role: any) => role.id) || []
+
     res.json({
       success: true,
-      user,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        employee_id: user.employee_id,
+        phone: user.phone,
+        company_id: user.company_id,
+        roles,
+        roleIds,
+      },
     })
   } catch (error) {
     next(error)

@@ -1,0 +1,95 @@
+import api from './auth'
+
+export interface GRNItem {
+  material_id: number
+  quantity: number
+  unit_price?: number
+  batch_number?: string
+  expiry_date?: string
+}
+
+export interface STNItem {
+  material_id: number
+  quantity: number
+  batch_number?: string
+}
+
+export interface SRNItem {
+  material_id: number
+  quantity: number
+}
+
+export interface CreateGRNRequest {
+  warehouse_id: number
+  transaction_date: string
+  items: GRNItem[]
+  remarks?: string
+}
+
+export interface CreateSTNRequest {
+  warehouse_id: number
+  to_warehouse_id: number
+  transaction_date: string
+  items: STNItem[]
+  remarks?: string
+}
+
+export interface CreateSRNRequest {
+  warehouse_id: number
+  project_id: number
+  transaction_date: string
+  items: SRNItem[]
+  remarks?: string
+}
+
+export const storeTransactionService = {
+  // GRN
+  createGRN: async (data: CreateGRNRequest) => {
+    const response = await api.post('/store/grn', data)
+    return response.data
+  },
+
+  // STN
+  createSTN: async (data: CreateSTNRequest) => {
+    const response = await api.post('/store/stn', data)
+    return response.data
+  },
+
+  // SRN
+  createSRN: async (data: CreateSRNRequest) => {
+    const response = await api.post('/store/srn', data)
+    return response.data
+  },
+
+  // Get all transactions
+  getTransactions: async (params?: {
+    type?: 'GRN' | 'STN' | 'SRN' | 'CONSUMPTION'
+    status?: 'draft' | 'approved' | 'rejected'
+    warehouse_id?: number
+    page?: number
+    limit?: number
+    search?: string
+  }) => {
+    const response = await api.get('/store', { params })
+    return response.data
+  },
+
+  // Get transaction by ID
+  getTransaction: async (id: number) => {
+    const response = await api.get(`/store/${id}`)
+    return response.data
+  },
+
+  // Approve transaction
+  approveTransaction: async (id: number) => {
+    const response = await api.put(`/store/transactions/${id}/approve`)
+    return response.data
+  },
+
+  // Reject transaction
+  rejectTransaction: async (id: number, remarks?: string) => {
+    const response = await api.put(`/store/transactions/${id}/reject`, { remarks })
+    return response.data
+  },
+}
+

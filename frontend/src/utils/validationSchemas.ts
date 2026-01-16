@@ -110,7 +110,7 @@ export const equipmentBreakdownSchema = z.object({
   breakdown_time: z.string().optional(),
   resolution_date: z.string().optional(),
   resolution_time: z.string().optional(),
-  breakdown_reason: z.string().optional(),
+  breakdown_reason: z.string().min(1, 'Reason is required'),
 })
 
 // Expense Schema

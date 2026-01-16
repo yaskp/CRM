@@ -1,13 +1,38 @@
 import { useState, useEffect } from 'react'
-import { Form, Button, Card, message, Select, Input, InputNumber, Space, Table } from 'antd'
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Form, Button, Card, message, Select, Input, InputNumber, Space, Table, Row, Col, Typography, Divider } from 'antd'
+import {
+  PlusOutlined,
+  DeleteOutlined,
+  SaveOutlined,
+  ArrowLeftOutlined,
+  SafetyCertificateOutlined,
+  ProjectOutlined,
+  DollarOutlined,
+  FileTextOutlined,
+  InfoCircleOutlined,
+  TagOutlined,
+  PercentageOutlined
+} from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { workOrderService } from '../../services/api/workOrders'
 import { projectService } from '../../services/api/projects'
 import type { ColumnsType } from 'antd/es/table'
+import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
+import {
+  getPrimaryButtonStyle,
+  getSecondaryButtonStyle,
+  largeInputStyle,
+  getLabelStyle,
+  flexBetweenStyle,
+  actionCardStyle,
+  prefixIconStyle,
+  twoColumnGridStyle
+} from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
 
 const { Option } = Select
 const { TextArea } = Input
+const { Text } = Typography
 
 interface WorkOrderItem {
   item_type: string
@@ -104,7 +129,7 @@ const WorkOrderForm = () => {
         discount_percentage: discount,
         payment_terms: values.payment_terms,
       }
-      
+
       if (id) {
         await workOrderService.updateWorkOrder(Number(id), data)
         message.success('Work order updated successfully!')
@@ -122,13 +147,15 @@ const WorkOrderForm = () => {
 
   const itemColumns: ColumnsType<WorkOrderItem & { index: number }> = [
     {
-      title: 'Item Type',
+      title: 'Work Type',
       dataIndex: 'item_type',
+      width: '20%',
       render: (value, record, index) => (
         <Select
           value={value}
           onChange={(val) => updateItem(index, 'item_type', val)}
           style={{ width: '100%' }}
+          size="large"
         >
           <Option value="guide_wall">Guide Wall</Option>
           <Option value="grabbing">Grabbing</Option>
@@ -143,40 +170,48 @@ const WorkOrderForm = () => {
     {
       title: 'Description',
       dataIndex: 'description',
+      width: '25%',
       render: (value, record, index) => (
         <Input
           value={value}
           onChange={(e) => updateItem(index, 'description', e.target.value)}
-          placeholder="Description"
+          placeholder="Detailed specs"
+          size="large"
         />
       ),
     },
     {
       title: 'Quantity',
       dataIndex: 'quantity',
+      width: '12%',
       render: (value, record, index) => (
         <InputNumber
           value={value}
           onChange={(val) => updateItem(index, 'quantity', val || 0)}
           min={0}
           style={{ width: '100%' }}
+          size="large"
+          placeholder="0"
         />
       ),
     },
     {
       title: 'Unit',
       dataIndex: 'unit',
+      width: '10%',
       render: (value, record, index) => (
         <Input
           value={value}
           onChange={(e) => updateItem(index, 'unit', e.target.value)}
-          placeholder="Unit"
+          placeholder="UoM"
+          size="large"
         />
       ),
     },
     {
-      title: 'Rate',
+      title: 'Rate (₹)',
       dataIndex: 'rate',
+      width: '15%',
       render: (value, record, index) => (
         <InputNumber
           value={value}
@@ -184,99 +219,158 @@ const WorkOrderForm = () => {
           min={0}
           prefix="₹"
           style={{ width: '100%' }}
+          size="large"
+          placeholder="0.00"
         />
       ),
     },
     {
       title: 'Amount',
       dataIndex: 'amount',
-      render: (amount: number) => `₹${amount?.toLocaleString('en-IN') || 0}`,
+      width: '15%',
+      align: 'right' as const,
+      render: (amount: number) => <Text strong>₹{amount?.toLocaleString('en-IN') || 0}</Text>,
     },
     {
-      title: 'Action',
+      title: '',
+      width: 50,
       render: (_: any, record: any, index: number) => (
         <Button
+          type="link"
           danger
           icon={<DeleteOutlined />}
           onClick={() => removeItem(index)}
+          style={{ padding: 0 }}
         />
       ),
     },
   ]
 
   return (
-    <div className="content-container">
-      <Card title={id ? 'Edit Work Order' : 'Create Work Order'}>
-        <Form form={form} layout="vertical" onFinish={onFinish}>
-          <Form.Item
-            label="Project"
-            name="project_id"
-            rules={[{ required: true, message: 'Please select a project!' }]}
-          >
-            <Select placeholder="Select project" disabled={!!id}>
-              {projects.map((project) => (
-                <Option key={project.id} value={project.id}>
-                  {project.project_code} - {project.name}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
+    <PageContainer maxWidth={1100}>
+      <PageHeader
+        title={id ? 'Edit Work Order' : 'Create Work Order'}
+        subtitle={id ? `Reference: WO#${id}` : 'Issue a new contract or service order for a specific project task'}
+        icon={<SafetyCertificateOutlined />}
+      />
 
-          <Card
-            title="Work Order Items"
+      <Form form={form} layout="vertical" onFinish={onFinish}>
+        <div style={twoColumnGridStyle}>
+          <SectionCard title="Order Authorization" icon={<ProjectOutlined />}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Assigned Project</span>}
+              name="project_id"
+              rules={[{ required: true, message: 'Please select a project!' }]}
+            >
+              <Select
+                placeholder="Select project"
+                disabled={!!id}
+                size="large"
+                style={largeInputStyle}
+                showSearch
+                optionFilterProp="children"
+              >
+                {projects.map((project) => (
+                  <Option key={project.id} value={project.id}>
+                    {project.project_code} - {project.name}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+
+            <Form.Item label={<span style={getLabelStyle()}>Payment Schedule & Terms</span>} name="payment_terms">
+              <TextArea rows={3} placeholder="e.g., 50% advance, 50% on completion..." style={largeInputStyle} />
+            </Form.Item>
+          </SectionCard>
+
+          <SectionCard title="Financial Controls" icon={<DollarOutlined />}>
+            <Form.Item label={<span style={getLabelStyle()}>Contract Discount (%)</span>} name="discount_percentage">
+              <InputNumber
+                style={{ width: '100%', ...largeInputStyle }}
+                min={0}
+                max={100}
+                size="large"
+                placeholder="0"
+                prefix={<PercentageOutlined style={prefixIconStyle} />}
+              />
+            </Form.Item>
+
+            <InfoCard title="💡 Calculation Note">
+              Total order value is auto-calculated based on item rates and adjusted with any applicable discount.
+            </InfoCard>
+          </SectionCard>
+        </div>
+
+        <div style={{ marginTop: theme.spacing.lg }}>
+          <SectionCard
+            title="Scope of Work & Items"
+            icon={<TagOutlined />}
             extra={
-              <Button type="primary" icon={<PlusOutlined />} onClick={addItem}>
-                Add Item
+              <Button
+                type="dashed"
+                icon={<PlusOutlined />}
+                onClick={addItem}
+                style={{ borderRadius: '6px' }}
+              >
+                Add Work Item
               </Button>
             }
-            style={{ marginBottom: 16 }}
           >
             <Table
               columns={itemColumns}
               dataSource={items.map((item, index) => ({ ...item, index, key: index }))}
               pagination={false}
+              bordered
+              locale={{ emptyText: <div style={{ padding: '30px' }}><Text type="secondary">No work items defined. Click "Add Work Item" to start.</Text></div> }}
               summary={() => (
                 <Table.Summary fixed>
-                  <Table.Summary.Row>
+                  <Table.Summary.Row style={{ backgroundColor: theme.colors.neutral.gray50 }}>
                     <Table.Summary.Cell index={0} colSpan={5}>
-                      <strong>Total</strong>
+                      <Text strong>Sub-Total Consumption Value</Text>
                     </Table.Summary.Cell>
-                    <Table.Summary.Cell index={1}>
-                      <strong>₹{calculateTotal().toLocaleString('en-IN')}</strong>
+                    <Table.Summary.Cell index={1} align="right">
+                      <Text strong style={{ fontSize: '18px', color: theme.colors.primary.main }}>
+                        ₹{calculateTotal().toLocaleString('en-IN')}
+                      </Text>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={2} />
                   </Table.Summary.Row>
                 </Table.Summary>
               )}
             />
-          </Card>
+          </SectionCard>
+        </div>
 
-          <Form.Item label="Discount (%)" name="discount_percentage">
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              max={100}
-              placeholder="Enter discount percentage"
-            />
-          </Form.Item>
-
-          <Form.Item label="Payment Terms" name="payment_terms">
-            <Input placeholder="e.g., 15 days, 30 days" />
-          </Form.Item>
-
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                {id ? 'Update' : 'Create'}
+        <Card style={actionCardStyle}>
+          <div style={flexBetweenStyle}>
+            <Text type="secondary">
+              <InfoCircleOutlined style={{ marginRight: '8px' }} />
+              Authorized work orders trigger procurement and financial tracking.
+            </Text>
+            <Space size="middle">
+              <Button
+                onClick={() => navigate('/operations/work-orders')}
+                size="large"
+                style={getSecondaryButtonStyle()}
+              >
+                Cancel
               </Button>
-              <Button onClick={() => navigate('/operations/work-orders')}>Cancel</Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                icon={<SaveOutlined />}
+                size="large"
+                style={getPrimaryButtonStyle()}
+              >
+                {id ? 'Update Work Order' : 'Authorize & Issue Order'}
+              </Button>
             </Space>
-          </Form.Item>
-        </Form>
-      </Card>
-    </div>
+          </div>
+        </Card>
+      </Form>
+    </PageContainer>
   )
 }
 
 export default WorkOrderForm
-

@@ -4,6 +4,7 @@ import Quotation from '../models/Quotation'
 import Lead from '../models/Lead'
 import { generateQuotationNumber } from '../utils/quotationCodeGenerator'
 import { createError } from '../middleware/errorHandler'
+import { generateQuotationPDF } from '../utils/pdfGenerator'
 import { Op } from 'sequelize'
 
 export const createQuotation = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -62,12 +63,20 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
 
 export const getQuotations = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { lead_id, status, page = 1, limit = 10 } = req.query
+    const { lead_id, status, search, page = 1, limit = 10 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
 
     const where: any = {}
     if (lead_id) where.lead_id = lead_id
     if (status) where.status = status
+
+    if (search) {
+      where[Op.or] = [
+        { quotation_number: { [Op.like]: `%${search}%` } },
+        { '$lead.name$': { [Op.like]: `%${search}%` } },
+        { '$lead.company_name$': { [Op.like]: `%${search}%` } }
+      ]
+    }
 
     const { count, rows } = await Quotation.findAndCountAll({
       where,
@@ -77,6 +86,7 @@ export const getQuotations = async (req: AuthRequest, res: Response, next: NextF
       include: [
         {
           association: 'lead',
+          attributes: ['id', 'name', 'company_name', 'project_id'],
           include: [
             {
               association: 'project',
@@ -89,6 +99,7 @@ export const getQuotations = async (req: AuthRequest, res: Response, next: NextF
           attributes: ['id', 'name', 'email'],
         },
       ],
+      subQuery: false, // Required for searching in associated models with limit/offset
     })
 
     res.json({
@@ -204,3 +215,31 @@ export const getQuotationsByLead = async (req: AuthRequest, res: Response, next:
   }
 }
 
+export const downloadPdf = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params
+
+    const quotation = await Quotation.findByPk(id, {
+      include: [
+        {
+          association: 'lead',
+          attributes: ['name', 'company_name', 'address', 'phone', 'email'],
+        },
+      ],
+    })
+
+    if (!quotation) {
+      throw createError('Quotation not found', 404)
+    }
+
+    const filename = `Quotation-${quotation.quotation_number}.pdf`
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+
+    generateQuotationPDF(quotation, res)
+
+  } catch (error) {
+    next(error)
+  }
+}

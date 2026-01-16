@@ -7,7 +7,10 @@ import { Op } from 'sequelize'
 
 export const createProject = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { name, location, city, state, client_ho_address, company_id } = req.body
+    const {
+      name, location, city, state, client_ho_address, company_id,
+      client_gstin, rera_number, start_date, end_date, contract_value
+    } = req.body
 
     if (!name) {
       throw createError('Project name is required', 400)
@@ -22,6 +25,11 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
       city,
       state,
       client_ho_address,
+      client_gstin,
+      rera_number,
+      start_date,
+      end_date,
+      contract_value,
       status: 'lead',
       created_by: req.user!.id,
       company_id: company_id || req.user!.company_id,
@@ -100,6 +108,10 @@ export const getProject = async (req: AuthRequest, res: Response, next: NextFunc
           attributes: ['id', 'name', 'email'],
         },
         {
+          association: 'leads',
+          attributes: ['id', 'status', 'soil_report_url', 'layout_url', 'section_url', 'created_at']
+        },
+        {
           association: 'company',
           attributes: ['id', 'name', 'code'],
         },
@@ -122,7 +134,10 @@ export const getProject = async (req: AuthRequest, res: Response, next: NextFunc
 export const updateProject = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params
-    const { name, location, city, state, client_ho_address, status } = req.body
+    const {
+      name, location, city, state, client_ho_address, status,
+      client_gstin, rera_number, start_date, end_date, contract_value
+    } = req.body
 
     const project = await Project.findByPk(id)
 
@@ -137,6 +152,11 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
       state,
       client_ho_address,
       status,
+      client_gstin,
+      rera_number,
+      start_date,
+      end_date,
+      contract_value,
     })
 
     res.json({
@@ -175,7 +195,7 @@ export const updateProjectStatus = async (req: AuthRequest, res: Response, next:
     const { id } = req.params
     const { status } = req.body
 
-    const validStatuses = ['lead', 'quotation', 'confirmed', 'design', 'mobilization', 'execution', 'completed', 'on_hold']
+    const validStatuses = ['lead', 'quotation', 'confirmed', 'design', 'mobilization', 'execution', 'completed', 'on_hold', 'cancelled']
     if (!validStatuses.includes(status)) {
       throw createError('Invalid status', 400)
     }

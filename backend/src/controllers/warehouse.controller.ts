@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express'
 import { AuthRequest } from '../middleware/auth.middleware'
 import Warehouse from '../models/Warehouse'
 import { createError } from '../middleware/errorHandler'
+import { Op } from 'sequelize'
 
 export const createWarehouse = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -14,7 +15,7 @@ export const createWarehouse = async (req: AuthRequest, res: Response, next: Nex
     const warehouse = await Warehouse.create({
       name,
       code,
-      address,
+      address: address || req.body.location,
       company_id: company_id || req.user!.company_id,
       is_common: is_common || false,
       warehouse_manager_id,
@@ -37,8 +38,8 @@ export const getWarehouses = async (req: AuthRequest, res: Response, next: NextF
   try {
     const warehouses = await Warehouse.findAll({
       where: {
-        [require('sequelize').Op.or]: [
-          { company_id: req.user!.company_id },
+        [Op.or]: [
+          { company_id: req.user?.company_id || null },
           { is_common: true },
         ],
       },
@@ -106,7 +107,7 @@ export const updateWarehouse = async (req: AuthRequest, res: Response, next: Nex
 
     await warehouse.update({
       name,
-      address,
+      address: address || req.body.location,
       warehouse_manager_id,
     })
 

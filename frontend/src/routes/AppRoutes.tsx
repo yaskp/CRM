@@ -17,6 +17,7 @@ import STNList from '../pages/storeTransactions/STNList'
 import STNForm from '../pages/storeTransactions/STNForm'
 import SRNList from '../pages/storeTransactions/SRNList'
 import SRNForm from '../pages/storeTransactions/SRNForm'
+import StockReport from '../pages/inventory/StockReport'
 
 // DPR
 import DPRList from '../pages/dpr/DPRList'
@@ -70,6 +71,13 @@ import DrawingForm from '../pages/drawings/DrawingForm'
 import BarBendingScheduleList from '../pages/barBendingSchedule/BarBendingScheduleList'
 import BarBendingScheduleForm from '../pages/barBendingSchedule/BarBendingScheduleForm'
 
+// Admin
+import UserList from '../pages/admin/UserList'
+import UserForm from '../pages/admin/UserForm'
+import RoleList from '../pages/admin/RoleList'
+import RoleForm from '../pages/admin/RoleForm'
+import Settings from '../pages/admin/Settings'
+
 const AppRoutes = () => {
   const { user, loading } = useAuth()
 
@@ -109,6 +117,9 @@ const AppRoutes = () => {
         <Route path="master/vendors" element={<VendorList />} />
         <Route path="master/vendors/new" element={<VendorForm />} />
         <Route path="master/vendors/:id" element={<VendorForm />} />
+        <Route path="master/equipment" element={<EquipmentList />} />
+        <Route path="master/equipment/new" element={<EquipmentForm />} />
+        <Route path="master/equipment/:id" element={<EquipmentForm />} />
 
         {/* Procurement - Material Requisitions */}
         <Route path="procurement/requisitions" element={<MaterialRequisitionList />} />
@@ -126,6 +137,9 @@ const AppRoutes = () => {
         <Route path="inventory/srn/new" element={<SRNForm />} />
         <Route path="inventory/srn/:id" element={<SRNForm />} />
 
+        {/* Stock Report */}
+        <Route path="inventory/stock" element={<StockReport />} />
+
         {/* Operations - DPR */}
         <Route path="operations/dpr" element={<DPRList />} />
         <Route path="operations/dpr/new" element={<DPRForm />} />
@@ -141,6 +155,7 @@ const AppRoutes = () => {
         <Route path="operations/bar-bending/:id" element={<BarBendingScheduleForm />} />
         <Route path="operations/equipment" element={<EquipmentList />} />
         <Route path="operations/equipment/new" element={<EquipmentForm />} />
+        <Route path="operations/equipment/:id/edit" element={<EquipmentForm />} />
         <Route path="operations/equipment/rentals" element={<EquipmentRentals />} />
         <Route path="operations/equipment/rentals/new" element={<RentalForm />} />
         <Route path="operations/equipment/rentals/:rentalId/breakdown" element={<BreakdownForm />} />
@@ -152,7 +167,25 @@ const AppRoutes = () => {
         {/* Drawings */}
         <Route path="drawings" element={<DrawingList />} />
         <Route path="drawings/new" element={<DrawingForm />} />
+        <Route path="drawings/new" element={<DrawingForm />} />
         <Route path="drawings/:id" element={<DrawingForm />} />
+
+        {/* Administration - Mapped to Master Data as well */}
+        <Route path="master/users" element={<UserList />} />
+        <Route path="master/users/new" element={<UserForm />} />
+        <Route path="master/users/:id" element={<UserForm />} />
+        <Route path="master/roles" element={<RoleList />} />
+        <Route path="master/roles/new" element={<RoleForm />} />
+        <Route path="master/roles/:id" element={<RoleForm />} />
+
+        {/* Administration */}
+        <Route path="admin/users" element={<UserList />} />
+        <Route path="admin/users/new" element={<UserForm />} />
+        <Route path="admin/users/:id" element={<UserForm />} />
+        <Route path="admin/roles" element={<RoleList />} />
+        <Route path="admin/roles/new" element={<RoleForm />} />
+        <Route path="admin/roles/:id" element={<RoleForm />} />
+        <Route path="admin/settings" element={<Settings />} />
       </Route>
     </Routes>
   )

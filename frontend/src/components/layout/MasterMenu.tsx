@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Menu } from 'antd'
 import type { MenuProps } from 'antd'
 import {
@@ -32,7 +33,7 @@ const hasPermission = (userRoles: string[], requiredRoles: string[]): boolean =>
 const menuPermissions: Record<string, string[]> = {
   // Dashboard - everyone can access
   '/': [],
-  
+
   // Master Data
   '/master/materials': ['Admin', 'Store Manager'],
   '/master/warehouses': ['Admin', 'Store Manager'],
@@ -40,19 +41,19 @@ const menuPermissions: Record<string, string[]> = {
   '/master/equipment': ['Admin', 'Operation Manager'],
   '/master/users': ['Admin'],
   '/master/roles': ['Admin'],
-  
+
   // Sales & CRM
   '/sales/leads': ['Admin', 'Site Engineer', 'Operation Manager'],
   '/sales/quotations': ['Admin', 'Operation Manager'],
   '/sales/projects': ['Admin', 'Site Engineer', 'Operation Manager', 'Store Manager', 'Head/Accounts'],
-  
+
   // Procurement
   '/procurement/requisitions': ['Admin', 'Site Engineer', 'Store Manager'],
   '/procurement/vendors': ['Admin', 'Operation Manager'],
-  
+
   // Inventory
   '/inventory/grn': ['Admin', 'Store Manager'],
-  
+
   // Operations
   '/operations/work-orders': ['Admin', 'Operation Manager'],
   '/operations/dpr': ['Admin', 'Site Engineer', 'Operation Manager'],
@@ -60,17 +61,18 @@ const menuPermissions: Record<string, string[]> = {
   '/operations/equipment': ['Admin', 'Operation Manager'],
   '/inventory/stn': ['Admin', 'Store Manager'],
   '/inventory/srn': ['Admin', 'Store Manager'],
-  
+  '/inventory/stock': ['Admin', 'Store Manager', 'Operation Manager', 'Site Engineer', 'Head/Accounts'],
+
   // Finance
   '/finance/expenses': ['Admin', 'Site Engineer', 'Operation Manager', 'Head/Accounts'],
   '/finance/approvals': ['Admin', 'Store Manager', 'Operation Manager', 'Head/Accounts'],
-  
+
   // Documents
   '/drawings': ['Admin', 'Site Engineer', 'Operation Manager'],
-  
+
   // Reports
   '/reports/project': ['Admin', 'Operation Manager', 'Head/Accounts'],
-  
+
   // Administration
   '/admin': ['Admin'],
 }
@@ -197,6 +199,10 @@ const MasterMenu = () => {
       key: '/inventory/srn',
       label: 'SRN (Requisition)',
     },
+    {
+      key: '/inventory/stock',
+      label: 'Stock Report',
+    },
   ])
 
   const inventoryMenu: MenuItem | null = inventoryChildren.length > 0 ? {
@@ -214,7 +220,7 @@ const MasterMenu = () => {
     },
     {
       key: '/operations/dpr',
-      label: 'Daily Progress Report',
+      label: 'Daily Progress / Hajri',
     },
     {
       key: '/operations/bar-bending',
@@ -222,7 +228,11 @@ const MasterMenu = () => {
     },
     {
       key: '/operations/equipment',
-      label: 'Equipment Management',
+      label: 'Equipment Master',
+    },
+    {
+      key: '/operations/equipment/rentals',
+      label: 'Equipment Rentals',
     },
   ])
 
@@ -314,14 +324,14 @@ const MasterMenu = () => {
     reportsMenu,
     adminMenu,
   ]
-  
+
   const menuItems = allMenuItems.filter((item): item is MenuItem => item !== null)
 
   // Get selected keys based on current path
   const getSelectedKeys = () => {
     const path = location.pathname
     if (path === '/') return ['/']
-    
+
     // For nested routes, select parent menu
     if (path.startsWith('/master')) return ['master']
     if (path.startsWith('/sales')) return ['sales']
@@ -332,7 +342,7 @@ const MasterMenu = () => {
     if (path.startsWith('/documents')) return ['documents']
     if (path.startsWith('/reports')) return ['reports']
     if (path.startsWith('/admin')) return ['administration']
-    
+
     return [path]
   }
 
@@ -352,12 +362,31 @@ const MasterMenu = () => {
   }
 
 
+
+  const rootSubmenuKeys = ['master', 'sales', 'procurement', 'inventory', 'operations', 'finance', 'documents', 'reports', 'administration']
+
+  const [openKeys, setOpenKeys] = useState<string[]>(getOpenKeys())
+
+  useEffect(() => {
+    setOpenKeys(getOpenKeys())
+  }, [location.pathname])
+
+  const onOpenChange: MenuProps['onOpenChange'] = (keys) => {
+    const latestOpenKey = keys.find((key) => openKeys.indexOf(key) === -1)
+    if (latestOpenKey && rootSubmenuKeys.indexOf(latestOpenKey) === -1) {
+      setOpenKeys(keys)
+    } else {
+      setOpenKeys(latestOpenKey ? [latestOpenKey] : [])
+    }
+  }
+
   return (
     <Menu
       theme="dark"
       mode="inline"
       selectedKeys={getSelectedKeys()}
-      defaultOpenKeys={getOpenKeys()}
+      openKeys={openKeys}
+      onOpenChange={onOpenChange}
       items={menuItems}
       onClick={handleMenuClick}
       style={{ borderRight: 0 }}

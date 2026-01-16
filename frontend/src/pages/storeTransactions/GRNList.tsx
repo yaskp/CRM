@@ -1,12 +1,26 @@
 import { useState, useEffect } from 'react'
-import { Table, Card, Button, Tag, Space, Input, Select, DatePicker, message, Popconfirm } from 'antd'
-import { PlusOutlined, EyeOutlined, CheckOutlined, CloseOutlined } from '@ant-design/icons'
+import { Table, Card, Button, Tag, Space, Input, Select, DatePicker, message, Popconfirm, Row, Col, Statistic, Typography } from 'antd'
+import {
+  PlusOutlined,
+  EyeOutlined,
+  CheckOutlined,
+  CloseOutlined,
+  FileTextOutlined,
+  InboxOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  SearchOutlined,
+  FilterOutlined
+} from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
 import dayjs from 'dayjs'
+import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
+import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
 
 const { Search } = Input
-const { RangePicker } = DatePicker
+const { Text } = Typography
 
 const GRNList = () => {
   const [loading, setLoading] = useState(false)
@@ -60,73 +74,100 @@ const GRNList = () => {
     }
   }
 
+  const getStats = () => {
+    const total = transactions.length
+    const pending = transactions.filter(t => t.status === 'draft').length
+    const approved = transactions.filter(t => t.status === 'approved').length
+    return { total, pending, approved }
+  }
+
+  const stats = getStats()
+
   const columns = [
     {
-      title: 'Transaction Number',
+      title: 'Trans. Number',
       dataIndex: 'transaction_number',
       key: 'transaction_number',
-      render: (text: string) => <strong>{text}</strong>,
+      width: 180,
+      render: (text: string) => <Text strong style={{ color: theme.colors.primary.main }}>{text}</Text>,
     },
     {
       title: 'Date',
       dataIndex: 'transaction_date',
       key: 'transaction_date',
-      render: (date: string) => dayjs(date).format('DD-MM-YYYY'),
+      width: 140,
+      render: (date: string) => dayjs(date).format('DD-MMM-YYYY'),
     },
     {
       title: 'Warehouse',
       dataIndex: ['warehouse', 'name'],
       key: 'warehouse',
+      render: (text: string) => <Text strong>{text}</Text>,
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
+      width: 160,
       render: (status: string) => {
         const colorMap: Record<string, string> = {
-          draft: 'default',
+          draft: 'processing',
           approved: 'success',
           rejected: 'error',
         }
-        return <Tag color={colorMap[status]}>{status.toUpperCase()}</Tag>
+        const labelMap: Record<string, string> = {
+          draft: 'PENDING APPROVAL',
+          approved: 'APPROVED',
+          rejected: 'REJECTED',
+        }
+        return (
+          <Tag color={colorMap[status]} style={{ padding: '0 8px', borderRadius: '4px' }}>
+            {labelMap[status] || status.toUpperCase()}
+          </Tag>
+        )
       },
     },
     {
-      title: 'Created By',
+      title: 'Received By',
       dataIndex: ['creator', 'name'],
       key: 'creator',
+      width: 150,
     },
     {
       title: 'Actions',
       key: 'actions',
+      width: 220,
+      fixed: 'right' as const,
       render: (_: any, record: any) => (
-        <Space>
+        <Space size="middle">
           <Button
             type="link"
             icon={<EyeOutlined />}
             onClick={() => navigate(`/inventory/grn/${record.id}`)}
+            style={{ padding: 0 }}
           >
             View
           </Button>
           {record.status === 'draft' && (
             <>
               <Popconfirm
-                title="Approve this GRN?"
+                title="Approve this receipt?"
                 onConfirm={() => handleApprove(record.id)}
-                okText="Yes"
+                okText="Approve"
                 cancelText="No"
+                okButtonProps={{ style: { backgroundColor: '#52c41a', borderColor: '#52c41a' } }}
               >
-                <Button type="link" icon={<CheckOutlined />} style={{ color: '#52c41a' }}>
+                <Button type="link" icon={<CheckOutlined />} style={{ color: '#52c41a', padding: 0 }}>
                   Approve
                 </Button>
               </Popconfirm>
               <Popconfirm
-                title="Reject this GRN?"
+                title="Reject this receipt?"
                 onConfirm={() => handleReject(record.id)}
-                okText="Yes"
+                okText="Reject"
                 cancelText="No"
               >
-                <Button type="link" icon={<CloseOutlined />} danger>
+                <Button type="link" icon={<CloseOutlined />} danger style={{ padding: 0 }}>
                   Reject
                 </Button>
               </Popconfirm>
@@ -138,42 +179,89 @@ const GRNList = () => {
   ]
 
   return (
-    <Card
-      title="GRN (Good Receipt Note) Transactions"
-      extra={
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => navigate('/inventory/grn/new')}
-        >
-          Create GRN
-        </Button>
-      }
-    >
-      <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space>
-          <Search
-            placeholder="Search by transaction number"
-            style={{ width: 250 }}
-            onSearch={(value) => fetchTransactions({ search: value })}
-          />
-          <Select
-            placeholder="Filter by status"
-            style={{ width: 150 }}
-            allowClear
-            onChange={(value) => fetchTransactions({ status: value })}
-          >
-            <Select.Option value="draft">Draft</Select.Option>
-            <Select.Option value="approved">Approved</Select.Option>
-            <Select.Option value="rejected">Rejected</Select.Option>
-          </Select>
-        </Space>
+    <PageContainer>
+      <PageHeader
+        title="Good Receipt Notes (GRN)"
+        subtitle="Manage incoming materials and inventory updates"
+        icon={<FileTextOutlined />}
+      />
 
+      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Total GRNs"
+              value={stats.total}
+              prefix={<InboxOutlined style={{ color: theme.colors.primary.main }} />}
+              valueStyle={{ color: theme.colors.primary.main }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Pending Approval"
+              value={stats.pending}
+              prefix={<ClockCircleOutlined style={{ color: '#faad14' }} />}
+              valueStyle={{ color: '#faad14' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Approved Receipt"
+              value={stats.approved}
+              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <Space size="middle" wrap>
+            <Search
+              placeholder="Search by GRN number..."
+              style={{ width: 300, ...largeInputStyle }}
+              size="large"
+              onSearch={(value) => fetchTransactions({ search: value })}
+              prefix={<SearchOutlined style={prefixIconStyle} />}
+            />
+            <Select
+              placeholder="All Statuses"
+              style={{ width: 180, ...largeInputStyle }}
+              size="large"
+              allowClear
+              onChange={(value) => fetchTransactions({ status: value })}
+              suffixIcon={<FilterOutlined style={prefixIconStyle} />}
+            >
+              <Select.Option value="draft">⏳ Draft/Pending</Select.Option>
+              <Select.Option value="approved">✅ Approved</Select.Option>
+              <Select.Option value="rejected">❌ Rejected</Select.Option>
+            </Select>
+          </Space>
+
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => navigate('/inventory/grn/new')}
+            size="large"
+            style={getPrimaryButtonStyle(180)}
+          >
+            Create New GRN
+          </Button>
+        </div>
+      </Card>
+
+      <Card style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
         <Table
           columns={columns}
           dataSource={transactions}
           loading={loading}
           rowKey="id"
+          scroll={{ x: 1100 }}
           pagination={{
             ...pagination,
             showSizeChanger: true,
@@ -181,10 +269,9 @@ const GRNList = () => {
           }}
           onChange={(pagination) => fetchTransactions({ current: pagination.current, pageSize: pagination.pageSize })}
         />
-      </Space>
-    </Card>
+      </Card>
+    </PageContainer>
   )
 }
 
 export default GRNList
-

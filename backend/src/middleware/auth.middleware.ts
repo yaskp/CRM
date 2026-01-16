@@ -7,6 +7,8 @@ export interface AuthRequest extends Request {
     id: number
     email: string
     employee_id: string
+    company_id?: number
+    roles?: string[]
   }
 }
 
@@ -25,7 +27,7 @@ export const authenticate = (
     const decoded = jwt.verify(
       token,
       process.env.JWT_SECRET || 'default-secret'
-    ) as { id: number; email: string; employee_id: string }
+    ) as { id: number; email: string; employee_id: string; company_id?: number; roles?: string[] }
 
     req.user = decoded
     next()
@@ -40,3 +42,22 @@ export const authenticate = (
   }
 }
 
+export const authorize = (allowedRoles: string[]) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(createError('User not authenticated', 401))
+    }
+
+    // If super admin or matching role
+    if (req.user.roles?.includes('Admin')) {
+      return next()
+    }
+
+    const hasPermission = req.user.roles?.some(role => allowedRoles.includes(role))
+    if (!hasPermission) {
+      return next(createError('Insufficient permissions', 403))
+    }
+
+    next()
+  }
+}

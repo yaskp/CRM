@@ -5,6 +5,7 @@ import bcrypt from 'bcrypt'
 interface UserAttributes {
   id: number
   employee_id: string
+  username: string
   name: string
   email: string
   phone?: string
@@ -16,11 +17,12 @@ interface UserAttributes {
   updated_at?: Date
 }
 
-interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'created_at' | 'updated_at' | 'last_login'> {}
+interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'created_at' | 'updated_at' | 'last_login'> { }
 
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number
   public employee_id!: string
+  public username!: string
   public name!: string
   public email!: string
   public phone?: string
@@ -35,6 +37,10 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public async comparePassword(password: string): Promise<boolean> {
     return bcrypt.compare(password, this.password_hash)
   }
+
+  // Association mixins
+  public setRoles!: (roles: any[]) => Promise<void>
+  public getRoles!: () => Promise<any[]>
 }
 
 User.init(
@@ -45,6 +51,11 @@ User.init(
       primaryKey: true,
     },
     employee_id: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      unique: true,
+    },
+    username: {
       type: DataTypes.STRING(50),
       allowNull: false,
       unique: true,

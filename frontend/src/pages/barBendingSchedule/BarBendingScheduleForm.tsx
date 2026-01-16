@@ -1,12 +1,35 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, InputNumber, Space } from 'antd'
-import { SaveOutlined, ArrowLeftOutlined } from '@ant-design/icons'
+import { Form, Input, Button, Card, message, Select, InputNumber, Space, Row, Col, Typography } from 'antd'
+import {
+  SaveOutlined,
+  ArrowLeftOutlined,
+  DeploymentUnitOutlined,
+  ProjectOutlined,
+  FileTextOutlined,
+  BarChartOutlined,
+  InfoCircleOutlined,
+  BlockOutlined,
+  TagOutlined
+} from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { barBendingScheduleService } from '../../services/api/barBendingSchedule'
 import { projectService } from '../../services/api/projects'
+import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
+import {
+  getPrimaryButtonStyle,
+  getSecondaryButtonStyle,
+  largeInputStyle,
+  getLabelStyle,
+  flexBetweenStyle,
+  actionCardStyle,
+  prefixIconStyle,
+  twoColumnGridStyle
+} from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
 
 const { TextArea } = Input
 const { Option } = Select
+const { Text } = Typography
 
 const BarBendingScheduleForm = () => {
   const { id } = useParams()
@@ -88,115 +111,155 @@ const BarBendingScheduleForm = () => {
   }
 
   return (
-    <div className="content-container">
-      <Card
-        title={id ? 'Edit Bar Bending Schedule' : 'Create Bar Bending Schedule'}
-        extra={
-          <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/operations/bar-bending')}>
-            Back
-          </Button>
-        }
+    <PageContainer maxWidth={1000}>
+      <PageHeader
+        title={id ? 'Edit BBS Record' : 'Create Bar Bending Schedule'}
+        subtitle={id ? `Updating Schedule: ${form.getFieldValue('schedule_number') || id}` : 'Define reinforcement details and steel requirements for project panels'}
+        icon={<DeploymentUnitOutlined />}
+      />
+
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={onFinish}
+        autoComplete="off"
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={onFinish}
-          autoComplete="off"
-        >
-          <Form.Item
-            label="Project"
-            name="project_id"
-            rules={[{ required: true, message: 'Please select a project!' }]}
-          >
-            <Select
-              placeholder="Select project"
-              showSearch
-              optionFilterProp="children"
-              onChange={handleProjectChange}
-              disabled={!!id}
-            >
-              {projects.map((project) => (
-                <Option key={project.id} value={project.id}>
-                  {project.project_code} - {project.name}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="Panel Number"
-            name="panel_number"
-            tooltip="Select panel from drawing panels or enter manually"
-          >
-            <Select
-              placeholder="Select panel or enter manually"
-              showSearch
-              allowClear
-              optionFilterProp="children"
-              mode={undefined}
-            >
-              {panels.map((panel) => (
-                <Option key={panel.id} value={panel.panel_identifier}>
-                  {panel.panel_identifier} {panel.drawing_code ? `(${panel.drawing_code})` : ''}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="Schedule Number"
-            name="schedule_number"
-          >
-            <Input placeholder="Enter schedule number" />
-          </Form.Item>
-
-          <Form.Item
-            label="Drawing Reference"
-            name="drawing_reference"
-          >
-            <Input placeholder="Enter drawing reference" />
-          </Form.Item>
-
-          <Form.Item
-            label="Steel Quantity (Kg)"
-            name="steel_quantity_kg"
-            rules={[{ required: true, message: 'Please enter steel quantity!' }]}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              step={0.01}
-              placeholder="Enter steel quantity in Kg"
-            />
-          </Form.Item>
-
-          {id && (
+        <div style={twoColumnGridStyle}>
+          <SectionCard title="Reference & Location" icon={<BlockOutlined />}>
             <Form.Item
-              label="Status"
-              name="status"
+              label={<span style={getLabelStyle()}>Assigned Project</span>}
+              name="project_id"
+              rules={[{ required: true, message: 'Please select a project!' }]}
             >
-              <Select>
-                <Option value="draft">Draft</Option>
-                <Option value="approved">Approved</Option>
-                <Option value="in_progress">In Progress</Option>
-                <Option value="completed">Completed</Option>
+              <Select
+                placeholder="Select project"
+                showSearch
+                optionFilterProp="children"
+                onChange={handleProjectChange}
+                disabled={!!id}
+                size="large"
+                style={largeInputStyle}
+                suffixIcon={<ProjectOutlined />}
+              >
+                {projects.map((project) => (
+                  <Option key={project.id} value={project.id}>
+                    {project.project_code} - {project.name}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
-          )}
 
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit" loading={loading} icon={<SaveOutlined />}>
-                {id ? 'Update' : 'Create'}
+            <Form.Item
+              label={<span style={getLabelStyle()}>Panel Selection</span>}
+              name="panel_number"
+              tooltip="Select from pre-defined drawing panels or type a new identifier"
+            >
+              <Select
+                placeholder="Panel Number"
+                showSearch
+                allowClear
+                size="large"
+                style={largeInputStyle}
+                suffixIcon={<TagOutlined />}
+              >
+                {panels.map((panel) => (
+                  <Option key={panel.id} value={panel.panel_identifier}>
+                    {panel.panel_identifier} {panel.drawing_code ? `(${panel.drawing_code})` : ''}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </SectionCard>
+
+          <SectionCard title="Scheduling Details" icon={<FileTextOutlined />}>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item
+                  label={<span style={getLabelStyle()}>Schedule Number</span>}
+                  name="schedule_number"
+                >
+                  <Input placeholder="e.g., BBS-001" size="large" style={largeInputStyle} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  label={<span style={getLabelStyle()}>Drawing Ref.</span>}
+                  name="drawing_reference"
+                >
+                  <Input placeholder="e.g., DWG/STR/01" size="large" style={largeInputStyle} />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Steel Quantity (Kg)</span>}
+              name="steel_quantity_kg"
+              rules={[{ required: true, message: 'Please enter steel quantity!' }]}
+            >
+              <InputNumber
+                style={{ width: '100%', ...largeInputStyle }}
+                min={0}
+                step={0.01}
+                size="large"
+                placeholder="0.00"
+                prefix={<BarChartOutlined style={prefixIconStyle} />}
+              />
+            </Form.Item>
+
+            <InfoCard title="💡 Smart Tip">
+              Accurate BBS entries directly impact material requisition planning and reduce site waste.
+            </InfoCard>
+          </SectionCard>
+        </div>
+
+        {id && (
+          <div style={{ marginTop: theme.spacing.lg }}>
+            <SectionCard title="Lifecycle Management" icon={<DeploymentUnitOutlined />}>
+              <Form.Item
+                label={<span style={getLabelStyle()}>Work Status</span>}
+                name="status"
+              >
+                <Select size="large" style={largeInputStyle}>
+                  <Option value="draft">⏳ Draft / Preparation</Option>
+                  <Option value="approved">✅ Approved for Production</Option>
+                  <Option value="in_progress">🏗️ Cutting & Bending</Option>
+                  <Option value="completed">🏆 Fabrication Completed</Option>
+                </Select>
+              </Form.Item>
+            </SectionCard>
+          </div>
+        )}
+
+        <Card style={actionCardStyle}>
+          <div style={flexBetweenStyle}>
+            <Text type="secondary">
+              <InfoCircleOutlined style={{ marginRight: '8px' }} />
+              Once approved, steel weights are locked for requisition tracking.
+            </Text>
+            <Space size="middle">
+              <Button
+                onClick={() => navigate('/operations/bar-bending')}
+                size="large"
+                style={getSecondaryButtonStyle()}
+              >
+                Cancel
               </Button>
-              <Button onClick={() => navigate('/operations/bar-bending')}>Cancel</Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                icon={<SaveOutlined />}
+                size="large"
+                style={getPrimaryButtonStyle()}
+              >
+                {id ? 'Update BBS' : 'Save Schedule'}
+              </Button>
             </Space>
-          </Form.Item>
-        </Form>
-      </Card>
-    </div>
+          </div>
+        </Card>
+      </Form>
+    </PageContainer>
   )
 }
 
 export default BarBendingScheduleForm
-

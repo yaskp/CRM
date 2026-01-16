@@ -1,12 +1,29 @@
 import { useState, useEffect } from 'react'
-import { Table, Card, Button, Tag, Space, Input, Select, DatePicker, message, Popconfirm } from 'antd'
-import { PlusOutlined, EyeOutlined, ToolOutlined } from '@ant-design/icons'
+import { Table, Card, Button, Tag, Space, Input, Select, DatePicker, message, Popconfirm, Row, Col, Statistic, Typography, Tooltip } from 'antd'
+import {
+  PlusOutlined,
+  EyeOutlined,
+  ToolOutlined,
+  CalendarOutlined,
+  ProjectOutlined,
+  SafetyCertificateOutlined,
+  DollarOutlined,
+  WarningOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  SearchOutlined,
+  FilterOutlined,
+  ShopOutlined
+} from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { equipmentService } from '../../services/api/equipment'
-import { projectService } from '../../services/api/projects'
 import dayjs from 'dayjs'
+import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
+import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
 
 const { Search } = Input
+const { Text } = Typography
 
 const EquipmentRentals = () => {
   const [loading, setLoading] = useState(false)
@@ -39,99 +56,114 @@ const EquipmentRentals = () => {
     }
   }
 
+  const getStats = () => {
+    const activeCount = rentals.filter(r => r.status === 'active').length
+    const totalDeductions = rentals.reduce((sum, r) => sum + (Number(r.breakdown_deduction_amount) || 0), 0)
+    const netValue = rentals.reduce((sum, r) => sum + (Number(r.net_amount) || 0), 0)
+    return { activeCount, totalDeductions, netValue }
+  }
+
+  const stats = getStats()
+
   const columns = [
     {
-      title: 'Project',
-      dataIndex: ['project', 'name'],
-      key: 'project',
-      render: (text: string, record: any) => (
-        <div>
-          <div>{text}</div>
-          <div style={{ fontSize: '12px', color: '#8c8c8c' }}>{record.project?.project_code}</div>
+      title: 'Lease Information',
+      key: 'lease_info',
+      width: 250,
+      render: (_: any, record: any) => (
+        <Space direction="vertical" size={0}>
+          <Text strong style={{ color: theme.colors.primary.main }}>{record.equipment?.name}</Text>
+          <Text type="secondary" style={{ fontSize: '12px' }}>
+            <ProjectOutlined /> {record.project?.name} ({record.project?.project_code})
+          </Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'Procurement',
+      key: 'vendor_info',
+      render: (_: any, record: any) => (
+        <Space direction="vertical" size={0}>
+          <Text strong><ShopOutlined /> {record.vendor?.name}</Text>
+          <Text type="secondary" style={{ fontSize: '12px' }}>EQ: {record.equipment?.equipment_code}</Text>
+        </Space>
+      ),
+    },
+    {
+      title: 'Lease Tenure',
+      key: 'tenure',
+      width: 180,
+      render: (_: any, record: any) => (
+        <Space direction="vertical" size={0}>
+          <Text style={{ fontSize: '13px' }}><CalendarOutlined /> {dayjs(record.start_date).format('DD-MMM-YY')} → {record.end_date ? dayjs(record.end_date).format('DD-MMM-YY') : 'Open'}</Text>
+          {record.status === 'active' && <Text type="success" style={{ fontSize: '11px' }}>Active Renewal</Text>}
+        </Space>
+      ),
+    },
+    {
+      title: 'Financials',
+      key: 'financials',
+      align: 'right' as const,
+      render: (_: any, record: any) => (
+        <div style={{ textAlign: 'right' }}>
+          <Text strong style={{ display: 'block' }}>₹{record.total_amount?.toLocaleString('en-IN')}</Text>
+          {record.breakdown_deduction_amount > 0 && (
+            <Tooltip title="Breakdown Deductions">
+              <Text type="danger" style={{ fontSize: '11px' }}>- ₹{record.breakdown_deduction_amount?.toLocaleString('en-IN')}</Text>
+            </Tooltip>
+          )}
         </div>
       ),
     },
     {
-      title: 'Equipment',
-      dataIndex: ['equipment', 'name'],
-      key: 'equipment',
-      render: (text: string, record: any) => (
-        <div>
-          <div>{text}</div>
-          <div style={{ fontSize: '12px', color: '#8c8c8c' }}>{record.equipment?.equipment_code}</div>
-        </div>
-      ),
-    },
-    {
-      title: 'Vendor',
-      dataIndex: ['vendor', 'name'],
-      key: 'vendor',
-    },
-    {
-      title: 'Start Date',
-      dataIndex: 'start_date',
-      key: 'start_date',
-      render: (date: string) => dayjs(date).format('DD-MM-YYYY'),
-    },
-    {
-      title: 'End Date',
-      dataIndex: 'end_date',
-      key: 'end_date',
-      render: (date: string) => date ? dayjs(date).format('DD-MM-YYYY') : '-',
-    },
-    {
-      title: 'Total Amount (₹)',
-      dataIndex: 'total_amount',
-      key: 'total_amount',
-      render: (amount: number) => amount ? `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-',
-    },
-    {
-      title: 'Deductions (₹)',
-      dataIndex: 'breakdown_deduction_amount',
-      key: 'deductions',
-      render: (amount: number) => amount ? `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-',
-    },
-    {
-      title: 'Net Amount (₹)',
+      title: 'Net Amount',
       dataIndex: 'net_amount',
       key: 'net_amount',
+      width: 150,
+      align: 'right' as const,
       render: (amount: number) => (
-        <strong>
-          {amount ? `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
-        </strong>
+        <Text strong style={{ color: theme.colors.success.main, fontSize: '15px' }}>
+          ₹{amount?.toLocaleString('en-IN')}
+        </Text>
       ),
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
+      width: 120,
       render: (status: string) => {
         const colorMap: Record<string, string> = {
           active: 'processing',
           completed: 'success',
           terminated: 'error',
         }
-        return <Tag color={colorMap[status]}>{status.toUpperCase()}</Tag>
+        return <Tag color={colorMap[status]} style={{ borderRadius: '4px', fontWeight: 'bold' }}>{status.toUpperCase()}</Tag>
       },
     },
     {
       title: 'Actions',
       key: 'actions',
+      width: 180,
+      fixed: 'right' as const,
       render: (_: any, record: any) => (
-        <Space>
+        <Space size="middle">
           <Button
             type="link"
             icon={<EyeOutlined />}
             onClick={() => navigate(`/operations/equipment/rentals/${record.id}`)}
+            style={{ padding: 0 }}
           >
-            View
+            Details
           </Button>
           <Button
             type="link"
             icon={<ToolOutlined />}
             onClick={() => navigate(`/operations/equipment/rentals/${record.id}/breakdown`)}
+            danger
+            style={{ padding: 0 }}
           >
-            Report Breakdown
+            Breakdown
           </Button>
         </Space>
       ),
@@ -139,53 +171,100 @@ const EquipmentRentals = () => {
   ]
 
   return (
-    <Card
-      title="Equipment Rentals"
-      extra={
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => navigate('/operations/equipment/rentals/new')}
-        >
-          Create Rental
-        </Button>
-      }
-    >
-      <Space direction="vertical" style={{ width: '100%' }} size="large">
-        <Space>
-          <Search
-            placeholder="Search rentals"
-            style={{ width: 250 }}
-            onSearch={(value) => fetchRentals({ search: value })}
-          />
-          <Select
-            placeholder="Filter by Status"
-            style={{ width: 150 }}
-            allowClear
-            onChange={(value) => fetchRentals({ status: value })}
-          >
-            <Select.Option value="active">Active</Select.Option>
-            <Select.Option value="completed">Completed</Select.Option>
-            <Select.Option value="terminated">Terminated</Select.Option>
-          </Select>
-        </Space>
+    <PageContainer>
+      <PageHeader
+        title="Equipment Rentals & Leases"
+        subtitle="Track third-party equipment deployments, rental costs, and breakdown deductions across project sites"
+        icon={<SafetyCertificateOutlined />}
+      />
 
+      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Active Leases"
+              value={stats.activeCount}
+              prefix={<ClockCircleOutlined style={{ color: theme.colors.primary.main }} />}
+              valueStyle={{ color: theme.colors.primary.main }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Breakdown Deductions"
+              value={stats.totalDeductions}
+              prefix={<WarningOutlined style={{ color: '#cf1322' }} />}
+              valueStyle={{ color: '#cf1322' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Total Net Payload"
+              value={stats.netValue}
+              prefix={<DollarOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <Space size="middle" wrap>
+            <Search
+              placeholder="Search by equipment or project..."
+              style={{ width: 280, ...largeInputStyle }}
+              size="large"
+              onSearch={(value) => fetchRentals({ search: value })}
+              prefix={<SearchOutlined style={prefixIconStyle} />}
+              allowClear
+            />
+            <Select
+              placeholder="All Rental Statuses"
+              style={{ width: 200, ...largeInputStyle }}
+              size="large"
+              allowClear
+              onChange={(value) => fetchRentals({ status: value })}
+              suffixIcon={<FilterOutlined style={prefixIconStyle} />}
+            >
+              <Select.Option value="active">🟢 Active Leases</Select.Option>
+              <Select.Option value="completed">🔵 Completed</Select.Option>
+              <Select.Option value="terminated">🔴 Terminated</Select.Option>
+            </Select>
+          </Space>
+
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => navigate('/operations/equipment/rentals/new')}
+            size="large"
+            style={getPrimaryButtonStyle(200)}
+          >
+            New Lease Agreement
+          </Button>
+        </div>
+      </Card>
+
+      <Card style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
         <Table
           columns={columns}
           dataSource={rentals}
           loading={loading}
           rowKey="id"
+          scroll={{ x: 1200 }}
           pagination={{
             ...pagination,
             showSizeChanger: true,
-            showTotal: (total) => `Total ${total} rentals`,
+            showTotal: (total) => `Total ${total} equipment rentals`,
           }}
           onChange={(pagination) => fetchRentals({ current: pagination.current, pageSize: pagination.pageSize })}
         />
-      </Space>
-    </Card>
+      </Card>
+    </PageContainer>
   )
 }
 
 export default EquipmentRentals
-

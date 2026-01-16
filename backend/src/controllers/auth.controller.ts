@@ -46,15 +46,16 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
       email,
       password_hash: password, // Will be hashed by hook
       employee_id,
+      username: employee_id, // Default username to employee_id
       phone,
       is_active: true,
     })
 
     // Generate token
     const token = jwt.sign(
-      { id: user.id, email: user.email, employee_id: user.employee_id },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { id: user.id, email: user.email, employee_id: user.employee_id, company_id: user.company_id },
+      JWT_SECRET as string,
+      { expiresIn: JWT_EXPIRES_IN as any }
     )
 
     res.status(201).json({
@@ -88,6 +89,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         [Op.or]: [
           { email: loginIdentifier },
           { employee_id: loginIdentifier },
+          { username: loginIdentifier },
         ],
       },
       include: [
@@ -95,6 +97,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
           model: Role,
           as: 'roles',
           attributes: ['id', 'name', 'description'],
+          through: { attributes: [] },
         },
       ],
     })
@@ -117,14 +120,14 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     await user.update({ last_login: new Date() })
 
     // Get user roles and permissions
-    const roles = user.roles?.map((role: any) => role.name) || []
-    const roleIds = user.roles?.map((role: any) => role.id) || []
+    const roles = (user as any).roles?.map((role: any) => role.name) || []
+    const roleIds = (user as any).roles?.map((role: any) => role.id) || []
 
     // Generate token
     const token = jwt.sign(
-      { id: user.id, email: user.email, employee_id: user.employee_id, roles },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { id: user.id, email: user.email, employee_id: user.employee_id, company_id: user.company_id, roles },
+      JWT_SECRET as string,
+      { expiresIn: JWT_EXPIRES_IN as any }
     )
 
     res.json({
@@ -194,8 +197,8 @@ export const refreshToken = async (req: AuthRequest, res: Response, next: NextFu
 
     const token = jwt.sign(
       { id: user.id, email: user.email, employee_id: user.employee_id },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      JWT_SECRET as string,
+      { expiresIn: JWT_EXPIRES_IN as any }
     )
 
     res.json({

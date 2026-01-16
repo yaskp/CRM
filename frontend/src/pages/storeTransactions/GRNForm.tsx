@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Table, Space, Row, Col } from 'antd'
-import { SaveOutlined, PlusOutlined, DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons'
+import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography } from 'antd'
+import {
+  SaveOutlined,
+  PlusOutlined,
+  DeleteOutlined,
+  ArrowLeftOutlined,
+  FileTextOutlined,
+  HomeOutlined,
+  CalendarOutlined,
+  InboxOutlined,
+  InfoCircleOutlined,
+  DollarOutlined,
+  BarcodeOutlined
+} from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
 import { materialService } from '../../services/api/materials'
@@ -10,9 +22,22 @@ import { grnSchema, GRNFormData } from '../../utils/validationSchemas'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller } from 'react-hook-form'
 import dayjs from 'dayjs'
+import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
+import {
+  getPrimaryButtonStyle,
+  getSecondaryButtonStyle,
+  largeInputStyle,
+  getLabelStyle,
+  flexBetweenStyle,
+  actionCardStyle,
+  prefixIconStyle,
+  twoColumnGridStyle
+} from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
 
 const { TextArea } = Input
 const { Option } = Select
+const { Text } = Typography
 
 interface GRNItem {
   id?: number
@@ -39,8 +64,6 @@ const GRNForm = () => {
       items: [],
     },
   })
-
-  const warehouseId = watch('warehouse_id')
 
   useEffect(() => {
     fetchMaterials()
@@ -157,6 +180,7 @@ const GRNForm = () => {
     {
       title: 'Material',
       key: 'material',
+      width: '30%',
       render: (_: any, record: GRNItem, index: number) => (
         <Select
           style={{ width: '100%' }}
@@ -169,6 +193,7 @@ const GRNForm = () => {
           }}
           showSearch
           optionFilterProp="children"
+          size="large"
         >
           {materials.map((material) => (
             <Option key={material.id} value={material.id}>
@@ -181,84 +206,87 @@ const GRNForm = () => {
     {
       title: 'Quantity',
       key: 'quantity',
+      width: '15%',
       render: (_: any, record: GRNItem, index: number) => (
         <InputNumber
           style={{ width: '100%' }}
-          placeholder="Quantity"
+          placeholder="Qty"
           value={record.quantity}
           min={0}
           step={0.01}
           onChange={(value) => updateItem(index, 'quantity', value || 0)}
+          size="large"
         />
       ),
     },
     {
-      title: 'Unit Price (₹)',
+      title: 'Rate (₹)',
       key: 'unit_price',
+      width: '15%',
       render: (_: any, record: GRNItem, index: number) => (
         <InputNumber
           style={{ width: '100%' }}
-          placeholder="Unit Price"
+          placeholder="Price"
           value={record.unit_price}
           min={0}
           step={0.01}
           onChange={(value) => updateItem(index, 'unit_price', value || undefined)}
+          size="large"
+          prefix={<DollarOutlined style={{ color: theme.colors.neutral.gray400 }} />}
         />
       ),
     },
     {
-      title: 'Batch Number',
-      key: 'batch_number',
+      title: 'Batch / Expiry',
+      key: 'batch_expiry',
       render: (_: any, record: GRNItem, index: number) => (
-        <Input
-          placeholder="Batch Number"
-          value={record.batch_number}
-          onChange={(e) => updateItem(index, 'batch_number', e.target.value)}
-        />
+        <Space direction="vertical" style={{ width: '100%' }} size="small">
+          <Input
+            placeholder="Batch #"
+            value={record.batch_number}
+            onChange={(e) => updateItem(index, 'batch_number', e.target.value)}
+            size="middle"
+            prefix={<BarcodeOutlined style={{ color: theme.colors.neutral.gray400 }} />}
+          />
+          <DatePicker
+            style={{ width: '100%' }}
+            placeholder="Expiry"
+            value={record.expiry_date ? dayjs(record.expiry_date) : null}
+            onChange={(date) => updateItem(index, 'expiry_date', date ? date.format('YYYY-MM-DD') : undefined)}
+            size="middle"
+          />
+        </Space>
       ),
     },
     {
-      title: 'Expiry Date',
-      key: 'expiry_date',
-      render: (_: any, record: GRNItem, index: number) => (
-        <DatePicker
-          style={{ width: '100%' }}
-          placeholder="Expiry Date"
-          value={record.expiry_date ? dayjs(record.expiry_date) : null}
-          onChange={(date) => updateItem(index, 'expiry_date', date ? date.format('YYYY-MM-DD') : undefined)}
-        />
-      ),
-    },
-    {
-      title: 'Actions',
+      title: '',
       key: 'actions',
+      width: 50,
       render: (_: any, record: GRNItem, index: number) => (
         <Button
           type="link"
           danger
           icon={<DeleteOutlined />}
           onClick={() => removeItem(index)}
-        >
-          Remove
-        </Button>
+          style={{ padding: 0 }}
+        />
       ),
     },
   ]
 
   return (
-    <Card
-      title={id ? 'Edit GRN' : 'Create GRN'}
-      extra={
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/inventory/grn')}>
-          Back
-        </Button>
-      }
-    >
+    <PageContainer maxWidth={1200}>
+      <PageHeader
+        title={id ? 'View GRN Details' : 'Create New GRN'}
+        subtitle={id ? `Reference: #GRN-${id}` : 'Record material receipts from vendors or other projects'}
+        icon={<FileTextOutlined />}
+      />
+
       <form onSubmit={handleSubmit(onSubmit)}>
-        <Row gutter={16}>
-          <Col xs={24} md={12}>
+        <div style={twoColumnGridStyle}>
+          <SectionCard title="Receipt Information" icon={<InboxOutlined />}>
             <Form.Item
-              label="Warehouse"
+              label={<span style={getLabelStyle()}>Destination Warehouse</span>}
               validateStatus={errors.warehouse_id ? 'error' : ''}
               help={errors.warehouse_id?.message}
               required
@@ -269,9 +297,11 @@ const GRNForm = () => {
                 render={({ field }) => (
                   <Select
                     {...field}
-                    placeholder="Select Warehouse"
+                    placeholder="Where is material being received?"
                     showSearch
                     optionFilterProp="children"
+                    size="large"
+                    style={largeInputStyle}
                   >
                     {warehouses.map((wh) => (
                       <Option key={wh.id} value={wh.id}>
@@ -282,11 +312,9 @@ const GRNForm = () => {
                 )}
               />
             </Form.Item>
-          </Col>
 
-          <Col xs={24} md={12}>
             <Form.Item
-              label="Transaction Date"
+              label={<span style={getLabelStyle()}>Receipt Date</span>}
               validateStatus={errors.transaction_date ? 'error' : ''}
               help={errors.transaction_date?.message}
               required
@@ -297,60 +325,99 @@ const GRNForm = () => {
                 render={({ field }) => (
                   <DatePicker
                     {...field}
-                    style={{ width: '100%' }}
-                    format="YYYY-MM-DD"
+                    style={{ width: '100%', ...largeInputStyle }}
+                    format="DD-MMM-YYYY"
+                    size="large"
                     value={field.value ? dayjs(field.value) : null}
                     onChange={(date) => field.onChange(date ? date.format('YYYY-MM-DD') : '')}
                   />
                 )}
               />
             </Form.Item>
-          </Col>
+          </SectionCard>
 
-          <Col xs={24}>
-            <Form.Item label="Remarks">
+          <SectionCard title="Additional Notes" icon={<FileTextOutlined />}>
+            <Form.Item label={<span style={getLabelStyle()}>Receipt Remarks</span>}>
               <Controller
                 name="remarks"
                 control={control}
                 render={({ field }) => (
-                  <TextArea {...field} rows={3} placeholder="Enter remarks (optional)" />
+                  <TextArea
+                    {...field}
+                    rows={4}
+                    placeholder="Enter delivery note details, vehicle number, or other info..."
+                    style={largeInputStyle}
+                  />
                 )}
               />
             </Form.Item>
-          </Col>
-        </Row>
+            <InfoCard title="💡 Stock Update">
+              Once approved, the quantity will be immediately added to the selected warehouse stock.
+            </InfoCard>
+          </SectionCard>
+        </div>
 
-        <Card
-          title="Items"
-          extra={
-            <Button type="dashed" icon={<PlusOutlined />} onClick={addItem}>
-              Add Item
-            </Button>
-          }
-          style={{ marginTop: 16 }}
-        >
-          <Table
-            columns={itemColumns}
-            dataSource={items}
-            rowKey={(_, index) => index.toString()}
-            pagination={false}
-            locale={{ emptyText: 'No items added. Click "Add Item" to add materials.' }}
-          />
-          {errors.items && (
-            <div style={{ color: '#ff4d4f', marginTop: 8 }}>{errors.items.message}</div>
-          )}
+        <div style={{ marginTop: theme.spacing.lg }}>
+          <SectionCard
+            title="Material Items"
+            icon={<BarcodeOutlined />}
+            extra={
+              <Button
+                type="dashed"
+                icon={<PlusOutlined />}
+                onClick={addItem}
+                style={{ borderRadius: '6px' }}
+              >
+                Add Material Row
+              </Button>
+            }
+          >
+            <Table
+              columns={itemColumns}
+              dataSource={items}
+              rowKey={(_, index) => index.toString()}
+              pagination={false}
+              bordered
+              locale={{ emptyText: <div style={{ padding: '30px' }}><Text type="secondary">No items added. Click "Add Material Row" to continue.</Text></div> }}
+            />
+            {errors.items && (
+              <div style={{ color: theme.colors.error.main, marginTop: 8 }}>{errors.items.message}</div>
+            )}
+          </SectionCard>
+        </div>
+
+        <Card style={actionCardStyle}>
+          <div style={flexBetweenStyle}>
+            <Text type="secondary">
+              <InfoCircleOutlined style={{ marginRight: '8px' }} />
+              Make sure to verify physical quantity before submitting.
+            </Text>
+            <Space size="middle">
+              <Button
+                onClick={() => navigate('/inventory/grn')}
+                size="large"
+                style={getSecondaryButtonStyle()}
+              >
+                Cancel
+              </Button>
+              {!id && (
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={loading}
+                  icon={<SaveOutlined />}
+                  size="large"
+                  style={getPrimaryButtonStyle()}
+                >
+                  Create & Save GRN
+                </Button>
+              )}
+            </Space>
+          </div>
         </Card>
-
-        <Space style={{ marginTop: 24, width: '100%', justifyContent: 'flex-end' }}>
-          <Button onClick={() => navigate('/inventory/grn')}>Cancel</Button>
-          <Button type="primary" htmlType="submit" loading={loading} icon={<SaveOutlined />}>
-            {id ? 'Update' : 'Create'} GRN
-          </Button>
-        </Space>
       </form>
-    </Card>
+    </PageContainer>
   )
 }
 
 export default GRNForm
-

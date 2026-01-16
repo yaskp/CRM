@@ -5,6 +5,7 @@ import MaterialRequisitionItem from '../models/MaterialRequisitionItem'
 import Material from '../models/Material'
 import Project from '../models/Project'
 import User from '../models/User'
+import Inventory from '../models/Inventory'
 import { createError } from '../middleware/errorHandler'
 import { AuthRequest } from '../middleware/auth.middleware'
 
@@ -74,8 +75,8 @@ export const getRequisitions = async (req: Request, res: Response, next: NextFun
                     include: [
                         {
                             model: Material,
-                    as: 'material',
-                    attributes: ['id', 'name', 'material_code', 'unit'],
+                            as: 'material',
+                            attributes: ['id', 'name', 'material_code', 'unit'],
                         },
                     ],
                 },
@@ -120,8 +121,8 @@ export const getRequisition = async (req: Request, res: Response, next: NextFunc
                     include: [
                         {
                             model: Material,
-                    as: 'material',
-                    attributes: ['id', 'name', 'material_code', 'unit', 'category'],
+                            as: 'material',
+                            attributes: ['id', 'name', 'material_code', 'unit', 'category'],
                         },
                     ],
                 },
@@ -295,7 +296,38 @@ export const approveRequisition = async (req: AuthRequest, res: Response, next: 
         if (action === 'approve') {
             // Update item issued quantities if provided
             if (items && items.length > 0) {
+                // First pass: Validate Stock
                 for (const item of items) {
+                    if (item.issued_quantity > 0) {
+                        const invRecord = await Inventory.findOne({
+                            where: {
+                                warehouse_id: requisition.from_warehouse_id,
+                                material_id: item.material_id
+                            }
+                        })
+
+                        // Check if inventory exists and has enough stock
+                        if (!invRecord || invRecord.quantity < item.issued_quantity) {
+                            throw createError(`Insufficient stock for Material ID ${item.material_id}. Available: ${invRecord?.quantity || 0}`, 400)
+                        }
+                    }
+                }
+
+                // Second pass: Deduct Stock and Update Item
+                for (const item of items) {
+                    if (item.issued_quantity > 0) {
+                        const invRecord = await Inventory.findOne({
+                            where: {
+                                warehouse_id: requisition.from_warehouse_id,
+                                material_id: item.material_id
+                            }
+                        })
+
+                        if (invRecord) {
+                            await invRecord.decrement('quantity', { by: item.issued_quantity })
+                        }
+                    }
+
                     await MaterialRequisitionItem.update(
                         {
                             issued_quantity: item.issued_quantity || 0,

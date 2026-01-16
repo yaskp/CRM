@@ -47,6 +47,16 @@ export const equipmentService = {
     return response.data
   },
 
+  getEquipmentById: async (id: number) => {
+    const response = await api.get(`/equipment/${id}`)
+    return response.data
+  },
+
+  updateEquipment: async (id: number, data: CreateEquipmentRequest) => {
+    const response = await api.put(`/equipment/${id}`, data)
+    return response.data
+  },
+
   // Rentals
   createRental: async (data: CreateRentalRequest) => {
     const response = await api.post('/equipment/rentals', data)

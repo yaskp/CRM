@@ -3,10 +3,24 @@ import { AuthRequest } from '../middleware/auth.middleware'
 import Lead from '../models/Lead'
 import Project from '../models/Project'
 import { createError } from '../middleware/errorHandler'
+import { Op } from 'sequelize'
 
 export const createLead = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { project_id, source, enquiry_date, soil_report_url, layout_url, section_url } = req.body
+    const {
+      project_id,
+      name,
+      company_name,
+      phone,
+      email,
+      address,
+      source,
+      enquiry_date,
+      soil_report_url,
+      layout_url,
+      section_url,
+      remarks
+    } = req.body
 
     if (!project_id) {
       throw createError('Project ID is required', 400)
@@ -19,11 +33,17 @@ export const createLead = async (req: AuthRequest, res: Response, next: NextFunc
 
     const lead = await Lead.create({
       project_id,
+      name,
+      company_name,
+      phone,
+      email,
+      address,
       source,
       enquiry_date,
       soil_report_url,
       layout_url,
       section_url,
+      remarks,
       status: 'new',
     })
 
@@ -39,12 +59,20 @@ export const createLead = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const getLeads = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { project_id, status, page = 1, limit = 10 } = req.query
+    const { project_id, status, search, page = 1, limit = 10 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
 
     const where: any = {}
     if (project_id) where.project_id = project_id
     if (status) where.status = status
+    if (search) {
+      where[Op.or] = [
+        { name: { [Op.like]: `%${search}%` } },
+        { company_name: { [Op.like]: `%${search}%` } },
+        { email: { [Op.like]: `%${search}%` } },
+        { phone: { [Op.like]: `%${search}%` } },
+      ]
+    }
 
     const { count, rows } = await Lead.findAndCountAll({
       where,
@@ -103,7 +131,20 @@ export const getLead = async (req: AuthRequest, res: Response, next: NextFunctio
 export const updateLead = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params
-    const { source, enquiry_date, soil_report_url, layout_url, section_url, status } = req.body
+    const {
+      name,
+      company_name,
+      phone,
+      email,
+      address,
+      source,
+      enquiry_date,
+      soil_report_url,
+      layout_url,
+      section_url,
+      remarks,
+      status
+    } = req.body
 
     const lead = await Lead.findByPk(id)
     if (!lead) {
@@ -111,11 +152,17 @@ export const updateLead = async (req: AuthRequest, res: Response, next: NextFunc
     }
 
     await lead.update({
+      name,
+      company_name,
+      phone,
+      email,
+      address,
       source,
       enquiry_date,
       soil_report_url,
       layout_url,
       section_url,
+      remarks,
       status,
     })
 

@@ -1,11 +1,26 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Select, Space, message } from 'antd'
-import { PlusOutlined, EyeOutlined } from '@ant-design/icons'
+import { Card, Table, Button, Select, Space, message, Row, Col, Statistic, Typography, Tag } from 'antd'
+import {
+  PlusOutlined,
+  EyeOutlined,
+  FilePptOutlined, // Using PPT as a proxy for 'drawing/blueprint'
+  ProjectOutlined,
+  CloudUploadOutlined,
+  FilterOutlined,
+  FileImageOutlined,
+  CalendarOutlined,
+  FileTextOutlined
+} from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { drawingService } from '../../services/api/drawings'
 import { projectService } from '../../services/api/projects'
+import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
+import { getPrimaryButtonStyle, getSecondaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
+import dayjs from 'dayjs'
 
 const { Option } = Select
+const { Text } = Typography
 
 interface Drawing {
   id: number
@@ -49,86 +64,163 @@ const DrawingList = () => {
     }
   }
 
+  const getStats = () => {
+    const totalCount = drawings.length
+    const latestUpload = drawings.length > 0 ? dayjs(drawings[0].uploaded_at).format('DD-MMM') : 'N/A'
+    const uniqueProjects = new Set(drawings.map(d => d.project_id)).size
+    return { totalCount, latestUpload, uniqueProjects }
+  }
+
+  const stats = getStats()
+
   const columns = [
     {
       title: 'Drawing Code',
       dataIndex: 'drawing_code',
       key: 'drawing_code',
+      width: 180,
+      render: (text: string) => <Text strong style={{ color: theme.colors.primary.main }}>{text || 'N/A'}</Text>,
     },
     {
-      title: 'Project',
-      dataIndex: 'project',
-      key: 'project',
-      render: (project: any) => project?.name || '-',
+      title: 'Project Assignment',
+      key: 'project_info',
+      render: (_: any, record: any) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{record.project?.name || 'N/A'}</Text>
+          <Text type="secondary" style={{ fontSize: '12px' }}>{record.project?.project_code}</Text>
+        </Space>
+      ),
     },
     {
-      title: 'Type',
+      title: 'Type / Purpose',
       dataIndex: 'drawing_type',
       key: 'drawing_type',
+      render: (type: string) => (
+        <Tag color="geekblue" icon={<FileImageOutlined />} style={{ borderRadius: '4px' }}>
+          {type?.toUpperCase() || 'GENERAL'}
+        </Tag>
+      ),
     },
     {
-      title: 'Uploaded At',
+      title: 'Upload Statistics',
       dataIndex: 'uploaded_at',
       key: 'uploaded_at',
-      render: (date: string) => date ? new Date(date).toLocaleDateString() : '-',
+      width: 200,
+      render: (date: string) => (
+        <Space direction="vertical" size={0}>
+          <Text style={{ fontSize: '13px' }}><CalendarOutlined /> {date ? dayjs(date).format('DD-MMM-YYYY') : '-'}</Text>
+          <Text type="secondary" style={{ fontSize: '11px' }}>{date ? dayjs(date).format('HH:mm A') : ''}</Text>
+        </Space>
+      ),
     },
     {
       title: 'Actions',
       key: 'actions',
+      width: 120,
+      fixed: 'right' as const,
       render: (_: any, record: Drawing) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => navigate(`/drawings/${record.id}`)}
-          >
-            View
-          </Button>
-        </Space>
+        <Button
+          type="link"
+          icon={<EyeOutlined />}
+          onClick={() => navigate(`/drawings/${record.id}`)}
+          style={{ padding: 0 }}
+        >
+          Open Details
+        </Button>
       ),
     },
   ]
 
   return (
-    <div className="content-container">
-      <Card
-        title="Drawing Management"
-        extra={
+    <PageContainer>
+      <PageHeader
+        title="Drawing Inventory"
+        subtitle="Centralized repository for project blueprints, structural designs, and technical site drawings"
+        icon={<FilePptOutlined />}
+      />
+
+      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Total Blueprints"
+              value={stats.totalCount}
+              prefix={<FileTextOutlined style={{ color: theme.colors.primary.main }} />}
+              valueStyle={{ color: theme.colors.primary.main }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Active Project Files"
+              value={stats.uniqueProjects}
+              prefix={<ProjectOutlined style={{ color: '#faad14' }} />}
+              valueStyle={{ color: '#faad14' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Latest Revision"
+              value={stats.latestUpload}
+              prefix={<CloudUploadOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <Space size="middle" wrap>
+            <Select
+              placeholder="Filter by Project"
+              allowClear
+              size="large"
+              style={{ width: 350, ...largeInputStyle }}
+              showSearch
+              optionFilterProp="children"
+              onChange={(value) => setFilters({ ...filters, project_id: value })}
+              suffixIcon={<ProjectOutlined style={prefixIconStyle} />}
+            >
+              {projects.map((project) => (
+                <Option key={project.id} value={project.id}>
+                  {project.project_code} - {project.name}
+                </Option>
+              ))}
+            </Select>
+          </Space>
+
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/drawings/new')}
+            size="large"
+            style={getPrimaryButtonStyle(220)}
           >
-            Upload Drawing
+            Upload New Drawing
           </Button>
-        }
-      >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <Select
-            placeholder="Filter by project"
-            allowClear
-            style={{ width: 300 }}
-            onChange={(value) => setFilters({ ...filters, project_id: value })}
-          >
-            {projects.map((project) => (
-              <Option key={project.id} value={project.id}>
-                {project.project_code} - {project.name}
-              </Option>
-            ))}
-          </Select>
-
-          <Table
-            columns={columns}
-            dataSource={drawings}
-            loading={loading}
-            rowKey="id"
-            pagination={{ pageSize: 10, showSizeChanger: true }}
-          />
-        </Space>
+        </div>
       </Card>
-    </div>
+
+      <Card style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
+        <Table
+          columns={columns}
+          dataSource={drawings}
+          loading={loading}
+          rowKey="id"
+          scroll={{ x: 1000 }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            showTotal: (total) => `Total ${total} Drawing Revisions`
+          }}
+        />
+      </Card>
+    </PageContainer>
   )
 }
 
 export default DrawingList
-

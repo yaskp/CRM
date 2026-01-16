@@ -1,7 +1,20 @@
 import { useState } from 'react'
-import { Form, Input, Button, Card, message } from 'antd'
+import { Form, Input, Button, Card, message, Typography, Space, Divider } from 'antd'
+import {
+  UserOutlined,
+  LockOutlined,
+  MailOutlined,
+  IdcardOutlined,
+  PhoneOutlined,
+  UserAddOutlined,
+  ArrowRightOutlined
+} from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { theme } from '../../styles/theme'
+import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+
+const { Title, Text, Link } = Typography
 
 const Register = () => {
   const [loading, setLoading] = useState(false)
@@ -33,71 +46,111 @@ const Register = () => {
       justifyContent: 'center',
       alignItems: 'center',
       minHeight: '100vh',
-      background: '#f0f2f5'
+      background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      padding: '20px'
     }}>
-      <Card title="Register" style={{ width: 400 }}>
+      <Card
+        style={{
+          width: 480,
+          borderRadius: '16px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+          border: 'none',
+          overflow: 'hidden'
+        }}
+        bodyStyle={{ padding: '40px' }}
+      >
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '16px',
+            background: `linear-gradient(135deg, ${theme.colors.primary.main}, ${theme.colors.primary.dark})`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px'
+          }}>
+            <UserAddOutlined style={{ fontSize: '32px', color: '#fff' }} />
+          </div>
+          <Title level={2} style={{ margin: 0, fontWeight: '700' }}>Join the Platform</Title>
+          <Text type="secondary">Create your enterprise account to get started</Text>
+        </div>
+
         <Form
           name="register"
           onFinish={onFinish}
           layout="vertical"
           autoComplete="off"
+          size="large"
         >
-          <Form.Item
-            label="Name"
-            name="name"
-            rules={[{ required: true, message: 'Please input your name!' }]}
-          >
-            <Input />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label={<span style={{ fontWeight: '600' }}>Full Name</span>}
+                name="name"
+                rules={[{ required: true, message: 'Required' }]}
+              >
+                <Input prefix={<UserOutlined style={prefixIconStyle} />} placeholder="John Doe" style={largeInputStyle} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                label={<span style={{ fontWeight: '600' }}>Employee ID</span>}
+                name="employee_id"
+                rules={[{ required: true, message: 'Required' }]}
+              >
+                <Input prefix={<IdcardOutlined style={prefixIconStyle} />} placeholder="EMP-001" style={largeInputStyle} />
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Form.Item
-            label="Employee ID"
-            name="employee_id"
-            rules={[{ required: true, message: 'Please input your employee ID!' }]}
-          >
-            <Input />
-          </Form.Item>
-
-          <Form.Item
-            label="Email"
+            label={<span style={{ fontWeight: '600' }}>Email Address</span>}
             name="email"
             rules={[
-              { required: true, message: 'Please input your email!' },
-              { type: 'email', message: 'Please enter a valid email!' }
+              { required: true, message: 'Required' },
+              { type: 'email', message: 'Invalid email' }
             ]}
           >
-            <Input />
+            <Input prefix={<MailOutlined style={prefixIconStyle} />} placeholder="name@company.com" style={largeInputStyle} />
           </Form.Item>
 
           <Form.Item
-            label="Phone"
+            label={<span style={{ fontWeight: '600' }}>Contact Phone</span>}
             name="phone"
           >
-            <Input />
+            <Input prefix={<PhoneOutlined style={prefixIconStyle} />} placeholder="+91 98XXX XXXXX" style={largeInputStyle} />
           </Form.Item>
 
           <Form.Item
-            label="Password"
+            label={<span style={{ fontWeight: '600' }}>Security Password</span>}
             name="password"
             rules={[
-              { required: true, message: 'Please input your password!' },
-              { min: 6, message: 'Password must be at least 6 characters!' }
+              { required: true, message: 'Required' },
+              { min: 6, message: 'Min 6 characters' }
             ]}
           >
-            <Input.Password />
+            <Input.Password prefix={<LockOutlined style={prefixIconStyle} />} placeholder="••••••••" style={largeInputStyle} />
           </Form.Item>
 
-          <Form.Item>
-            <Button type="primary" htmlType="submit" block loading={loading}>
-              Register
+          <Form.Item style={{ marginBottom: '16px', marginTop: '32px' }}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              loading={loading}
+              style={getPrimaryButtonStyle()}
+            >
+              Initialize Account
             </Button>
           </Form.Item>
 
-          <Form.Item>
-            <Button type="link" block onClick={() => navigate('/login')}>
-              Already have an account? Login
-            </Button>
-          </Form.Item>
+          <div style={{ textAlign: 'center' }}>
+            <Text type="secondary">Already using the CRM? </Text>
+            <Link onClick={() => navigate('/login')} style={{ fontWeight: '600' }}>
+              Sign In Here <ArrowRightOutlined style={{ fontSize: '12px' }} />
+            </Link>
+          </div>
         </Form>
       </Card>
     </div>
@@ -105,4 +158,3 @@ const Register = () => {
 }
 
 export default Register
-

@@ -4,7 +4,7 @@ import { sequelize } from '../database/connection'
 interface VendorAttributes {
   id: number
   name: string
-  vendor_type: 'steel_contractor' | 'concrete_contractor' | 'rig_vendor' | 'crane_vendor' | 'jcb_vendor' | 'other'
+  vendor_type: string
   contact_person?: string
   phone?: string
   email?: string
@@ -16,7 +16,7 @@ interface VendorAttributes {
   created_at?: Date
 }
 
-interface VendorCreationAttributes extends Optional<VendorAttributes, 'id' | 'created_at'> {}
+interface VendorCreationAttributes extends Optional<VendorAttributes, 'id' | 'created_at'> { }
 
 class Vendor extends Model<VendorAttributes, VendorCreationAttributes> implements VendorAttributes {
   public id!: number
@@ -45,7 +45,7 @@ Vendor.init(
       allowNull: false,
     },
     vendor_type: {
-      type: DataTypes.ENUM('steel_contractor', 'concrete_contractor', 'rig_vendor', 'crane_vendor', 'jcb_vendor', 'other'),
+      type: DataTypes.STRING(50),
       allowNull: false,
     },
     contact_person: {

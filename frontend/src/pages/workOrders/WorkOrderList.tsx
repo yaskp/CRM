@@ -1,10 +1,23 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Tag, Select, Space, message } from 'antd'
-import { PlusOutlined, EyeOutlined } from '@ant-design/icons'
+import { Card, Table, Button, Tag, Select, Space, message, Row, Col, Statistic, Typography } from 'antd'
+import {
+  PlusOutlined,
+  EyeOutlined,
+  FileTextOutlined,
+  SafetyCertificateOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  FilterOutlined,
+  DollarOutlined
+} from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { workOrderService } from '../../services/api/workOrders'
+import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
+import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
 
 const { Option } = Select
+const { Text } = Typography
 
 interface WorkOrder {
   id: number
@@ -38,96 +51,166 @@ const WorkOrderList = () => {
     fetchWorkOrders()
   }, [filters.status])
 
+  const getStats = () => {
+    const totalCount = workOrders.length
+    const activeCount = workOrders.filter(w => w.status === 'active').length
+    const totalValue = workOrders.reduce((sum, w) => sum + (w.final_amount || 0), 0)
+    return { totalCount, activeCount, totalValue }
+  }
+
+  const stats = getStats()
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       draft: 'default',
-      approved: 'blue',
-      active: 'green',
+      approved: 'processing',
+      active: 'cyan',
       completed: 'success',
+      cancelled: 'error'
     }
     return colors[status] || 'default'
   }
 
   const columns = [
     {
-      title: 'Work Order Number',
+      title: 'Work Order #',
       dataIndex: 'work_order_number',
       key: 'work_order_number',
+      width: 180,
+      render: (text: string) => <Text strong style={{ color: theme.colors.primary.main }}>{text}</Text>,
     },
     {
-      title: 'Total Amount',
+      title: 'Total Order Value',
       dataIndex: 'total_amount',
       key: 'total_amount',
-      render: (amount: number) => `₹${amount?.toLocaleString('en-IN') || 0}`,
+      render: (amount: number) => (
+        <Text strong>₹{amount?.toLocaleString('en-IN') || 0}</Text>
+      ),
     },
     {
-      title: 'Final Amount',
+      title: 'Final Amount (Incl Tax)',
       dataIndex: 'final_amount',
       key: 'final_amount',
-      render: (amount: number) => `₹${amount?.toLocaleString('en-IN') || 0}`,
+      render: (amount: number) => (
+        <Text strong style={{ color: theme.colors.success.main }}>₹{amount?.toLocaleString('en-IN') || 0}</Text>
+      ),
     },
     {
-      title: 'Status',
+      title: 'Current Status',
       dataIndex: 'status',
       key: 'status',
+      width: 160,
       render: (status: string) => (
-        <Tag color={getStatusColor(status)}>{status.toUpperCase()}</Tag>
+        <Tag color={getStatusColor(status)} style={{ padding: '0 8px', borderRadius: '4px' }}>
+          {status.toUpperCase()}
+        </Tag>
       ),
     },
     {
       title: 'Actions',
       key: 'actions',
+      width: 120,
+      fixed: 'right' as const,
       render: (_: any, record: WorkOrder) => (
         <Button
           type="link"
           icon={<EyeOutlined />}
           onClick={() => navigate(`/operations/work-orders/${record.id}`)}
+          style={{ padding: 0 }}
         >
-          View
+          View Details
         </Button>
       ),
     },
   ]
 
   return (
-    <div className="content-container">
-      <Card
+    <PageContainer>
+      <PageHeader
         title="Work Order Management"
-        extra={
+        subtitle="Issue and track task-based work orders for contractors and vendors"
+        icon={<SafetyCertificateOutlined />}
+      />
+
+      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Total Orders"
+              value={stats.totalCount}
+              prefix={<FileTextOutlined style={{ color: theme.colors.primary.main }} />}
+              valueStyle={{ color: theme.colors.primary.main }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Active Work"
+              value={stats.activeCount}
+              prefix={<ClockCircleOutlined style={{ color: '#faad14' }} />}
+              valueStyle={{ color: '#faad14' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+            <Statistic
+              title="Total Order Value"
+              value={stats.totalValue}
+              prefix={<DollarOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#52c41a' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+          <Space size="middle" wrap>
+            <Select
+              placeholder="Filter by Progress"
+              allowClear
+              size="large"
+              style={{ width: 220, ...largeInputStyle }}
+              onChange={(value) => setFilters({ ...filters, status: value || '' })}
+              suffixIcon={<FilterOutlined style={prefixIconStyle} />}
+            >
+              <Option value="draft">⏳ Draft Orders</Option>
+              <Option value="approved">✅ Approved</Option>
+              <Option value="active">🚀 Active Execution</Option>
+              <Option value="completed">🏆 Completed</Option>
+            </Select>
+          </Space>
+
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/operations/work-orders/new')}
+            size="large"
+            style={getPrimaryButtonStyle(200)}
           >
-            Create Work Order
+            Issue New Work Order
           </Button>
-        }
-      >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
-          <Select
-            placeholder="Filter by status"
-            allowClear
-            style={{ width: 200 }}
-            onChange={(value) => setFilters({ ...filters, status: value || '' })}
-          >
-            <Option value="draft">Draft</Option>
-            <Option value="approved">Approved</Option>
-            <Option value="active">Active</Option>
-            <Option value="completed">Completed</Option>
-          </Select>
-
-          <Table
-            columns={columns}
-            dataSource={workOrders}
-            loading={loading}
-            rowKey="id"
-            pagination={{ pageSize: 10, showSizeChanger: true }}
-          />
-        </Space>
+        </div>
       </Card>
-    </div>
+
+      <Card style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
+        <Table
+          columns={columns}
+          dataSource={workOrders}
+          loading={loading}
+          rowKey="id"
+          scroll={{ x: 1000 }}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: true,
+            showTotal: (total) => `Total ${total} Work Orders`
+          }}
+        />
+      </Card>
+    </PageContainer>
   )
 }
 
 export default WorkOrderList
-

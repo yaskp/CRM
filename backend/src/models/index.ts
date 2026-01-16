@@ -4,15 +4,20 @@ import Company from './Company'
 import Role from './Role'
 import Permission from './Permission'
 import Project from './Project'
+import ProjectDetails from './ProjectDetails'
 import ProjectContact from './ProjectContact'
+import ProjectDocument from './ProjectDocument'
+import ProjectMilestone from './ProjectMilestone'
 import Lead from './Lead'
 import Quotation from './Quotation'
 import WorkOrder from './WorkOrder'
+import PurchaseOrder from './PurchaseOrder'
 import WorkOrderItem from './WorkOrderItem'
 import Material from './Material'
 import Warehouse from './Warehouse'
 import Inventory from './Inventory'
 import Vendor from './Vendor'
+import VendorType from './VendorType'
 import ProjectVendor from './ProjectVendor'
 import StoreTransaction from './StoreTransaction'
 import StoreTransactionItem from './StoreTransactionItem'
@@ -61,6 +66,18 @@ Company.hasMany(Warehouse, { foreignKey: 'company_id', as: 'warehouses' })
 // Project Contacts
 Project.hasMany(ProjectContact, { foreignKey: 'project_id', as: 'contacts' })
 ProjectContact.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+
+// Project Details
+Project.hasOne(ProjectDetails, { foreignKey: 'project_id', as: 'details' })
+ProjectDetails.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+
+// Project Documents
+Project.hasMany(ProjectDocument, { foreignKey: 'project_id', as: 'documents' })
+ProjectDocument.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+
+// Project Milestones
+Project.hasMany(ProjectMilestone, { foreignKey: 'project_id', as: 'milestones' })
+ProjectMilestone.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 
 // Vendors
 Project.belongsToMany(Vendor, { through: ProjectVendor, foreignKey: 'project_id', as: 'vendors' })
@@ -136,28 +153,37 @@ Notification.belongsTo(User, { foreignKey: 'user_id', as: 'user' })
 User.hasMany(Notification, { foreignKey: 'user_id', as: 'notifications' })
 
 // User-Role associations (Many-to-Many)
-User.belongsToMany(Role, { 
+User.belongsToMany(Role, {
   through: UserRole,
-  foreignKey: 'user_id', 
-  as: 'roles' 
+  foreignKey: 'user_id',
+  as: 'roles'
 })
-Role.belongsToMany(User, { 
+Role.belongsToMany(User, {
   through: UserRole,
-  foreignKey: 'role_id', 
-  as: 'users' 
+  foreignKey: 'role_id',
+  as: 'users'
 })
 
 // Role-Permission associations (Many-to-Many)
-Role.belongsToMany(Permission, { 
+Role.belongsToMany(Permission, {
   through: RolePermission,
-  foreignKey: 'role_id', 
-  as: 'permissions' 
+  foreignKey: 'role_id',
+  as: 'permissions'
 })
-Permission.belongsToMany(Role, { 
+Permission.belongsToMany(Role, {
   through: RolePermission,
-  foreignKey: 'permission_id', 
-  as: 'roles' 
+  foreignKey: 'permission_id',
+  as: 'roles'
 })
+
+// Purchase Orders
+PurchaseOrder.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+PurchaseOrder.belongsTo(Vendor, { foreignKey: 'vendor_id', as: 'vendor' })
+PurchaseOrder.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
+PurchaseOrder.belongsTo(User, { foreignKey: 'approved_by', as: 'approver' })
+Project.hasMany(PurchaseOrder, { foreignKey: 'project_id', as: 'purchaseOrders' })
+Vendor.hasMany(PurchaseOrder, { foreignKey: 'vendor_id', as: 'purchaseOrders' })
+User.hasMany(PurchaseOrder, { foreignKey: 'created_by', as: 'createdPurchaseOrders' })
 
 export {
   User,
@@ -165,7 +191,10 @@ export {
   Role,
   Permission,
   Project,
+  ProjectDetails,
   ProjectContact,
+  ProjectDocument,
+  ProjectMilestone,
   Lead,
   Quotation,
   WorkOrder,
@@ -174,6 +203,7 @@ export {
   Warehouse,
   Inventory,
   Vendor,
+  VendorType,
   ProjectVendor,
   StoreTransaction,
   StoreTransactionItem,
@@ -191,5 +221,6 @@ export {
   DrawingPanel,
   PanelProgress,
   Notification,
+  PurchaseOrder,
 }
 

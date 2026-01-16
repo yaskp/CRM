@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, Table, Divider } from 'antd'
-import { SaveOutlined, ArrowLeftOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, Table, Divider, Typography, Tooltip } from 'antd'
+import {
+  SaveOutlined,
+  ArrowLeftOutlined,
+  PlusOutlined,
+  DeleteOutlined,
+  DashboardOutlined,
+  ProjectOutlined,
+  CalendarOutlined,
+  EnvironmentOutlined,
+  ExperimentOutlined,
+  BarChartOutlined,
+  CloudOutlined,
+  TeamOutlined,
+  InfoCircleOutlined,
+  DeploymentUnitOutlined
+} from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { dprService } from '../../services/api/dpr'
 import { projectService } from '../../services/api/projects'
@@ -8,9 +23,22 @@ import { dprSchema, DPRFormData } from '../../utils/validationSchemas'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, Controller } from 'react-hook-form'
 import dayjs from 'dayjs'
+import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
+import {
+  getPrimaryButtonStyle,
+  getSecondaryButtonStyle,
+  largeInputStyle,
+  getLabelStyle,
+  flexBetweenStyle,
+  actionCardStyle,
+  prefixIconStyle,
+  twoColumnGridStyle
+} from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
 
 const { TextArea } = Input
 const { Option } = Select
+const { Text } = Typography
 
 interface ManpowerEntry {
   id?: number
@@ -54,7 +82,7 @@ const DPRForm = () => {
     try {
       const response = await dprService.getDPR(Number(id))
       const dpr = response.dpr
-      
+
       Object.keys(dpr).forEach((key) => {
         if (key !== 'manpower' && dpr[key] !== null && dpr[key] !== undefined) {
           setValue(key as any, dpr[key])
@@ -123,11 +151,13 @@ const DPRForm = () => {
     {
       title: 'Worker Type',
       key: 'worker_type',
+      width: '40%',
       render: (_: any, record: ManpowerEntry, index: number) => (
         <Select
           style={{ width: '100%' }}
           value={record.worker_type}
           onChange={(value) => updateManpower(index, 'worker_type', value)}
+          size="large"
         >
           <Option value="steel_worker">Steel Worker</Option>
           <Option value="concrete_worker">Concrete Worker</Option>
@@ -138,62 +168,66 @@ const DPRForm = () => {
       ),
     },
     {
-      title: 'Count',
+      title: 'Head Count',
       key: 'count',
+      width: '25%',
       render: (_: any, record: ManpowerEntry, index: number) => (
         <InputNumber
           style={{ width: '100%' }}
           value={record.count}
           min={0}
           onChange={(value) => updateManpower(index, 'count', value || 0)}
+          size="large"
+          placeholder="0"
         />
       ),
     },
     {
-      title: 'Hajri',
+      title: 'Hajri (Shift)',
       key: 'hajri',
+      width: '25%',
       render: (_: any, record: ManpowerEntry, index: number) => (
         <Select
           style={{ width: '100%' }}
           value={record.hajri}
           onChange={(value) => updateManpower(index, 'hajri', value)}
+          size="large"
         >
-          <Option value="1">1</Option>
-          <Option value="1.5">1.5</Option>
-          <Option value="2">2</Option>
+          <Option value="1">1 (Full Day)</Option>
+          <Option value="1.5">1.5 (OT)</Option>
+          <Option value="2">2 (Double)</Option>
         </Select>
       ),
     },
     {
-      title: 'Actions',
+      title: '',
       key: 'actions',
+      width: 50,
       render: (_: any, record: ManpowerEntry, index: number) => (
         <Button
           type="link"
           danger
           icon={<DeleteOutlined />}
           onClick={() => removeManpower(index)}
-        >
-          Remove
-        </Button>
+          style={{ padding: 0 }}
+        />
       ),
     },
   ]
 
   return (
-    <Card
-      title={id ? 'Edit DPR' : 'Create Daily Progress Report'}
-      extra={
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/operations/dpr')}>
-          Back
-        </Button>
-      }
-    >
+    <PageContainer maxWidth={1100}>
+      <PageHeader
+        title={id ? 'Edit Progress Report' : 'New Daily Progress Report'}
+        subtitle={id ? `Updating DPR Entry #${id}` : 'Record today\'s site metrics, manpower consumption, and progress details'}
+        icon={<DashboardOutlined />}
+      />
+
       <form onSubmit={handleSubmit(onSubmit)}>
-        <Row gutter={16}>
-          <Col xs={24} md={12}>
+        <div style={twoColumnGridStyle}>
+          <SectionCard title="Basic Site Details" icon={<EnvironmentOutlined />}>
             <Form.Item
-              label="Project"
+              label={<span style={getLabelStyle()}>Project Selection</span>}
               validateStatus={errors.project_id ? 'error' : ''}
               help={errors.project_id?.message}
               required
@@ -204,9 +238,11 @@ const DPRForm = () => {
                 render={({ field }) => (
                   <Select
                     {...field}
-                    placeholder="Select Project"
+                    placeholder="Which project is this for?"
                     showSearch
                     optionFilterProp="children"
+                    size="large"
+                    style={largeInputStyle}
                   >
                     {projects.map((project) => (
                       <Option key={project.id} value={project.id}>
@@ -217,11 +253,9 @@ const DPRForm = () => {
                 )}
               />
             </Form.Item>
-          </Col>
 
-          <Col xs={24} md={12}>
             <Form.Item
-              label="Report Date"
+              label={<span style={getLabelStyle()}>Reporting Date</span>}
               validateStatus={errors.report_date ? 'error' : ''}
               help={errors.report_date?.message}
               required
@@ -232,194 +266,221 @@ const DPRForm = () => {
                 render={({ field }) => (
                   <DatePicker
                     {...field}
-                    style={{ width: '100%' }}
-                    format="YYYY-MM-DD"
+                    style={{ width: '100%', ...largeInputStyle }}
+                    format="DD-MMM-YYYY"
+                    size="large"
                     value={field.value ? dayjs(field.value) : null}
                     onChange={(date) => field.onChange(date ? date.format('YYYY-MM-DD') : '')}
                   />
                 )}
               />
             </Form.Item>
-          </Col>
 
-          <Col xs={24} md={12}>
-            <Form.Item label="Site Location">
-              <Controller
-                name="site_location"
-                control={control}
-                render={({ field }) => (
-                  <Input {...field} placeholder="Enter site location" />
-                )}
-              />
-            </Form.Item>
-          </Col>
-
-          <Col xs={24} md={12}>
-            <Form.Item label="Panel Number">
-              <Controller
-                name="panel_number"
-                control={control}
-                render={({ field }) => (
-                  <Input {...field} placeholder="Enter panel number" />
-                )}
-              />
-            </Form.Item>
-          </Col>
-
-          <Col xs={24} md={12}>
-            <Form.Item label="Guide Wall (Running Meter)">
-              <Controller
-                name="guide_wall_running_meter"
-                control={control}
-                render={({ field }) => (
-                  <InputNumber
-                    {...field}
-                    style={{ width: '100%' }}
-                    placeholder="Guide wall in meters"
-                    min={0}
-                    step={0.01}
-                    value={field.value}
-                    onChange={(value) => field.onChange(value || undefined)}
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label={<span style={getLabelStyle()}>Site Location</span>}>
+                  <Controller
+                    name="site_location"
+                    control={control}
+                    render={({ field }) => (
+                      <Input {...field} placeholder="Specific area/site" style={largeInputStyle} size="large" />
+                    )}
                   />
-                )}
-              />
-            </Form.Item>
-          </Col>
-
-          <Col xs={24} md={12}>
-            <Form.Item label="Steel Quantity (kg)">
-              <Controller
-                name="steel_quantity_kg"
-                control={control}
-                render={({ field }) => (
-                  <InputNumber
-                    {...field}
-                    style={{ width: '100%' }}
-                    placeholder="Steel quantity in kg"
-                    min={0}
-                    step={0.01}
-                    value={field.value}
-                    onChange={(value) => field.onChange(value || undefined)}
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label={<span style={getLabelStyle()}>Panel Selection</span>}>
+                  <Controller
+                    name="panel_number"
+                    control={control}
+                    render={({ field }) => (
+                      <Input {...field} placeholder="Panel ID" style={largeInputStyle} size="large" />
+                    )}
                   />
-                )}
-              />
-            </Form.Item>
-          </Col>
+                </Form.Item>
+              </Col>
+            </Row>
+          </SectionCard>
 
-          <Col xs={24} md={12}>
-            <Form.Item label="Concrete Quantity (m³)">
-              <Controller
-                name="concrete_quantity_cubic_meter"
-                control={control}
-                render={({ field }) => (
-                  <InputNumber
-                    {...field}
-                    style={{ width: '100%' }}
-                    placeholder="Concrete quantity in cubic meters"
-                    min={0}
-                    step={0.01}
-                    value={field.value}
-                    onChange={(value) => field.onChange(value || undefined)}
+          <SectionCard title="Progress Metrics" icon={<BarChartOutlined />}>
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label={<span style={getLabelStyle()}>Guide Wall (m)</span>}>
+                  <Controller
+                    name="guide_wall_running_meter"
+                    control={control}
+                    render={({ field }) => (
+                      <InputNumber
+                        {...field}
+                        style={{ width: '100%', ...largeInputStyle }}
+                        placeholder="0.00"
+                        min={0}
+                        step={0.01}
+                        size="large"
+                      />
+                    )}
                   />
-                )}
-              />
-            </Form.Item>
-          </Col>
-
-          <Col xs={24} md={12}>
-            <Form.Item label="Polymer Consumption (bags)">
-              <Controller
-                name="polymer_consumption_bags"
-                control={control}
-                render={({ field }) => (
-                  <InputNumber
-                    {...field}
-                    style={{ width: '100%' }}
-                    placeholder="Number of bags"
-                    min={0}
-                    value={field.value}
-                    onChange={(value) => field.onChange(value || undefined)}
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label={<span style={getLabelStyle()}>Steel Usage (kg)</span>}>
+                  <Controller
+                    name="steel_quantity_kg"
+                    control={control}
+                    render={({ field }) => (
+                      <InputNumber
+                        {...field}
+                        style={{ width: '100%', ...largeInputStyle }}
+                        placeholder="0.00"
+                        min={0}
+                        step={0.01}
+                        size="large"
+                      />
+                    )}
                   />
-                )}
-              />
-            </Form.Item>
-          </Col>
+                </Form.Item>
+              </Col>
+            </Row>
 
-          <Col xs={24} md={12}>
-            <Form.Item label="Diesel Consumption (liters)">
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item label={<span style={getLabelStyle()}>Concrete (m³)</span>}>
+                  <Controller
+                    name="concrete_quantity_cubic_meter"
+                    control={control}
+                    render={({ field }) => (
+                      <InputNumber
+                        {...field}
+                        style={{ width: '100%', ...largeInputStyle }}
+                        placeholder="0.00"
+                        min={0}
+                        step={0.01}
+                        size="large"
+                      />
+                    )}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item label={<span style={getLabelStyle()}>Polymer Bags</span>}>
+                  <Controller
+                    name="polymer_consumption_bags"
+                    control={control}
+                    render={({ field }) => (
+                      <InputNumber
+                        {...field}
+                        style={{ width: '100%', ...largeInputStyle }}
+                        placeholder="0"
+                        min={0}
+                        size="large"
+                      />
+                    )}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Form.Item label={<span style={getLabelStyle()}>Diesel Consumption (Liters)</span>}>
               <Controller
                 name="diesel_consumption_liters"
                 control={control}
                 render={({ field }) => (
                   <InputNumber
                     {...field}
-                    style={{ width: '100%' }}
-                    placeholder="Diesel in liters"
+                    style={{ width: '100%', ...largeInputStyle }}
+                    placeholder="0.00"
                     min={0}
                     step={0.01}
-                    value={field.value}
-                    onChange={(value) => field.onChange(value || undefined)}
+                    size="large"
+                    prefix={<ExperimentOutlined style={{ color: theme.colors.neutral.gray400 }} />}
                   />
                 )}
               />
             </Form.Item>
-          </Col>
+          </SectionCard>
+        </div>
 
-          <Col xs={24} md={12}>
-            <Form.Item label="Weather Conditions">
+        <div style={{ marginTop: theme.spacing.lg }}>
+          <SectionCard
+            title="Manpower Consumption"
+            icon={<TeamOutlined />}
+            extra={
+              <Button type="dashed" icon={<PlusOutlined />} onClick={addManpower} style={{ borderRadius: '6px' }}>
+                Add Worker Type
+              </Button>
+            }
+          >
+            <Table
+              columns={manpowerColumns}
+              dataSource={manpower}
+              rowKey={(_, index) => index.toString()}
+              pagination={false}
+              bordered
+              locale={{ emptyText: <div style={{ padding: '20px' }}><Text type="secondary">No manpower reported for today. Click "Add Worker Type" to record consumption.</Text></div> }}
+            />
+          </SectionCard>
+        </div>
+
+        <div style={{ marginTop: theme.spacing.lg }} {...twoColumnGridStyle}>
+          <SectionCard title="Site Conditions" icon={<CloudOutlined />}>
+            <Form.Item label={<span style={getLabelStyle()}>Weather Conditions</span>}>
               <Controller
                 name="weather_conditions"
                 control={control}
                 render={({ field }) => (
-                  <Input {...field} placeholder="e.g., Sunny, Rainy, Cloudy" />
+                  <Input {...field} placeholder="e.g., Sunny, Light Rain, High Heat" style={largeInputStyle} size="large" prefix={<CloudOutlined style={prefixIconStyle} />} />
                 )}
               />
             </Form.Item>
-          </Col>
 
-          <Col xs={24}>
-            <Form.Item label="Remarks">
+            <InfoCard title="💡 Reporting Rule">
+              Daily reports should ideally be submitted by 6:00 PM on the reporting day or early next morning.
+            </InfoCard>
+          </SectionCard>
+
+          <SectionCard title="Observatons & Remarks" icon={<FileTextOutlined />}>
+            <Form.Item label={<span style={getLabelStyle()}>Site Remarks</span>}>
               <Controller
                 name="remarks"
                 control={control}
                 render={({ field }) => (
-                  <TextArea {...field} rows={3} placeholder="Enter any remarks" />
+                  <TextArea {...field} rows={4} placeholder="Major events, breakdowns, delays or milestones achieved today..." style={largeInputStyle} />
                 )}
               />
             </Form.Item>
-          </Col>
-        </Row>
+          </SectionCard>
+        </div>
 
-        <Divider>Manpower Report</Divider>
-
-        <Card
-          title="Manpower Entry"
-          extra={
-            <Button type="dashed" icon={<PlusOutlined />} onClick={addManpower}>
-              Add Manpower Entry
-            </Button>
-          }
-          style={{ marginTop: 16 }}
-        >
-          <Table
-            columns={manpowerColumns}
-            dataSource={manpower}
-            rowKey={(_, index) => index.toString()}
-            pagination={false}
-            locale={{ emptyText: 'No manpower entries. Click "Add Manpower Entry" to add.' }}
-          />
+        <Card style={actionCardStyle}>
+          <div style={flexBetweenStyle}>
+            <Text type="secondary">
+              <InfoCircleOutlined style={{ marginRight: '8px' }} />
+              Verifying all metrics ensures accurate project cost & timeline tracking.
+            </Text>
+            <Space size="middle">
+              <Button
+                onClick={() => navigate('/operations/dpr')}
+                size="large"
+                style={getSecondaryButtonStyle()}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                icon={<SaveOutlined />}
+                size="large"
+                style={getPrimaryButtonStyle()}
+              >
+                {id ? 'Update Report' : 'Submit Today\'s DPR'}
+              </Button>
+            </Space>
+          </div>
         </Card>
-
-        <Space style={{ marginTop: 24, width: '100%', justifyContent: 'flex-end' }}>
-          <Button onClick={() => navigate('/operations/dpr')}>Cancel</Button>
-          <Button type="primary" htmlType="submit" loading={loading} icon={<SaveOutlined />}>
-            {id ? 'Update' : 'Create'} DPR
-          </Button>
-        </Space>
       </form>
-    </Card>
+    </PageContainer>
   )
 }
 
 export default DPRForm
-

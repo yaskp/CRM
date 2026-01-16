@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Tag, Space, message } from 'antd'
-import { PlusOutlined, EyeOutlined } from '@ant-design/icons'
+import { Card, Table, Button, Tag, Space, message, Row, Col, Statistic, Typography } from 'antd'
+import { PlusOutlined, EyeOutlined, HomeOutlined, CheckCircleOutlined, GlobalOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { warehouseService } from '../../services/api/warehouses'
+import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
+import { getPrimaryButtonStyle } from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
+
+const { Text } = Typography
 
 interface Warehouse {
   id: number
   name: string
   code: string
-  location?: string
+  address?: string
   is_common: boolean
 }
 
@@ -33,11 +38,21 @@ const WarehouseList = () => {
     fetchWarehouses()
   }, [])
 
+  const getStats = () => {
+    const common = warehouses.filter(w => w.is_common).length
+    const specific = warehouses.length - common
+    return { total: warehouses.length, common, specific }
+  }
+
+  const stats = getStats()
+
   const columns = [
     {
       title: 'Code',
       dataIndex: 'code',
       key: 'code',
+      width: 120,
+      render: (code: string) => <Text copyable strong>{code}</Text>,
     },
     {
       title: 'Name',
@@ -45,16 +60,22 @@ const WarehouseList = () => {
       key: 'name',
     },
     {
-      title: 'Location',
-      dataIndex: 'location',
-      key: 'location',
+      title: 'Address',
+      dataIndex: 'address',
+      key: 'address',
+      ellipsis: true,
     },
     {
       title: 'Type',
       dataIndex: 'is_common',
       key: 'is_common',
+      width: 180,
       render: (isCommon: boolean) => (
-        <Tag color={isCommon ? 'blue' : 'green'}>
+        <Tag
+          icon={isCommon ? <GlobalOutlined /> : <HomeOutlined />}
+          color={isCommon ? 'blue' : 'green'}
+          style={{ fontWeight: 500 }}
+        >
           {isCommon ? 'Common' : 'Company Specific'}
         </Tag>
       ),
@@ -62,33 +83,113 @@ const WarehouseList = () => {
     {
       title: 'Actions',
       key: 'actions',
+      width: 100,
+      fixed: 'right' as const,
       render: (_: any, record: Warehouse) => (
-        <Space>
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => navigate(`/master/warehouses/${record.id}`)}
-          >
-            View
-          </Button>
-        </Space>
+        <Button
+          type="link"
+          icon={<EyeOutlined />}
+          onClick={() => navigate(`/master/warehouses/${record.id}`)}
+          style={{ padding: 0 }}
+        >
+          View
+        </Button>
       ),
     },
   ]
 
   return (
-    <div className="content-container">
-      <Card
+    <PageContainer>
+      <PageHeader
         title="Warehouse Master"
-        extra={
+        subtitle="Manage warehouse locations and storage facilities"
+        icon={<HomeOutlined />}
+      />
+
+      {/* Statistics Cards */}
+      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+        <Col xs={24} sm={12} md={8}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: theme.borderRadius.md,
+              boxShadow: theme.shadows.base,
+              border: `1px solid ${theme.colors.neutral.gray100}`,
+            }}
+          >
+            <Statistic
+              title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Total Warehouses</Text>}
+              value={stats.total}
+              prefix={<HomeOutlined style={{ color: theme.colors.primary.main }} />}
+              valueStyle={{ color: theme.colors.primary.main, fontWeight: 600 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: theme.borderRadius.md,
+              boxShadow: theme.shadows.base,
+              border: `1px solid ${theme.colors.neutral.gray100}`,
+            }}
+          >
+            <Statistic
+              title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Common</Text>}
+              value={stats.common}
+              prefix={<GlobalOutlined style={{ color: '#1890ff' }} />}
+              valueStyle={{ color: '#1890ff', fontWeight: 600 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: theme.borderRadius.md,
+              boxShadow: theme.shadows.base,
+              border: `1px solid ${theme.colors.neutral.gray100}`,
+            }}
+          >
+            <Statistic
+              title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Company Specific</Text>}
+              value={stats.specific}
+              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#52c41a', fontWeight: 600 }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Actions */}
+      <Card
+        style={{
+          marginBottom: theme.spacing.lg,
+          borderRadius: theme.borderRadius.md,
+          boxShadow: theme.shadows.base,
+          border: `1px solid ${theme.colors.neutral.gray100}`,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate('/master/warehouses/new')}
+            size="large"
+            style={getPrimaryButtonStyle(180)}
           >
             Create Warehouse
           </Button>
-        }
+        </div>
+      </Card>
+
+      {/* Warehouses Table */}
+      <Card
+        style={{
+          borderRadius: theme.borderRadius.md,
+          boxShadow: theme.shadows.base,
+          border: `1px solid ${theme.colors.neutral.gray100}`,
+        }}
       >
         <Table
           columns={columns}
@@ -96,11 +197,11 @@ const WarehouseList = () => {
           loading={loading}
           rowKey="id"
           pagination={{ pageSize: 10, showSizeChanger: true }}
+          scroll={{ x: 800 }}
         />
       </Card>
-    </div>
+    </PageContainer>
   )
 }
 
 export default WarehouseList
-

@@ -1,22 +1,38 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Tag, Input, Select, Space, message } from 'antd'
-import { PlusOutlined, SearchOutlined, EyeOutlined } from '@ant-design/icons'
+import { Card, Table, Button, Tag, Input, Select, Space, message, Row, Col, Statistic, Typography } from 'antd'
+import {
+  PlusOutlined,
+  SearchOutlined,
+  EyeOutlined,
+  FileTextOutlined,
+  FilterOutlined,
+  DollarOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ClockCircleOutlined,
+  DownloadOutlined,
+  CopyOutlined
+} from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { quotationService } from '../../services/api/quotations'
+import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
+import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
 
 const { Search } = Input
 const { Option } = Select
+const { Text } = Typography
 
 interface Quotation {
   id: number
-  quotation_code: string
+  quotation_number: string
   lead_id: number
-  version: number
+  version_number: number
   total_amount: number
-  discount_amount: number
+  discount_percentage: number
   final_amount: number
   status: string
-  valid_till?: string
+  valid_until?: string
   created_at: string
 }
 
@@ -58,80 +74,253 @@ const QuotationList = () => {
     return colors[status] || 'default'
   }
 
+  const getStatusCounts = () => {
+    const counts: Record<string, number> = {}
+    quotations.forEach(q => {
+      counts[q.status] = (counts[q.status] || 0) + 1
+    })
+    return counts
+  }
+
+  const statusCounts = getStatusCounts()
+
   const columns = [
     {
       title: 'Quotation Code',
-      dataIndex: 'quotation_code',
-      key: 'quotation_code',
+      dataIndex: 'quotation_number',
+      key: 'quotation_number',
+      width: 150,
+      render: (code: string) => <Text copyable strong>{code}</Text>,
     },
     {
       title: 'Version',
-      dataIndex: 'version',
-      key: 'version',
+      dataIndex: 'version_number',
+      key: 'version_number',
+      width: 100,
+      sorter: (a: Quotation, b: Quotation) => a.version_number - b.version_number,
+    },
+    {
+      title: 'Lead',
+      dataIndex: 'lead',
+      key: 'lead',
+      width: 200,
+      render: (lead: any) => (
+        <div>
+          <Text strong style={{ display: 'block' }}>{lead?.name || 'N/A'}</Text>
+          {lead?.company_name && <Text type="secondary" style={{ fontSize: 12 }}>{lead.company_name}</Text>}
+        </div>
+      ),
     },
     {
       title: 'Total Amount',
       dataIndex: 'total_amount',
       key: 'total_amount',
-      render: (amount: number) => `₹${amount?.toLocaleString('en-IN') || 0}`,
+      width: 140,
+      render: (amount: number) => (
+        <Text style={{ color: theme.colors.neutral.gray600 }}>
+          ₹{Number(amount)?.toLocaleString('en-IN') || 0}
+        </Text>
+      ),
     },
     {
       title: 'Final Amount',
       dataIndex: 'final_amount',
       key: 'final_amount',
-      render: (amount: number) => `₹${amount?.toLocaleString('en-IN') || 0}`,
+      width: 140,
+      render: (amount: number) => (
+        <Text strong style={{ color: theme.colors.primary.main, fontSize: 15 }}>
+          ₹{Number(amount)?.toLocaleString('en-IN') || 0}
+        </Text>
+      ),
     },
     {
-      title: 'Valid Till',
-      dataIndex: 'valid_till',
-      key: 'valid_till',
-      render: (date: string) => date ? new Date(date).toLocaleDateString() : '-',
+      title: 'Valid Until',
+      dataIndex: 'valid_until',
+      key: 'valid_until',
+      width: 130,
+      render: (date: string) => date ? new Date(date).toLocaleDateString('en-GB') : '-',
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
+      width: 120,
       render: (status: string) => (
-        <Tag color={getStatusColor(status)}>{status.toUpperCase()}</Tag>
+        <Tag color={getStatusColor(status)} style={{ fontWeight: 500 }}>
+          {status.toUpperCase()}
+        </Tag>
       ),
     },
     {
       title: 'Actions',
       key: 'actions',
+      width: 150,
+      fixed: 'right' as const,
       render: (_: any, record: Quotation) => (
         <Space>
           <Button
             type="link"
             icon={<EyeOutlined />}
-            onClick={() => navigate(`/sales/quotations/${record.id}`)}
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/sales/quotations/${record.id}`)
+            }}
+            style={{ padding: 0 }}
           >
             View
+          </Button>
+          <Button
+            type="link"
+            icon={<CopyOutlined />}
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/sales/quotations/new?source_id=${record.id}`)
+            }}
+            style={{ padding: 0 }}
+          >
+            Revise
+          </Button>
+          <Button
+            type="link"
+            icon={<DownloadOutlined />}
+            onClick={(e) => {
+              e.stopPropagation()
+              const token = localStorage.getItem('token')
+              // Use fetch with blob to handle auth header correctly if needed, or simple window.open if cookies/query param auth supported.
+              // Since our backend uses Bearer token header, standard href won't work easily unless we use a utility or pass token in query (less secure but practical for download links sometimes).
+              // BUT: window.open cannot set headers.
+              // BETTER APPROACH: Use a helper function to download with Auth header.
+              handleDownload(record.id, record.quotation_number)
+            }}
+            style={{ padding: 0 }}
+          >
+            PDF
           </Button>
         </Space>
       ),
     },
   ]
 
-  return (
-    <div className="content-container">
-      <Card
-        title="Quotation Management"
-        extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/sales/quotations/new')}
-          >
-            Create Quotation
-          </Button>
+  const handleDownload = async (id: number, number: string) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/quotations/${id}/pdf`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
+      })
+      if (!response.ok) throw new Error('Download failed')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Quotation-${number}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      message.error('Failed to download PDF')
+    }
+  }
+
+  return (
+    <PageContainer>
+      <PageHeader
+        title="Quotation Management"
+        subtitle="Manage and track all sales quotations"
+        icon={<FileTextOutlined />}
+      />
+
+      {/* Statistics Cards */}
+      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: theme.borderRadius.md,
+              boxShadow: theme.shadows.base,
+              border: `1px solid ${theme.colors.neutral.gray100}`,
+            }}
+          >
+            <Statistic
+              title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Total Quotations</Text>}
+              value={quotations.length}
+              prefix={<FileTextOutlined style={{ color: theme.colors.primary.main }} />}
+              valueStyle={{ color: theme.colors.primary.main, fontWeight: 600 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: theme.borderRadius.md,
+              boxShadow: theme.shadows.base,
+              border: `1px solid ${theme.colors.neutral.gray100}`,
+            }}
+          >
+            <Statistic
+              title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Accepted</Text>}
+              value={statusCounts['accepted'] || 0}
+              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#52c41a', fontWeight: 600 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: theme.borderRadius.md,
+              boxShadow: theme.shadows.base,
+              border: `1px solid ${theme.colors.neutral.gray100}`,
+            }}
+          >
+            <Statistic
+              title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Pending</Text>}
+              value={statusCounts['sent'] || 0}
+              prefix={<ClockCircleOutlined style={{ color: '#1890ff' }} />}
+              valueStyle={{ color: '#1890ff', fontWeight: 600 }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card
+            hoverable
+            style={{
+              borderRadius: theme.borderRadius.md,
+              boxShadow: theme.shadows.base,
+              border: `1px solid ${theme.colors.neutral.gray100}`,
+            }}
+          >
+            <Statistic
+              title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Rejected</Text>}
+              value={statusCounts['rejected'] || 0}
+              prefix={<CloseCircleOutlined style={{ color: '#ff4d4f' }} />}
+              valueStyle={{ color: '#ff4d4f', fontWeight: 600 }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Filters and Actions */}
+      <Card
+        style={{
+          marginBottom: theme.spacing.lg,
+          borderRadius: theme.borderRadius.md,
+          boxShadow: theme.shadows.base,
+          border: `1px solid ${theme.colors.neutral.gray100}`,
+        }}
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
           <Space wrap>
             <Search
               placeholder="Search quotations..."
               allowClear
               style={{ width: 300 }}
+              prefix={<SearchOutlined style={prefixIconStyle} />}
+              size="large"
               onSearch={(value) => {
                 setFilters({ ...filters, search: value, page: 1 })
                 fetchQuotations()
@@ -140,29 +329,53 @@ const QuotationList = () => {
             <Select
               placeholder="Filter by status"
               allowClear
-              style={{ width: 200 }}
+              style={{ width: 200, ...largeInputStyle }}
+              size="large"
+              suffixIcon={<FilterOutlined style={prefixIconStyle} />}
               onChange={(value) => setFilters({ ...filters, status: value || '' })}
             >
-              <Option value="draft">Draft</Option>
-              <Option value="sent">Sent</Option>
-              <Option value="accepted">Accepted</Option>
-              <Option value="rejected">Rejected</Option>
-              <Option value="expired">Expired</Option>
+              <Option value="draft">📝 Draft</Option>
+              <Option value="sent">📤 Sent</Option>
+              <Option value="accepted">✅ Accepted</Option>
+              <Option value="rejected">❌ Rejected</Option>
+              <Option value="expired">⏰ Expired</Option>
             </Select>
           </Space>
-
-          <Table
-            columns={columns}
-            dataSource={quotations}
-            loading={loading}
-            rowKey="id"
-            pagination={{ pageSize: 10, showSizeChanger: true }}
-          />
-        </Space>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={() => navigate('/sales/quotations/new')}
+            size="large"
+            style={getPrimaryButtonStyle(180)}
+          >
+            Create Quotation
+          </Button>
+        </div>
       </Card>
-    </div>
+
+      {/* Quotations Table */}
+      <Card
+        style={{
+          borderRadius: theme.borderRadius.md,
+          boxShadow: theme.shadows.base,
+          border: `1px solid ${theme.colors.neutral.gray100}`,
+        }}
+      >
+        <Table
+          columns={columns}
+          dataSource={quotations}
+          loading={loading}
+          rowKey="id"
+          pagination={{ pageSize: 10, showSizeChanger: true }}
+          onRow={(record) => ({
+            onClick: () => navigate(`/sales/quotations/${record.id}`),
+            style: { cursor: 'pointer' }
+          })}
+          scroll={{ x: 1000 }}
+        />
+      </Card>
+    </PageContainer>
   )
 }
 
 export default QuotationList
-

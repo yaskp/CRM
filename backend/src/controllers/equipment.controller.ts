@@ -89,6 +89,70 @@ export const getEquipment = async (req: AuthRequest, res: Response, next: NextFu
   }
 }
 
+export const getEquipmentById = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params
+
+    const equipment = await Equipment.findByPk(id, {
+      include: [
+        {
+          association: 'ownerVendor',
+          attributes: ['id', 'name'],
+        },
+      ],
+    })
+
+    if (!equipment) {
+      throw createError('Equipment not found', 404)
+    }
+
+    res.json({
+      success: true,
+      equipment,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const updateEquipment = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params
+    const {
+      name,
+      equipment_type,
+      manufacturer,
+      model,
+      registration_number,
+      is_rental,
+      owner_vendor_id,
+    } = req.body
+
+    const equipment = await Equipment.findByPk(id)
+    if (!equipment) {
+      throw createError('Equipment not found', 404)
+    }
+
+    await equipment.update({
+      name,
+      equipment_type,
+      manufacturer,
+      model,
+      registration_number,
+      is_rental,
+      owner_vendor_id: is_rental ? owner_vendor_id : null,
+    })
+
+    res.json({
+      success: true,
+      message: 'Equipment updated successfully',
+      equipment,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const createEquipmentRental = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const {

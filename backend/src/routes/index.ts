@@ -14,6 +14,11 @@ import expenseRoutes from './expense.routes'
 import drawingRoutes from './drawing.routes'
 import vendorRoutes from './vendor.routes'
 import barBendingScheduleRoutes from './barBendingSchedule.routes'
+import userRoutes from './user.routes'
+import roleRoutes from './role.routes'
+import inventoryRoutes from './inventory.routes'
+import vendorTypeRoutes from './vendorType.routes'
+import uploadRoutes from './upload.routes'
 
 const router = Router()
 
@@ -31,7 +36,12 @@ router.use('/equipment', equipmentRoutes)
 router.use('/expenses', expenseRoutes)
 router.use('/drawings', drawingRoutes)
 router.use('/vendors', vendorRoutes)
+router.use('/vendor-types', vendorTypeRoutes)
 router.use('/bar-bending-schedules', barBendingScheduleRoutes)
+router.use('/users', userRoutes)
+router.use('/roles', roleRoutes)
+router.use('/inventory', inventoryRoutes)
+router.use('/upload', uploadRoutes)
 
 export default router
 

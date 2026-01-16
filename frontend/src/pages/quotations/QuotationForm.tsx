@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, DatePicker, InputNumber, Select } from 'antd'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Form, Input, Button, Card, message, DatePicker, InputNumber, Select, Typography } from 'antd'
+import { FileTextOutlined, ContactsOutlined, DollarOutlined, CalendarOutlined, PercentageOutlined } from '@ant-design/icons'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { quotationService } from '../../services/api/quotations'
 import { leadService } from '../../services/api/leads'
 import dayjs from 'dayjs'
+import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
+import { largeInputStyle, getLabelStyle, getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle, actionCardStyle, prefixIconStyle, twoColumnGridStyle } from '../../styles/styleUtils'
 
 const { TextArea } = Input
 const { Option } = Select
+const { Text } = Typography
 
 const QuotationForm = () => {
   const [loading, setLoading] = useState(false)
@@ -14,13 +18,17 @@ const QuotationForm = () => {
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
+  const sourceId = searchParams.get('source_id')
 
   useEffect(() => {
     fetchLeads()
     if (id) {
-      fetchQuotation()
+      fetchQuotation(Number(id))
+    } else if (sourceId) {
+      fetchQuotation(Number(sourceId))
     }
-  }, [id])
+  }, [id, sourceId])
 
   const fetchLeads = async () => {
     try {
@@ -31,9 +39,9 @@ const QuotationForm = () => {
     }
   }
 
-  const fetchQuotation = async () => {
+  const fetchQuotation = async (quotationId: number) => {
     try {
-      const response = await quotationService.getQuotation(Number(id))
+      const response = await quotationService.getQuotation(quotationId)
       const quotation = response.quotation
       form.setFieldsValue({
         ...quotation,
@@ -54,7 +62,7 @@ const QuotationForm = () => {
         payment_terms: values.payment_terms,
         valid_until: values.valid_till ? values.valid_till.format('YYYY-MM-DD') : undefined,
       }
-      
+
       if (id) {
         await quotationService.updateQuotation(Number(id), data)
         message.success('Quotation updated successfully!')
@@ -71,71 +79,135 @@ const QuotationForm = () => {
   }
 
   return (
-    <div className="content-container">
-      <Card title={id ? 'Edit Quotation' : 'Create Quotation'}>
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={onFinish}
-          autoComplete="off"
-        >
-          <Form.Item
-            label="Lead"
-            name="lead_id"
-            rules={[{ required: true, message: 'Please select a lead!' }]}
-          >
-            <Select placeholder="Select lead" disabled={!!id}>
-              {leads.map((lead) => (
-                <Option key={lead.id} value={lead.id}>
-                  {lead.name} - {lead.company_name || 'N/A'}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
+    <PageContainer maxWidth={1000}>
+      <PageHeader
+        title={id ? 'Edit Quotation' : sourceId ? 'Create New Version' : 'Create New Quotation'}
+        subtitle={id ? 'Update quotation details' : sourceId ? 'Create a new version based on an existing quotation' : 'Generate a new quotation for a lead'}
+        icon={<FileTextOutlined />}
+      />
 
-          <Form.Item
-            label="Total Amount"
-            name="total_amount"
-            rules={[{ required: true, message: 'Please enter total amount!' }]}
-          >
-            <InputNumber
-              prefix="₹"
-              style={{ width: '100%' }}
-              min={0}
-              placeholder="Enter total amount"
-            />
-          </Form.Item>
+      <Form form={form} layout="vertical" onFinish={onFinish} autoComplete="off">
+        <div style={twoColumnGridStyle}>
+          <SectionCard title="Lead Information" icon={<ContactsOutlined />}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Select Lead</span>}
+              name="lead_id"
+              rules={[{ required: true, message: 'Please select a lead!' }]}
+            >
+              <Select
+                placeholder="Select lead"
+                disabled={!!id || !!sourceId}
+                size="large"
+                style={largeInputStyle}
+                showSearch
+                filterOption={(input, option) =>
+                  (option?.children as unknown as string).toLowerCase().includes(input.toLowerCase())
+                }
+              >
+                {leads.map((lead) => (
+                  <Option key={lead.id} value={lead.id}>
+                    {lead.name} - {lead.company_name || 'N/A'}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-          <Form.Item label="Discount (%)" name="discount_percentage">
-            <InputNumber
-              style={{ width: '100%' }}
-              min={0}
-              max={100}
-              placeholder="Enter discount percentage"
-            />
-          </Form.Item>
+            <InfoCard title="💡 Lead Selection">
+              Select the lead for whom you're creating this quotation. Lead cannot be changed after creation.
+            </InfoCard>
+          </SectionCard>
 
-          <Form.Item label="Payment Terms" name="payment_terms">
-            <Input placeholder="e.g., 15 days, 30 days" />
-          </Form.Item>
+          <SectionCard title="Pricing Details" icon={<DollarOutlined />}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Total Amount</span>}
+              name="total_amount"
+              rules={[{ required: true, message: 'Please enter total amount!' }]}
+            >
+              <InputNumber
+                prefix="₹"
+                style={{ width: '100%', ...largeInputStyle }}
+                size="large"
+                min={0}
+                placeholder="Enter total amount"
+                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={value => value!.replace(/\₹\s?|(,*)/g, '')}
+              />
+            </Form.Item>
 
-          <Form.Item label="Valid Till" name="valid_till">
-            <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" />
-          </Form.Item>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Discount (%)</span>}
+              name="discount_percentage"
+            >
+              <InputNumber
+                prefix={<PercentageOutlined style={prefixIconStyle} />}
+                style={{ width: '100%', ...largeInputStyle }}
+                size="large"
+                min={0}
+                max={100}
+                placeholder="Enter discount percentage"
+              />
+            </Form.Item>
+          </SectionCard>
+        </div>
 
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                {id ? 'Update' : 'Create'}
+        <SectionCard title="Terms & Validity" icon={<CalendarOutlined />}>
+          <div style={twoColumnGridStyle}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Payment Terms</span>}
+              name="payment_terms"
+            >
+              <Input
+                placeholder="e.g., 15 days, 30 days, Net 30"
+                size="large"
+                style={largeInputStyle}
+              />
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Valid Till</span>}
+              name="valid_till"
+            >
+              <DatePicker
+                style={{ width: '100%', ...largeInputStyle }}
+                size="large"
+                format="DD/MM/YYYY"
+              />
+            </Form.Item>
+          </div>
+
+          <InfoCard title="📅 Validity Note">
+            Set an expiration date for this quotation. After this date, the quotation will be marked as expired.
+          </InfoCard>
+        </SectionCard>
+
+        <Card style={actionCardStyle}>
+          <div style={flexBetweenStyle}>
+            <Text style={{ color: '#666', fontSize: 14 }}>
+              All fields marked with <span style={{ color: '#ff4d4f' }}>*</span> are required
+            </Text>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <Button
+                onClick={() => navigate('/sales/quotations')}
+                size="large"
+                style={getSecondaryButtonStyle()}
+              >
+                Cancel
               </Button>
-              <Button onClick={() => navigate('/sales/quotations')}>Cancel</Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Card>
-    </div>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                size="large"
+                style={getPrimaryButtonStyle()}
+              >
+                {id ? 'Update' : 'Create'} Quotation
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </Form>
+    </PageContainer>
   )
 }
 
 export default QuotationForm
-

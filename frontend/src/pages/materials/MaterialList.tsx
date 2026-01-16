@@ -1,15 +1,29 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Card, Input, Select, Space, message, Modal, Tag } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons'
+import { Table, Button, Card, Input, Select, Space, message, Modal, Tag, Row, Col, Statistic, Typography } from 'antd'
+import {
+    PlusOutlined,
+    EditOutlined,
+    DeleteOutlined,
+    SearchOutlined,
+    InboxOutlined,
+    FilterOutlined,
+    CheckCircleOutlined,
+    CloseCircleOutlined,
+    AppstoreOutlined
+} from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
+import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
 
 const { Search } = Input
 const { Option } = Select
+const { Text } = Typography
 
 interface Material {
     id: number
-    code: string
+    material_code: string
     name: string
     category: string
     unit: string
@@ -43,7 +57,7 @@ const MaterialList = () => {
                 headers: { Authorization: `Bearer ${token}` },
                 params
             })
-            setMaterials(response.data.data || [])
+            setMaterials(response.data.materials || [])
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch materials')
         } finally {
@@ -54,10 +68,10 @@ const MaterialList = () => {
     const handleDelete = async (id: number) => {
         Modal.confirm({
             title: 'Delete Material',
-            content: 'Are you sure you want to delete this material?',
-            okText: 'Yes',
+            content: 'Are you sure you want to delete this material? This action cannot be undone.',
+            okText: 'Yes, Delete',
             okType: 'danger',
-            cancelText: 'No',
+            cancelText: 'Cancel',
             onOk: async () => {
                 try {
                     const token = localStorage.getItem('token')
@@ -73,13 +87,22 @@ const MaterialList = () => {
         })
     }
 
+    const getStats = () => {
+        const active = materials.filter(m => m.is_active).length
+        const categories = new Set(materials.map(m => m.category)).size
+        return { total: materials.length, active, inactive: materials.length - active, categories }
+    }
+
+    const stats = getStats()
+
     const columns = [
         {
             title: 'Code',
-            dataIndex: 'code',
-            key: 'code',
+            dataIndex: 'material_code',
+            key: 'material_code',
             width: 120,
             fixed: 'left' as const,
+            render: (code: string) => <Text copyable strong>{code}</Text>,
         },
         {
             title: 'Name',
@@ -92,6 +115,7 @@ const MaterialList = () => {
             dataIndex: 'category',
             key: 'category',
             width: 150,
+            render: (category: string) => <Tag color="blue">{category}</Tag>,
         },
         {
             title: 'Unit',
@@ -104,13 +128,14 @@ const MaterialList = () => {
             dataIndex: 'hsn_code',
             key: 'hsn_code',
             width: 120,
+            render: (code: string) => code || '-',
         },
         {
             title: 'GST Rate',
             dataIndex: 'gst_rate',
             key: 'gst_rate',
             width: 100,
-            render: (rate: number) => rate ? `${rate}%` : '-',
+            render: (rate: number) => rate ? <Tag color="green">{rate}%</Tag> : '-',
         },
         {
             title: 'Status',
@@ -118,7 +143,11 @@ const MaterialList = () => {
             key: 'is_active',
             width: 100,
             render: (isActive: boolean) => (
-                <Tag color={isActive ? 'green' : 'red'}>
+                <Tag
+                    icon={isActive ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+                    color={isActive ? 'success' : 'error'}
+                    style={{ fontWeight: 500 }}
+                >
                     {isActive ? 'Active' : 'Inactive'}
                 </Tag>
             ),
@@ -140,7 +169,8 @@ const MaterialList = () => {
                     <Button
                         type="link"
                         icon={<EditOutlined />}
-                        onClick={() => navigate(`/masters/materials/${record.id}/edit`)}
+                        onClick={() => navigate(`/master/materials/${record.id}`)}
+                        style={{ padding: 0 }}
                     >
                         Edit
                     </Button>
@@ -149,6 +179,7 @@ const MaterialList = () => {
                         danger
                         icon={<DeleteOutlined />}
                         onClick={() => handleDelete(record.id)}
+                        style={{ padding: 0 }}
                     >
                         Delete
                     </Button>
@@ -160,44 +191,138 @@ const MaterialList = () => {
     const categories = ['Cement', 'Steel', 'Sand', 'Aggregate', 'Bricks', 'Paint', 'Electrical', 'Plumbing', 'Hardware', 'Other']
 
     return (
-        <div>
-            <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2>Materials Master</h2>
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => navigate('/masters/materials/create')}
-                >
-                    Add Material
-                </Button>
-            </div>
+        <PageContainer>
+            <PageHeader
+                title="Materials Master"
+                subtitle="Manage construction materials and inventory items"
+                icon={<InboxOutlined />}
+            />
 
-            <Card>
-                <Space style={{ marginBottom: 16, width: '100%' }} direction="vertical">
+            {/* Statistics Cards */}
+            <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+                <Col xs={24} sm={12} md={6}>
+                    <Card
+                        hoverable
+                        style={{
+                            borderRadius: theme.borderRadius.md,
+                            boxShadow: theme.shadows.base,
+                            border: `1px solid ${theme.colors.neutral.gray100}`,
+                        }}
+                    >
+                        <Statistic
+                            title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Total Materials</Text>}
+                            value={stats.total}
+                            prefix={<InboxOutlined style={{ color: theme.colors.primary.main }} />}
+                            valueStyle={{ color: theme.colors.primary.main, fontWeight: 600 }}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                    <Card
+                        hoverable
+                        style={{
+                            borderRadius: theme.borderRadius.md,
+                            boxShadow: theme.shadows.base,
+                            border: `1px solid ${theme.colors.neutral.gray100}`,
+                        }}
+                    >
+                        <Statistic
+                            title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Active</Text>}
+                            value={stats.active}
+                            prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+                            valueStyle={{ color: '#52c41a', fontWeight: 600 }}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                    <Card
+                        hoverable
+                        style={{
+                            borderRadius: theme.borderRadius.md,
+                            boxShadow: theme.shadows.base,
+                            border: `1px solid ${theme.colors.neutral.gray100}`,
+                        }}
+                    >
+                        <Statistic
+                            title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Inactive</Text>}
+                            value={stats.inactive}
+                            prefix={<CloseCircleOutlined style={{ color: '#ff4d4f' }} />}
+                            valueStyle={{ color: '#ff4d4f', fontWeight: 600 }}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                    <Card
+                        hoverable
+                        style={{
+                            borderRadius: theme.borderRadius.md,
+                            boxShadow: theme.shadows.base,
+                            border: `1px solid ${theme.colors.neutral.gray100}`,
+                        }}
+                    >
+                        <Statistic
+                            title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Categories</Text>}
+                            value={stats.categories}
+                            prefix={<AppstoreOutlined style={{ color: '#1890ff' }} />}
+                            valueStyle={{ color: '#1890ff', fontWeight: 600 }}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+
+            {/* Filters and Actions */}
+            <Card
+                style={{
+                    marginBottom: theme.spacing.lg,
+                    borderRadius: theme.borderRadius.md,
+                    boxShadow: theme.shadows.base,
+                    border: `1px solid ${theme.colors.neutral.gray100}`,
+                }}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
                     <Space wrap>
                         <Search
                             placeholder="Search by name or code"
                             allowClear
-                            enterButton={<SearchOutlined />}
                             style={{ width: 300 }}
+                            prefix={<SearchOutlined style={prefixIconStyle} />}
+                            size="large"
                             onSearch={setSearchText}
                         />
-
                         <Select
                             placeholder="Filter by Category"
-                            style={{ width: 200 }}
+                            style={{ width: 200, ...largeInputStyle }}
+                            size="large"
                             allowClear
+                            suffixIcon={<FilterOutlined style={prefixIconStyle} />}
                             onChange={(value) => setCategoryFilter(value || '')}
                         >
                             {categories.map(cat => (
                                 <Option key={cat} value={cat}>{cat}</Option>
                             ))}
                         </Select>
-
-                        <Button onClick={fetchMaterials}>Refresh</Button>
+                        <Button onClick={fetchMaterials} size="large">Refresh</Button>
                     </Space>
-                </Space>
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => navigate('/master/materials/new')}
+                        size="large"
+                        style={getPrimaryButtonStyle(150)}
+                    >
+                        Add Material
+                    </Button>
+                </div>
+            </Card>
 
+            {/* Materials Table */}
+            <Card
+                style={{
+                    borderRadius: theme.borderRadius.md,
+                    boxShadow: theme.shadows.base,
+                    border: `1px solid ${theme.colors.neutral.gray100}`,
+                }}
+            >
                 <Table
                     columns={columns}
                     dataSource={materials}
@@ -211,7 +336,7 @@ const MaterialList = () => {
                     }}
                 />
             </Card>
-        </div>
+        </PageContainer>
     )
 }
 

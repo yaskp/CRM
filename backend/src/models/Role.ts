@@ -9,7 +9,7 @@ interface RoleAttributes {
   created_at?: Date
 }
 
-interface RoleCreationAttributes extends Optional<RoleAttributes, 'id' | 'created_at'> {}
+interface RoleCreationAttributes extends Optional<RoleAttributes, 'id' | 'created_at'> { }
 
 class Role extends Model<RoleAttributes, RoleCreationAttributes> implements RoleAttributes {
   public id!: number
@@ -17,6 +17,10 @@ class Role extends Model<RoleAttributes, RoleCreationAttributes> implements Role
   public description?: string
   public is_system_role!: boolean
   public readonly created_at!: Date
+
+  // Association mixins
+  public setPermissions!: (permissions: any[]) => Promise<void>
+  public getPermissions!: () => Promise<any[]>
 }
 
 Role.init(

@@ -6,14 +6,17 @@ import { Op } from 'sequelize'
 
 export const createMaterial = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { material_code, name, category, unit, hsn_code, gst_rate } = req.body
+    const { code, material_code, name, category, unit, hsn_code, gst_rate } = req.body
 
-    if (!material_code || !name || !unit) {
+    // Allow 'code' alias for 'material_code'
+    const finalMaterialCode = material_code || code
+
+    if (!finalMaterialCode || !name || !unit) {
       throw createError('Material code, name, and unit are required', 400)
     }
 
     const material = await Material.create({
-      material_code,
+      material_code: finalMaterialCode,
       name,
       category,
       unit,

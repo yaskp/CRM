@@ -1,393 +1,364 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Button, Card, message, Row, Col, Switch, Modal } from 'antd'
-import { ExclamationCircleOutlined, PlusOutlined } from '@ant-design/icons'
+import { Form, Input, Select, Button, Card, message, Switch, Typography, Modal } from 'antd'
+import { ShopOutlined, UserOutlined, PhoneOutlined, MailOutlined, EnvironmentOutlined, BankOutlined, SafetyOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { vendorService } from '../../services/api/vendors'
-import { validatePhone, validateGST, validatePAN, validationMessages } from '../../utils/validation'
-import axios from 'axios'
+import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
+import { largeInputStyle, getLabelStyle, getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle, actionCardStyle, prefixIconStyle, twoColumnGridStyle } from '../../styles/styleUtils'
 
 const { Option } = Select
 const { TextArea } = Input
-const { confirm } = Modal
-
-interface VendorType {
-    id: number
-    name: string
-    code: string
-}
+const { Text } = Typography
 
 const VendorForm = () => {
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
-    const [hasGST, setHasGST] = useState(true)
-    const [vendorTypes, setVendorTypes] = useState<VendorType[]>([])
-    const [showAddTypeModal, setShowAddTypeModal] = useState(false)
-    const [newTypeName, setNewTypeName] = useState('')
-    const [addingType, setAddingType] = useState(false)
+    const [gstApplicable, setGstApplicable] = useState(false)
     const navigate = useNavigate()
     const { id } = useParams()
     const isEdit = !!id
 
     useEffect(() => {
-        fetchVendorTypes()
         if (isEdit) {
             fetchVendor()
         }
-    }, [id, isEdit])
-
-    const fetchVendorTypes = async () => {
-        try {
-            const token = localStorage.getItem('token')
-            const response = await axios.get('http://localhost:5000/api/vendor-types', {
-                headers: { Authorization: `Bearer ${token}` }
-            })
-            setVendorTypes(response.data.data || [])
-        } catch (error) {
-            console.error('Failed to fetch vendor types:', error)
-        }
-    }
+    }, [id])
 
     const fetchVendor = async () => {
         try {
             const response = await vendorService.getVendorById(Number(id))
-            const vendorData = response.data
+            const vendorData = response.vendor
             form.setFieldsValue(vendorData)
-            setHasGST(!!vendorData.gst_number)
+            setGstApplicable(!!vendorData.gst_number)
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch vendor')
         }
     }
 
-    const handleAddVendorType = async () => {
-        if (!newTypeName.trim()) {
-            message.error('Please enter vendor type name')
-            return
-        }
-
-        setAddingType(true)
-        try {
-            const token = localStorage.getItem('token')
-            const code = newTypeName.toUpperCase().replace(/\s+/g, '_')
-
-            await axios.post(
-                'http://localhost:5000/api/vendor-types',
-                {
-                    name: newTypeName,
-                    code: code,
-                    description: `${newTypeName} vendor type`
-                },
-                {
-                    headers: { Authorization: `Bearer ${token}` }
-                }
-            )
-
-            message.success('Vendor type added successfully')
-            setShowAddTypeModal(false)
-            setNewTypeName('')
-            fetchVendorTypes()
-        } catch (error: any) {
-            message.error(error.response?.data?.message || 'Failed to add vendor type')
-        } finally {
-            setAddingType(false)
-        }
-    }
-
-    const handleGSTToggle = (checked: boolean) => {
-        if (!checked) {
-            form.setFieldsValue({ gst_number: undefined })
-        }
-        setHasGST(checked)
-    }
-
     const onFinish = async (values: any) => {
-        if (!hasGST && !values.gst_number) {
-            confirm({
-                title: 'Vendor without GST',
-                icon: <ExclamationCircleOutlined />,
-                content: 'You are creating/updating a vendor without GST number. This vendor will not be able to provide GST invoices. Do you want to continue?',
-                okText: 'Yes, Continue',
-                cancelText: 'No, Add GST',
-                onOk: () => submitVendor(values),
-                onCancel: () => {
-                    setHasGST(true)
-                },
-            })
-        } else {
-            submitVendor(values)
-        }
+        Modal.confirm({
+            title: isEdit ? 'Confirm Update' : 'Confirm Creation',
+            content: `Are you sure you want to ${isEdit ? 'update' : 'create'} this vendor?`,
+            okText: 'Yes, Proceed',
+            cancelText: 'Cancel',
+            onOk: async () => {
+                setLoading(true)
+                try {
+                    const payload = {
+                        ...values,
+                        gst_number: gstApplicable ? values.gst_number : null
+                    }
+
+                    if (isEdit) {
+                        await vendorService.updateVendor(Number(id), payload)
+                        message.success('Vendor updated successfully')
+                    } else {
+                        await vendorService.createVendor(payload)
+                        message.success('Vendor created successfully')
+                    }
+                    navigate('/master/vendors')
+                } catch (error: any) {
+                    message.error(error.response?.data?.message || 'Failed to save vendor')
+                } finally {
+                    setLoading(false)
+                }
+            }
+        })
     }
 
-    const submitVendor = async (values: any) => {
-        setLoading(true)
-        try {
-            const formattedValues = {
-                ...values,
-                gst_number: values.gst_number?.toUpperCase() || null,
-                pan_number: values.pan_number?.toUpperCase() || null,
-            }
-
-            if (isEdit) {
-                await vendorService.updateVendor(Number(id), formattedValues)
-                message.success('Vendor updated successfully')
-            } else {
-                await vendorService.createVendor(formattedValues)
-                message.success('Vendor created successfully')
-            }
-            navigate('/masters/vendors')
-        } catch (error: any) {
-            message.error(error.response?.data?.message || 'Failed to save vendor')
-        } finally {
-            setLoading(false)
-        }
-    }
+    const vendorTypes = [
+        { value: 'steel_contractor', label: '🔩 Steel Contractor' },
+        { value: 'concrete_contractor', label: '🏗️ Concrete Contractor' },
+        { value: 'rig_vendor', label: '⚙️ Rig Vendor' },
+        { value: 'crane_vendor', label: '🏗️ Crane Vendor' },
+        { value: 'jcb_vendor', label: '🚜 JCB Vendor' },
+        { value: 'other', label: '📦 Other' },
+    ]
 
     return (
-        <div>
-            <h2>{isEdit ? 'Edit Vendor' : 'Create Vendor'}</h2>
-            <Card>
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={onFinish}
-                    initialValues={{ is_active: true }}
-                >
-                    <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="Vendor Name"
-                                name="name"
-                                rules={[
-                                    { required: true, message: 'Please enter vendor name' },
-                                    { min: 3, message: 'Name must be at least 3 characters' },
-                                    { max: 200, message: 'Name cannot exceed 200 characters' },
-                                ]}
+        <PageContainer maxWidth={1200}>
+            <PageHeader
+                title={isEdit ? 'Edit Vendor' : 'Add New Vendor'}
+                subtitle={isEdit ? 'Update vendor information' : 'Register a new vendor or contractor'}
+                icon={<ShopOutlined />}
+            />
+
+            <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ is_active: true }}>
+                <div style={twoColumnGridStyle}>
+                    <SectionCard title="Basic Information" icon={<ShopOutlined />}>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Vendor Name</span>}
+                            name="name"
+                            rules={[{ required: true, message: 'Please enter vendor name' }]}
+                        >
+                            <Input
+                                prefix={<ShopOutlined style={prefixIconStyle} />}
+                                placeholder="Enter vendor/company name"
+                                size="large"
+                                style={largeInputStyle}
+                            />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Vendor Type</span>}
+                            name="vendor_type"
+                            rules={[{ required: true, message: 'Please select vendor type' }]}
+                        >
+                            <Select
+                                placeholder="Select vendor type"
+                                size="large"
+                                style={largeInputStyle}
                             >
-                                <Input placeholder="Enter vendor name" />
-                            </Form.Item>
-                        </Col>
+                                {vendorTypes.map(type => (
+                                    <Option key={type.value} value={type.value}>{type.label}</Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
 
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="Vendor Type"
-                                name="vendor_type"
-                                rules={[{ required: true, message: 'Please select vendor type' }]}
-                            >
-                                <Select
-                                    placeholder="Select vendor type"
-                                    dropdownRender={(menu) => (
-                                        <>
-                                            {menu}
-                                            <div style={{ padding: '8px', borderTop: '1px solid #f0f0f0' }}>
-                                                <Button
-                                                    type="link"
-                                                    icon={<PlusOutlined />}
-                                                    onClick={() => setShowAddTypeModal(true)}
-                                                    style={{ width: '100%', textAlign: 'left' }}
-                                                >
-                                                    Add New Vendor Type
-                                                </Button>
-                                            </div>
-                                        </>
-                                    )}
-                                >
-                                    {vendorTypes.map((type) => (
-                                        <Option key={type.id} value={type.code}>
-                                            {type.name}
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Status</span>}
+                            name="is_active"
+                            valuePropName="checked"
+                        >
+                            <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+                        </Form.Item>
 
-                    <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="Contact Person"
-                                name="contact_person"
-                                rules={[
-                                    { max: 100, message: 'Name cannot exceed 100 characters' },
-                                    { pattern: /^[a-zA-Z\s.]+$/, message: 'Only letters, spaces, and dots allowed' },
-                                ]}
-                            >
-                                <Input placeholder="Enter contact person name" />
-                            </Form.Item>
-                        </Col>
+                        <InfoCard title="💡 Vendor Type">
+                            Select the primary service or material this vendor provides.
+                        </InfoCard>
+                    </SectionCard>
 
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="Phone"
-                                name="phone"
-                                rules={[
-                                    {
-                                        validator: (_, value) => {
-                                            if (!value) return Promise.resolve()
-                                            if (validatePhone(value)) {
-                                                return Promise.resolve()
-                                            }
-                                            return Promise.reject(new Error(validationMessages.phone))
-                                        },
-                                    },
-                                ]}
-                            >
-                                <Input
-                                    placeholder="Enter 10-digit mobile number"
-                                    maxLength={10}
-                                    onKeyPress={(e) => {
-                                        if (!/[0-9]/.test(e.key)) {
-                                            e.preventDefault()
-                                        }
-                                    }}
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                    <SectionCard title="Contact Information" icon={<UserOutlined />}>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Contact Person</span>}
+                            name="contact_person"
+                        >
+                            <Input
+                                prefix={<UserOutlined style={prefixIconStyle} />}
+                                placeholder="Enter contact person name"
+                                size="large"
+                                style={largeInputStyle}
+                            />
+                        </Form.Item>
 
-                    <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="Email"
-                                name="email"
-                                rules={[
-                                    { type: 'email', message: validationMessages.email },
-                                    { max: 100, message: 'Email cannot exceed 100 characters' },
-                                ]}
-                            >
-                                <Input placeholder="Enter email address" />
-                            </Form.Item>
-                        </Col>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Phone Number</span>}
+                            name="phone"
+                            rules={[
+                                { pattern: /^[0-9]{10}$/, message: 'Please enter valid 10-digit phone number' }
+                            ]}
+                        >
+                            <Input
+                                prefix={<PhoneOutlined style={prefixIconStyle} />}
+                                placeholder="Enter 10-digit phone number"
+                                size="large"
+                                style={largeInputStyle}
+                                maxLength={10}
+                            />
+                        </Form.Item>
 
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="Status"
-                                name="is_active"
-                            >
-                                <Select>
-                                    <Option value={true}>Active</Option>
-                                    <Option value={false}>Inactive</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Email</span>}
+                            name="email"
+                            rules={[{ type: 'email', message: 'Please enter valid email' }]}
+                        >
+                            <Input
+                                prefix={<MailOutlined style={prefixIconStyle} />}
+                                placeholder="Enter email address"
+                                size="large"
+                                style={largeInputStyle}
+                            />
+                        </Form.Item>
+                    </SectionCard>
+                </div>
 
-                    <Row gutter={16} align="bottom">
-                        <Col xs={24} md={6}>
-                            <Form.Item label="Vendor has GST">
-                                <Switch
-                                    checked={hasGST}
-                                    onChange={handleGSTToggle}
-                                    checkedChildren="Yes"
-                                    unCheckedChildren="No"
-                                />
-                            </Form.Item>
-                        </Col>
-
-                        {hasGST && (
-                            <Col xs={24} md={9}>
-                                <Form.Item
-                                    label="GST Number"
-                                    name="gst_number"
-                                    rules={[
-                                        { required: hasGST, message: 'Please enter GST number or toggle off GST' },
-                                        {
-                                            validator: (_, value) => {
-                                                if (!value) return Promise.resolve()
-                                                if (validateGST(value)) {
-                                                    return Promise.resolve()
-                                                }
-                                                return Promise.reject(new Error(validationMessages.gst))
-                                            },
-                                        },
-                                    ]}
-                                >
-                                    <Input
-                                        placeholder="e.g., 22AAAAA0000A1Z5"
-                                        maxLength={15}
-                                        style={{ textTransform: 'uppercase' }}
-                                    />
-                                </Form.Item>
-                            </Col>
-                        )}
-
-                        <Col xs={24} md={9}>
-                            <Form.Item
-                                label="PAN Number"
-                                name="pan_number"
-                                rules={[
-                                    {
-                                        validator: (_, value) => {
-                                            if (!value) return Promise.resolve()
-                                            if (validatePAN(value)) {
-                                                return Promise.resolve()
-                                            }
-                                            return Promise.reject(new Error(validationMessages.pan))
-                                        },
-                                    },
-                                ]}
-                            >
-                                <Input
-                                    placeholder="e.g., ABCDE1234F"
-                                    maxLength={10}
-                                    style={{ textTransform: 'uppercase' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
+                <SectionCard title="Address Details" icon={<EnvironmentOutlined />}>
                     <Form.Item
-                        label="Address"
+                        label={<span style={getLabelStyle()}>Address</span>}
                         name="address"
-                        rules={[
-                            { max: 500, message: 'Address cannot exceed 500 characters' },
-                        ]}
-                    >
-                        <TextArea rows={3} placeholder="Enter complete address" />
-                    </Form.Item>
-
-                    <Form.Item
-                        label="Bank Details"
-                        name="bank_details"
-                        tooltip="Include Bank Name, Account Number, IFSC Code, Branch"
-                        rules={[
-                            { max: 500, message: 'Bank details cannot exceed 500 characters' },
-                        ]}
                     >
                         <TextArea
                             rows={3}
-                            placeholder="Bank Name: &#10;Account Number: &#10;IFSC Code: &#10;Branch: "
+                            placeholder="Enter complete address"
+                            style={largeInputStyle}
                         />
                     </Form.Item>
 
-                    <Form.Item>
-                        <Button type="primary" htmlType="submit" loading={loading} style={{ marginRight: '8px' }}>
-                            {isEdit ? 'Update' : 'Create'}
-                        </Button>
-                        <Button onClick={() => navigate('/masters/vendors')}>
-                            Cancel
-                        </Button>
-                    </Form.Item>
-                </Form>
-            </Card>
+                    <div style={twoColumnGridStyle}>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>City</span>}
+                            name="city"
+                        >
+                            <Input
+                                placeholder="Enter city"
+                                size="large"
+                                style={largeInputStyle}
+                            />
+                        </Form.Item>
 
-            {/* Add Vendor Type Modal */}
-            <Modal
-                title="Add New Vendor Type"
-                open={showAddTypeModal}
-                onOk={handleAddVendorType}
-                onCancel={() => {
-                    setShowAddTypeModal(false)
-                    setNewTypeName('')
-                }}
-                confirmLoading={addingType}
-            >
-                <Input
-                    placeholder="Enter vendor type name (e.g., Plumbing Contractor)"
-                    value={newTypeName}
-                    onChange={(e) => setNewTypeName(e.target.value)}
-                    onPressEnter={handleAddVendorType}
-                />
-            </Modal>
-        </div>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>State</span>}
+                            name="state"
+                        >
+                            <Input
+                                placeholder="Enter state"
+                                size="large"
+                                style={largeInputStyle}
+                            />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>PIN Code</span>}
+                            name="pincode"
+                            rules={[
+                                { pattern: /^[0-9]{6}$/, message: 'Please enter valid 6-digit PIN code' }
+                            ]}
+                        >
+                            <Input
+                                placeholder="Enter 6-digit PIN code"
+                                size="large"
+                                style={largeInputStyle}
+                                maxLength={6}
+                            />
+                        </Form.Item>
+                    </div>
+                </SectionCard>
+
+                <SectionCard title="Tax & Compliance" icon={<BankOutlined />}>
+                    <div style={twoColumnGridStyle}>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>GST Registered?</span>}
+                        >
+                            <Switch
+                                checked={gstApplicable}
+                                onChange={setGstApplicable}
+                                checkedChildren="Yes"
+                                unCheckedChildren="No"
+                            />
+                        </Form.Item>
+
+                        {gstApplicable && (
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>GST Number</span>}
+                                name="gst_number"
+                                rules={[
+                                    { required: true, message: 'GST Number is required' },
+                                    { pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, message: 'Invalid GST format' }
+                                ]}
+                            >
+                                <Input
+                                    prefix={<SafetyOutlined style={prefixIconStyle} />}
+                                    placeholder="e.g., 27AAAAA0000A1Z5"
+                                    size="large"
+                                    style={{ textTransform: 'uppercase', ...largeInputStyle }}
+                                    maxLength={15}
+                                />
+                            </Form.Item>
+                        )}
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>PAN Number</span>}
+                            name="pan_number"
+                            rules={[
+                                { pattern: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, message: 'Invalid PAN format' }
+                            ]}
+                        >
+                            <Input
+                                prefix={<BankOutlined style={prefixIconStyle} />}
+                                placeholder="e.g., AAAAA0000A"
+                                size="large"
+                                style={{ textTransform: 'uppercase', ...largeInputStyle }}
+                                maxLength={10}
+                            />
+                        </Form.Item>
+                    </div>
+
+                    <InfoCard title="📋 Tax Information">
+                        GST format: 2 digits + 5 letters + 4 digits + 1 letter + 1 digit/letter + Z + 1 digit/letter (15 chars)
+                        <br />
+                        PAN format: 5 letters + 4 digits + 1 letter (10 chars)
+                    </InfoCard>
+                </SectionCard>
+
+                <SectionCard title="Banking Details" icon={<BankOutlined />}>
+                    <div style={twoColumnGridStyle}>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Bank Name</span>}
+                            name="bank_name"
+                        >
+                            <Input
+                                placeholder="Enter bank name"
+                                size="large"
+                                style={largeInputStyle}
+                            />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Account Number</span>}
+                            name="account_number"
+                        >
+                            <Input
+                                placeholder="Enter account number"
+                                size="large"
+                                style={largeInputStyle}
+                            />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>IFSC Code</span>}
+                            name="ifsc_code"
+                            rules={[
+                                { pattern: /^[A-Z]{4}0[A-Z0-9]{6}$/, message: 'Invalid IFSC format' }
+                            ]}
+                        >
+                            <Input
+                                placeholder="e.g., SBIN0001234"
+                                size="large"
+                                style={{ textTransform: 'uppercase', ...largeInputStyle }}
+                                maxLength={11}
+                            />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Branch</span>}
+                            name="branch"
+                        >
+                            <Input
+                                placeholder="Enter branch name"
+                                size="large"
+                                style={largeInputStyle}
+                            />
+                        </Form.Item>
+                    </div>
+                </SectionCard>
+
+                <Card style={actionCardStyle}>
+                    <div style={flexBetweenStyle}>
+                        <Text style={{ color: '#666', fontSize: 14 }}>
+                            All fields marked with <span style={{ color: '#ff4d4f' }}>*</span> are required
+                        </Text>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <Button
+                                onClick={() => navigate('/master/vendors')}
+                                size="large"
+                                style={getSecondaryButtonStyle()}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={loading}
+                                size="large"
+                                style={getPrimaryButtonStyle()}
+                            >
+                                {isEdit ? 'Update' : 'Create'} Vendor
+                            </Button>
+                        </div>
+                    </div>
+                </Card>
+            </Form>
+        </PageContainer>
     )
 }
 

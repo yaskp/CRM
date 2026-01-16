@@ -10,20 +10,22 @@
   justify-content: center;
   color: white;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  /* Premium dark gradient */
+  background: linear-gradient(180deg, #111827 0%, #1f2937 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .app-header {
-  background: #001529;
+  background: #ffffff !important;
   padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
   position: sticky;
   top: 0;
   z-index: 100;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .app-content {
@@ -31,8 +33,31 @@
   padding: 24px;
   background: #fff;
   min-height: calc(100vh - 112px);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  /* Soft shadow */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+}
+
+/* Sidebar override for cleaner look */
+.ant-layout-sider {
+  background: #111827 !important;
+}
+
+.ant-menu-dark {
+  background: #111827 !important;
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: #374151 !important;
+  border-radius: 6px;
+  margin: 0 8px;
+  width: calc(100% - 16px);
+}
+
+.ant-menu-dark .ant-menu-sub {
+  background: #1f2937 !important;
 }
 
 @media (max-width: 768px) {
@@ -40,15 +65,15 @@
     margin: 16px;
     padding: 16px;
   }
-  
+
   .logo {
     padding: 8px;
   }
-  
+
   .logo div:first-child {
     font-size: 16px;
   }
-  
+
   .logo div:last-child {
     font-size: 10px;
   }

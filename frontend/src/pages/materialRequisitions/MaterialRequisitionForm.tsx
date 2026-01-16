@@ -1,15 +1,39 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Button, Card, DatePicker, Table, InputNumber, message, Space, Modal } from 'antd'
-import { PlusOutlined, DeleteOutlined } from '@ant-design/icons'
+import { Form, Input, Select, Button, Card, DatePicker, Table, InputNumber, message, Space, Modal, Row, Col, Typography, Tag } from 'antd'
+import {
+    PlusOutlined,
+    DeleteOutlined,
+    ContainerOutlined,
+    ProjectOutlined,
+    HomeOutlined,
+    CalendarOutlined,
+    InfoCircleOutlined,
+    InboxOutlined,
+    DollarOutlined,
+    FileTextOutlined
+} from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { materialRequisitionService, MaterialRequisitionItem } from '../../services/api/materialRequisitions'
 import { materialService } from '../../services/api/materials'
 import { projectService } from '../../services/api/projects'
 import { warehouseService } from '../../services/api/warehouses'
 import dayjs from 'dayjs'
+import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
+import {
+    getPrimaryButtonStyle,
+    getSecondaryButtonStyle,
+    largeInputStyle,
+    getLabelStyle,
+    flexBetweenStyle,
+    actionCardStyle,
+    prefixIconStyle,
+    twoColumnGridStyle
+} from '../../styles/styleUtils'
+import { theme } from '../../styles/theme'
 
 const { Option } = Select
 const { TextArea } = Input
+const { Text, Title } = Typography
 
 interface Material {
     id: number
@@ -22,6 +46,13 @@ interface Material {
 interface Project {
     id: number
     name: string
+    code?: string
+    project_code?: string
+}
+
+interface Warehouse {
+    id: number
+    name: string
     code: string
 }
 
@@ -30,6 +61,7 @@ const MaterialRequisitionForm = () => {
     const [loading, setLoading] = useState(false)
     const [materials, setMaterials] = useState<Material[]>([])
     const [projects, setProjects] = useState<Project[]>([])
+    const [warehouses, setWarehouses] = useState<Warehouse[]>([])
     const [items, setItems] = useState<MaterialRequisitionItem[]>([])
     const [showAddItem, setShowAddItem] = useState(false)
     const navigate = useNavigate()
@@ -39,6 +71,7 @@ const MaterialRequisitionForm = () => {
     useEffect(() => {
         fetchMaterials()
         fetchProjects()
+        fetchWarehouses()
         if (isEdit) {
             fetchRequisition()
         }
@@ -62,6 +95,15 @@ const MaterialRequisitionForm = () => {
         }
     }
 
+    const fetchWarehouses = async () => {
+        try {
+            const response = await warehouseService.getWarehouses()
+            setWarehouses(response.warehouses || [])
+        } catch (error) {
+            console.error('Failed to fetch warehouses:', error)
+        }
+    }
+
     const fetchRequisition = async () => {
         try {
             const response = await materialRequisitionService.getRequisitionById(Number(id))
@@ -69,6 +111,7 @@ const MaterialRequisitionForm = () => {
 
             form.setFieldsValue({
                 project_id: requisition.project_id,
+                from_warehouse_id: requisition.from_warehouse_id,
                 required_date: dayjs(requisition.required_date),
                 priority: requisition.priority,
                 purpose: requisition.purpose,
@@ -98,6 +141,7 @@ const MaterialRequisitionForm = () => {
 
         setItems([...items, newItem])
         setShowAddItem(false)
+        // Reset only item fields
         form.resetFields(['material_id', 'requested_quantity', 'estimated_rate', 'specification', 'item_remarks'])
     }
 
@@ -116,6 +160,7 @@ const MaterialRequisitionForm = () => {
         try {
             const data = {
                 project_id: values.project_id,
+                from_warehouse_id: values.from_warehouse_id,
                 required_date: values.required_date.format('YYYY-MM-DD'),
                 priority: values.priority,
                 purpose: values.purpose,
@@ -151,46 +196,40 @@ const MaterialRequisitionForm = () => {
             title: 'Material',
             dataIndex: ['material', 'name'],
             key: 'material',
-            width: 200,
+            render: (text: string) => <Text strong>{text}</Text>,
         },
         {
             title: 'Code',
             dataIndex: ['material', 'code'],
             key: 'code',
-            width: 100,
+            width: 120,
+            render: (code: string) => <Tag>{code}</Tag>,
         },
         {
             title: 'Quantity',
             dataIndex: 'requested_quantity',
             key: 'quantity',
-            width: 100,
-        },
-        {
-            title: 'Unit',
-            dataIndex: 'unit',
-            key: 'unit',
-            width: 80,
-        },
-        {
-            title: 'Est. Rate',
-            dataIndex: 'estimated_rate',
-            key: 'rate',
-            width: 100,
-            render: (rate: number) => rate ? `₹${rate.toFixed(2)}` : '-',
+            width: 150,
+            render: (qty: number, record: any) => <Text strong>{qty} {record.unit}</Text>,
         },
         {
             title: 'Est. Amount',
             dataIndex: 'estimated_amount',
             key: 'amount',
-            width: 120,
-            render: (amount: number) => amount ? `₹${amount.toFixed(2)}` : '-',
+            width: 150,
+            render: (amount: number) => amount ? (
+                <Text strong style={{ color: theme.colors.primary.main }}>₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+            ) : '-',
         },
         {
-            title: 'Specification',
-            dataIndex: 'specification',
-            key: 'specification',
-            width: 150,
-            ellipsis: true,
+            title: 'Spec/Remarks',
+            key: 'details',
+            render: (_: any, record: any) => (
+                <div style={{ fontSize: '12px', color: theme.colors.neutral.gray600 }}>
+                    {record.specification && <div>Spec: {record.specification}</div>}
+                    {record.remarks && <div>Note: {record.remarks}</div>}
+                </div>
+            ),
         },
         {
             title: 'Action',
@@ -202,120 +241,195 @@ const MaterialRequisitionForm = () => {
                     danger
                     icon={<DeleteOutlined />}
                     onClick={() => handleRemoveItem(index)}
+                    style={{ padding: 0 }}
                 />
             ),
         },
     ]
 
     return (
-        <div>
-            <h2>{isEdit ? 'Edit' : 'Create'} Material Requisition</h2>
+        <PageContainer maxWidth={1100}>
+            <PageHeader
+                title={isEdit ? 'Edit Material Requisition' : 'Create Material Requisition'}
+                subtitle={isEdit ? 'Modify the details of an existing requisition' : 'Raise a new request for construction materials for a specific project'}
+                icon={<ContainerOutlined />}
+            />
 
-            <Card>
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={onFinish}
-                    initialValues={{
-                        priority: 'medium',
-                        required_date: dayjs().add(7, 'days'),
-                    }}
-                >
-                    <Row gutter={16}>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="Project"
-                                name="project_id"
-                                rules={[{ required: true, message: 'Please select project' }]}
+            <Form
+                form={form}
+                layout="vertical"
+                onFinish={onFinish}
+                initialValues={{
+                    priority: 'medium',
+                    required_date: dayjs().add(7, 'days'),
+                }}
+            >
+                <div style={twoColumnGridStyle}>
+                    <SectionCard title="Basic Details" icon={<ProjectOutlined />}>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Project / Site</span>}
+                            name="project_id"
+                            rules={[{ required: true, message: 'Please select project' }]}
+                        >
+                            <Select
+                                placeholder="Select project"
+                                showSearch
+                                optionFilterProp="children"
+                                size="large"
+                                style={largeInputStyle}
                             >
-                                <Select placeholder="Select project" showSearch optionFilterProp="children">
-                                    {projects.map(project => (
-                                        <Option key={project.id} value={project.id}>
-                                            {project.name} ({project.project_code || project.code})
-                                        </Option>
-                                    ))}
-                                </Select>
-                            </Form.Item>
-                        </Col>
+                                {projects.map(project => (
+                                    <Option key={project.id} value={project.id}>
+                                        {project.name} ({project.project_code || project.code})
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
 
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="From Warehouse"
-                                name="from_warehouse_id"
-                                rules={[{ required: true, message: 'Please select warehouse' }]}
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>From Warehouse / Source</span>}
+                            name="from_warehouse_id"
+                            rules={[{ required: true, message: 'Please select warehouse' }]}
+                        >
+                            <Select
+                                placeholder="Select warehouse"
+                                showSearch
+                                optionFilterProp="children"
+                                size="large"
+                                style={largeInputStyle}
                             >
-                                <Select placeholder="Select warehouse" showSearch optionFilterProp="children">
-                                    {/* Warehouses will be loaded */}
-                                </Select>
-                            </Form.Item>
-                        </Col>
+                                {warehouses.map(warehouse => (
+                                    <Option key={warehouse.id} value={warehouse.id}>
+                                        {warehouse.name} ({warehouse.code})
+                                    </Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
 
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                label="Required Date"
-                                name="required_date"
-                            >
-                                <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                        <InfoCard title="💡 Selection Tip">
+                            Materials will be checked for availability in the selected source warehouse upon approval.
+                        </InfoCard>
+                    </SectionCard>
 
-                    <div style={{ marginTop: '24px', marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                            <h3>Material Items</h3>
+                    <SectionCard title="Planning & Priority" icon={<CalendarOutlined />}>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Required By Date</span>}
+                            name="required_date"
+                            rules={[{ required: true, message: 'Required date is needed' }]}
+                        >
+                            <DatePicker style={{ width: '100%', ...largeInputStyle }} format="DD-MMM-YYYY" size="large" />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Priority Level</span>}
+                            name="priority"
+                            rules={[{ required: true, message: 'Please select priority' }]}
+                        >
+                            <Select size="large" style={largeInputStyle}>
+                                <Option value="low">🔵 Low</Option>
+                                <Option value="medium">🟡 Medium</Option>
+                                <Option value="high">🟠 High</Option>
+                                <Option value="urgent">🔴 Urgent</Option>
+                            </Select>
+                        </Form.Item>
+
+                        <Form.Item label={<span style={getLabelStyle()}>Purpose / Remarks</span>} name="purpose">
+                            <TextArea rows={2} placeholder="Explain why these materials are needed..." style={largeInputStyle} />
+                        </Form.Item>
+                    </SectionCard>
+                </div>
+
+                <div style={{ marginTop: theme.spacing.lg }}>
+                    <SectionCard
+                        title="Requested Materials"
+                        icon={<InboxOutlined />}
+                        extra={
                             <Button
                                 type="primary"
                                 icon={<PlusOutlined />}
                                 onClick={() => setShowAddItem(true)}
+                                style={getPrimaryButtonStyle(180)}
                             >
                                 Add Material
                             </Button>
-                        </div>
-
+                        }
+                    >
                         <Table
                             columns={itemColumns}
                             dataSource={items}
                             rowKey={(record, index) => `item-${index}`}
                             pagination={false}
                             scroll={{ x: 900 }}
-                            locale={{ emptyText: 'No materials added yet' }}
-                        />
-                    </div>
+                            locale={{ emptyText: <div style={{ padding: '40px 0' }}><Text type="secondary">No materials added yet. Click 'Add Material' to start.</Text></div> }}
+                            bordered
+                            summary={pageData => {
+                                let total = 0;
+                                pageData.forEach(({ estimated_amount }) => {
+                                    if (estimated_amount) total += estimated_amount;
+                                });
 
-                    <Form.Item style={{ marginTop: '24px' }}>
-                        <Space>
-                            <Button type="primary" htmlType="submit" loading={loading}>
-                                {isEdit ? 'Update' : 'Create'} Requisition
-                            </Button>
-                            <Button onClick={() => navigate('/material-requisitions')}>
+                                return (
+                                    <Table.Summary.Row style={{ backgroundColor: theme.colors.neutral.gray50 }}>
+                                        <Table.Summary.Cell index={0} colSpan={3}><Text strong>Total Estimated Requisition Amount</Text></Table.Summary.Cell>
+                                        <Table.Summary.Cell index={1} colSpan={3}>
+                                            <Text strong style={{ fontSize: '16px', color: theme.colors.primary.main }}>₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+                                        </Table.Summary.Cell>
+                                    </Table.Summary.Row>
+                                );
+                            }}
+                        />
+                    </SectionCard>
+                </div>
+
+                <Card style={actionCardStyle}>
+                    <div style={flexBetweenStyle}>
+                        <Text style={{ color: theme.colors.neutral.gray600 }}>
+                            <InfoCircleOutlined style={{ marginRight: '8px' }} />
+                            Requisition will be sent to the store manager for approval.
+                        </Text>
+                        <Space size="middle">
+                            <Button
+                                onClick={() => navigate('/material-requisitions')}
+                                size="large"
+                                style={getSecondaryButtonStyle()}
+                            >
                                 Cancel
                             </Button>
+                            <Button
+                                type="primary"
+                                htmlType="submit"
+                                loading={loading}
+                                size="large"
+                                style={getPrimaryButtonStyle()}
+                            >
+                                {isEdit ? 'Update' : 'Send'} Requisition
+                            </Button>
                         </Space>
-                    </Form.Item>
-                </Form>
-            </Card>
+                    </div>
+                </Card>
+            </Form>
 
             {/* Add Material Modal */}
             <Modal
-                title="Add Material"
+                title={<Title level={4}><PlusOutlined style={{ marginRight: '8px', color: theme.colors.primary.main }} /> Add Material to Requisition</Title>}
                 open={showAddItem}
                 onCancel={() => setShowAddItem(false)}
                 footer={null}
-                width={600}
+                width={650}
+                centered
             >
-                <Form layout="vertical" onFinish={handleAddItem}>
+                <Form layout="vertical" onFinish={handleAddItem} style={{ marginTop: '16px' }}>
                     <Form.Item
-                        label="Material"
+                        label={<span style={getLabelStyle()}>Material / Product</span>}
                         name="material_id"
                         rules={[{ required: true, message: 'Please select material' }]}
                     >
                         <Select
-                            placeholder="Select material"
+                            placeholder="Search and select material"
                             showSearch
                             optionFilterProp="children"
-                            filterOption={(input, option: any) =>
-                                option.children.toLowerCase().includes(input.toLowerCase())
-                            }
+                            size="large"
+                            style={largeInputStyle}
                         >
                             {materials.map(material => (
                                 <Option key={material.id} value={material.id}>
@@ -325,9 +439,9 @@ const MaterialRequisitionForm = () => {
                         </Select>
                     </Form.Item>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={twoColumnGridStyle}>
                         <Form.Item
-                            label="Quantity"
+                            label={<span style={getLabelStyle()}>Quantity Required</span>}
                             name="requested_quantity"
                             rules={[
                                 { required: true, message: 'Please enter quantity' },
@@ -335,45 +449,43 @@ const MaterialRequisitionForm = () => {
                             ]}
                         >
                             <InputNumber
-                                style={{ width: '100%' }}
-                                placeholder="Enter quantity"
+                                style={{ width: '100%', ...largeInputStyle }}
+                                size="large"
+                                placeholder="0.00"
                                 min={0.01}
                                 step={0.01}
                             />
                         </Form.Item>
 
-                        <Form.Item label="Estimated Rate (₹)" name="estimated_rate">
+                        <Form.Item label={<span style={getLabelStyle()}>Est. Rate (₹)</span>} name="estimated_rate">
                             <InputNumber
-                                style={{ width: '100%' }}
-                                placeholder="Enter rate"
+                                style={{ width: '100%', ...largeInputStyle }}
+                                size="large"
+                                placeholder="Market rate"
                                 min={0}
                                 step={0.01}
-                                prefix="₹"
+                                prefix={<DollarOutlined style={prefixIconStyle} />}
                             />
                         </Form.Item>
                     </div>
 
-                    <Form.Item label="Specification" name="specification">
-                        <TextArea rows={2} placeholder="Material specifications (optional)" />
+                    <Form.Item label={<span style={getLabelStyle()}>Specification</span>} name="specification">
+                        <TextArea rows={2} placeholder="Dimensions, grade, or specific details..." style={largeInputStyle} />
                     </Form.Item>
 
-                    <Form.Item label="Remarks" name="item_remarks">
-                        <TextArea rows={2} placeholder="Item remarks (optional)" />
+                    <Form.Item label={<span style={getLabelStyle()}>Item Note</span>} name="item_remarks">
+                        <TextArea rows={2} placeholder="Any additional notes for this item..." style={largeInputStyle} />
                     </Form.Item>
 
-                    <Form.Item>
-                        <Space>
-                            <Button type="primary" htmlType="submit">
-                                Add Material
-                            </Button>
-                            <Button onClick={() => setShowAddItem(false)}>
-                                Cancel
-                            </Button>
-                        </Space>
-                    </Form.Item>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px', gap: '12px' }}>
+                        <Button onClick={() => setShowAddItem(false)} size="large">Cancel</Button>
+                        <Button type="primary" htmlType="submit" size="large" style={getPrimaryButtonStyle()}>
+                            Add to List
+                        </Button>
+                    </div>
                 </Form>
             </Modal>
-        </div>
+        </PageContainer>
     )
 }
 

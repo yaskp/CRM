@@ -1,23 +1,60 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, DatePicker, Select } from 'antd'
+import { Form, Input, Button, Card, message, DatePicker, Select, Typography } from 'antd'
+import {
+  ContactsOutlined,
+  PhoneOutlined,
+  MailOutlined,
+  FileTextOutlined,
+  ProjectOutlined,
+  UserOutlined,
+  BankOutlined
+} from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { leadService } from '../../services/api/leads'
+import { projectService } from '../../services/api/projects'
+import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
+import {
+  largeInputStyle,
+  getLabelStyle,
+  getPrimaryButtonStyle,
+  getSecondaryButtonStyle,
+  threeColumnGridStyle,
+  flexBetweenStyle,
+  actionCardStyle,
+  prefixIconStyle
+} from '../../styles/styleUtils'
 import dayjs from 'dayjs'
 
 const { TextArea } = Input
 const { Option } = Select
+const { Text } = Typography
+
+import { FileUpload } from '../../components/common/FileUpload'
 
 const LeadForm = () => {
+  // ... (keep component implementation same until the render part)
+
   const [loading, setLoading] = useState(false)
+  const [projects, setProjects] = useState<any[]>([])
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
   useEffect(() => {
+    fetchProjects()
     if (id) {
       fetchLead()
     }
   }, [id])
+
+  const fetchProjects = async () => {
+    try {
+      const response = await projectService.getProjects()
+      setProjects(response.projects || [])
+    } catch (error) {
+      console.error('Failed to fetch projects:', error)
+    }
+  }
 
   const fetchLead = async () => {
     try {
@@ -39,7 +76,7 @@ const LeadForm = () => {
         ...values,
         enquiry_date: values.enquiry_date ? values.enquiry_date.format('YYYY-MM-DD') : undefined,
       }
-      
+
       if (id) {
         await leadService.updateLead(Number(id), data)
         message.success('Lead updated successfully!')
@@ -56,87 +93,229 @@ const LeadForm = () => {
   }
 
   return (
-    <div className="content-container">
-      <Card title={id ? 'Edit Lead' : 'Create Lead'}>
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={onFinish}
-          autoComplete="off"
-        >
-          <Form.Item
-            label="Name"
-            name="name"
-            rules={[{ required: true, message: 'Please enter lead name!' }]}
-          >
-            <Input placeholder="Enter lead name" />
-          </Form.Item>
+    <PageContainer maxWidth={1400}>
+      <PageHeader
+        title={id ? 'Edit Lead' : 'Create New Lead'}
+        subtitle={id ? 'Update lead information and status' : 'Add a new sales lead to the system'}
+        icon={<ContactsOutlined />}
+        gradient="primary"
+      />
 
-          <Form.Item label="Company Name" name="company_name">
-            <Input placeholder="Enter company name" />
-          </Form.Item>
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={onFinish}
+        autoComplete="off"
+      >
+        <div style={threeColumnGridStyle}>
+          {/* Column 1: Contact Information */}
+          <SectionCard title="Contact Information" icon={<UserOutlined />}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Name</span>}
+              name="name"
+              rules={[{ required: true, message: 'Please enter lead name!' }]}
+            >
+              <Input
+                prefix={<UserOutlined style={prefixIconStyle} />}
+                placeholder="Enter lead name"
+                size="large"
+                style={largeInputStyle}
+              />
+            </Form.Item>
 
-          <Form.Item label="Phone" name="phone">
-            <Input placeholder="Enter phone number" />
-          </Form.Item>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Company Name</span>}
+              name="company_name"
+            >
+              <Input
+                prefix={<BankOutlined style={prefixIconStyle} />}
+                placeholder="Enter company name"
+                size="large"
+                style={largeInputStyle}
+              />
+            </Form.Item>
 
-          <Form.Item
-            label="Email"
-            name="email"
-            rules={[{ type: 'email', message: 'Please enter a valid email!' }]}
-          >
-            <Input placeholder="Enter email address" />
-          </Form.Item>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Phone</span>}
+              name="phone"
+            >
+              <Input
+                prefix={<PhoneOutlined style={prefixIconStyle} />}
+                placeholder="Enter phone number"
+                size="large"
+                style={largeInputStyle}
+              />
+            </Form.Item>
 
-          <Form.Item label="Address" name="address">
-            <TextArea rows={3} placeholder="Enter address" />
-          </Form.Item>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Email</span>}
+              name="email"
+              rules={[{ type: 'email', message: 'Please enter a valid email!' }]}
+            >
+              <Input
+                prefix={<MailOutlined style={prefixIconStyle} />}
+                placeholder="user@example.com"
+                size="large"
+                style={largeInputStyle}
+              />
+            </Form.Item>
 
-          <Form.Item
-            label="Enquiry Date"
-            name="enquiry_date"
-            rules={[{ required: true, message: 'Please select enquiry date!' }]}
-          >
-            <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" />
-          </Form.Item>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Address</span>}
+              name="address"
+            >
+              <TextArea
+                rows={3}
+                placeholder="Enter address"
+                style={largeInputStyle}
+              />
+            </Form.Item>
+          </SectionCard>
 
-          <Form.Item label="Source" name="source">
-            <Select placeholder="Select source">
-              <Option value="website">Website</Option>
-              <Option value="referral">Referral</Option>
-              <Option value="cold_call">Cold Call</Option>
-              <Option value="email">Email</Option>
-              <Option value="other">Other</Option>
-            </Select>
-          </Form.Item>
+          {/* Column 2: Lead Details */}
+          <SectionCard title="Lead Details" icon={<ProjectOutlined />}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Project</span>}
+              name="project_id"
+              rules={[{ required: true, message: 'Please select a project!' }]}
+            >
+              <Select
+                placeholder="Select project"
+                showSearch
+                optionFilterProp="children"
+                size="large"
+                style={largeInputStyle}
+              >
+                {projects.map(project => (
+                  <Option key={project.id} value={project.id}>
+                    {project.name} ({project.project_code})
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
 
-          <Form.Item label="Status" name="status">
-            <Select placeholder="Select status" defaultValue="new">
-              <Option value="new">New</Option>
-              <Option value="contacted">Contacted</Option>
-              <Option value="qualified">Qualified</Option>
-              <Option value="converted">Converted</Option>
-              <Option value="lost">Lost</Option>
-            </Select>
-          </Form.Item>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Enquiry Date</span>}
+              name="enquiry_date"
+              rules={[{ required: true, message: 'Please select enquiry date!' }]}
+            >
+              <DatePicker
+                style={{ width: '100%', ...largeInputStyle }}
+                format="DD/MM/YYYY"
+                size="large"
+                placeholder="Select enquiry date"
+              />
+            </Form.Item>
 
-          <Form.Item label="Remarks" name="remarks">
-            <TextArea rows={4} placeholder="Enter remarks" />
-          </Form.Item>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Source</span>}
+              name="source"
+            >
+              <Select
+                placeholder="Select source"
+                size="large"
+                style={largeInputStyle}
+              >
+                <Option value="website">🌐 Website</Option>
+                <Option value="referral">👥 Referral</Option>
+                <Option value="cold_call">📞 Cold Call</Option>
+                <Option value="email">📧 Email</Option>
+                <Option value="other">📋 Other</Option>
+              </Select>
+            </Form.Item>
 
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                {id ? 'Update' : 'Create'}
+            <Form.Item
+              label={<span style={getLabelStyle()}>Soil Report</span>}
+              name="soil_report_url"
+            >
+              <FileUpload folder="leads/soil_reports" placeholder="Upload Soil Report" />
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Layout Plan</span>}
+              name="layout_url"
+            >
+              <FileUpload folder="leads/layouts" placeholder="Upload Layout Plan" />
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Section Drawing</span>}
+              name="section_url"
+            >
+              <FileUpload folder="leads/sections" placeholder="Upload Section Drawing" />
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Status</span>}
+              name="status"
+            >
+              <Select
+                placeholder="Select status"
+                defaultValue="new"
+                size="large"
+                style={largeInputStyle}
+              >
+                <Option value="new">🆕 New</Option>
+                <Option value="contacted">📞 Contacted</Option>
+                <Option value="qualified">✅ Qualified</Option>
+                <Option value="converted">🎉 Converted</Option>
+                <Option value="lost">❌ Lost</Option>
+              </Select>
+            </Form.Item>
+
+            <InfoCard title="💡 Quick Tip">
+              Update lead status regularly to track progress through the sales pipeline
+            </InfoCard>
+          </SectionCard>
+
+          {/* Column 3: Additional Information */}
+          <SectionCard title="Additional Information" icon={<FileTextOutlined />}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Remarks</span>}
+              name="remarks"
+            >
+              <TextArea
+                rows={10}
+                placeholder="Enter any additional notes or remarks about this lead..."
+                style={largeInputStyle}
+              />
+            </Form.Item>
+
+            <InfoCard title="📝 Note" gradient="subtle">
+              Use the remarks section to track important conversations, requirements, or follow-up actions
+            </InfoCard>
+          </SectionCard>
+        </div>
+
+        {/* Action Buttons */}
+        <Card style={actionCardStyle}>
+          <div style={flexBetweenStyle}>
+            <Text style={{ color: '#666', fontSize: 14 }}>
+              All fields marked with <span style={{ color: '#ff4d4f' }}>*</span> are required
+            </Text>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <Button
+                onClick={() => navigate('/sales/leads')}
+                size="large"
+                style={getSecondaryButtonStyle()}
+              >
+                Cancel
               </Button>
-              <Button onClick={() => navigate('/sales/leads')}>Cancel</Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Card>
-    </div>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={loading}
+                size="large"
+                style={getPrimaryButtonStyle()}
+              >
+                {id ? 'Update' : 'Create'} Lead
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </Form>
+    </PageContainer>
   )
 }
 
 export default LeadForm
-

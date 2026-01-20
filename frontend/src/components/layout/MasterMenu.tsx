@@ -4,11 +4,11 @@ import type { MenuProps } from 'antd'
 import {
   DashboardOutlined,
   DatabaseOutlined,
-  DollarOutlined,
+  WalletOutlined,
   ShoppingCartOutlined,
   ShoppingOutlined,
   ToolOutlined,
-  DollarCircleOutlined,
+  BankOutlined,
   FileTextOutlined,
   BarChartOutlined,
   SettingOutlined,
@@ -176,7 +176,7 @@ const MasterMenu = () => {
 
   const salesMenu: MenuItem | null = salesChildren.length > 0 ? {
     key: 'sales',
-    icon: <DollarOutlined />,
+    icon: <WalletOutlined />,
     label: 'Sales & CRM',
     children: salesChildren,
   } : null
@@ -190,10 +190,6 @@ const MasterMenu = () => {
     {
       key: '/procurement/purchase-orders',
       label: 'Purchase Orders',
-    },
-    {
-      key: '/procurement/vendors',
-      label: 'Vendor Management',
     },
   ])
 
@@ -245,10 +241,7 @@ const MasterMenu = () => {
       key: '/operations/bar-bending',
       label: 'Bar Bending Schedule',
     },
-    {
-      key: '/operations/equipment',
-      label: 'Equipment Master',
-    },
+
     {
       key: '/operations/equipment/rentals',
       label: 'Equipment Rentals',
@@ -276,7 +269,7 @@ const MasterMenu = () => {
 
   const financeMenu: MenuItem | null = financeChildren.length > 0 ? {
     key: 'finance',
-    icon: <DollarCircleOutlined />,
+    icon: <BankOutlined />,
     label: 'Finance',
     children: financeChildren,
   } : null

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, Row, Col, Statistic, Table, Tag, Space, Button, Typography } from 'antd'
 import {
   ProjectOutlined,
-  DollarOutlined,
+  WalletOutlined,
   DashboardOutlined,
   PlusOutlined,
   EyeOutlined,
@@ -242,7 +242,7 @@ const Dashboard = () => {
             <Statistic
               title={<Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>Total Expenses</Text>}
               value={stats.totalExpenses}
-              prefix={<DollarOutlined style={{ color: 'white' }} />}
+              prefix="₹"
               valueStyle={{ color: 'white', fontWeight: 600 }}
             />
           </Card>
@@ -308,7 +308,7 @@ const Dashboard = () => {
           <Card
             title={
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <DollarOutlined style={{ fontSize: 20, color: theme.colors.primary.main }} />
+                <WalletOutlined style={{ fontSize: 20, color: theme.colors.primary.main }} />
                 <Text strong style={{ fontSize: 16 }}>Recent Expenses</Text>
               </div>
             }
@@ -365,7 +365,7 @@ const Dashboard = () => {
             Create Project
           </Button>
           <Button
-            icon={<DollarOutlined />}
+            icon={<WalletOutlined />}
             onClick={() => navigate('/finance/expenses/new')}
             size="large"
             style={getSecondaryButtonStyle(180)}

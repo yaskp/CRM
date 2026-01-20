@@ -10,6 +10,7 @@ import ProjectDocument from './ProjectDocument'
 import ProjectMilestone from './ProjectMilestone'
 import Lead from './Lead'
 import Quotation from './Quotation'
+import QuotationItem from './QuotationItem'
 import WorkOrder from './WorkOrder'
 import PurchaseOrder from './PurchaseOrder'
 import WorkOrderItem from './WorkOrderItem'
@@ -52,6 +53,9 @@ Project.hasMany(Lead, { foreignKey: 'project_id', as: 'leads' })
 Quotation.belongsTo(Lead, { foreignKey: 'lead_id', as: 'lead' })
 Quotation.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
 Lead.hasMany(Quotation, { foreignKey: 'lead_id', as: 'quotations' })
+
+QuotationItem.belongsTo(Quotation, { foreignKey: 'quotation_id', as: 'quotation' })
+Quotation.hasMany(QuotationItem, { foreignKey: 'quotation_id', as: 'items' })
 
 WorkOrder.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 Project.hasMany(WorkOrder, { foreignKey: 'project_id', as: 'workOrders' })
@@ -231,5 +235,6 @@ export {
   Notification,
   PurchaseOrder,
   PurchaseOrderItem,
+  QuotationItem,
 }
 

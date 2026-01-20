@@ -7,8 +7,7 @@ import {
     ProjectOutlined,
     CalendarOutlined,
     InfoCircleOutlined,
-    InboxOutlined,
-    DollarOutlined
+    InboxOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { materialRequisitionService, MaterialRequisitionItem } from '../../services/api/materialRequisitions'
@@ -502,7 +501,7 @@ const MaterialRequisitionForm = () => {
                             placeholder="Market rate"
                             min={0}
                             step={0.01}
-                            prefix={<DollarOutlined style={prefixIconStyle} />}
+                            prefix="₹"
                         />
                     </Form.Item>
 

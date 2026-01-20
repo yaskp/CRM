@@ -2,12 +2,10 @@ import { useState, useEffect } from 'react'
 import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, Radio, Typography } from 'antd'
 import {
   SaveOutlined,
-  ArrowLeftOutlined,
   SafetyCertificateOutlined,
   ProjectOutlined,
   ShopOutlined,
-  CalendarOutlined,
-  DollarOutlined,
+  WalletOutlined,
   InfoCircleOutlined,
   ToolOutlined,
   SettingOutlined
@@ -28,13 +26,12 @@ import {
   getLabelStyle,
   flexBetweenStyle,
   actionCardStyle,
-  prefixIconStyle,
   twoColumnGridStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
 const { Option } = Select
-const { TextArea } = Input
+
 const { Text } = Typography
 
 const RentalForm = () => {
@@ -45,7 +42,7 @@ const RentalForm = () => {
   const [vendors, setVendors] = useState<any[]>([])
   const [rateType, setRateType] = useState<'day' | 'sqm'>('day')
 
-  const { control, handleSubmit, formState: { errors }, setValue, watch } = useForm<EquipmentRentalFormData>({
+  const { control, handleSubmit, formState: { errors }, setValue } = useForm<EquipmentRentalFormData>({
     resolver: zodResolver(equipmentRentalSchema),
     defaultValues: {
       start_date: dayjs().format('YYYY-MM-DD'),
@@ -188,7 +185,7 @@ const RentalForm = () => {
             </Form.Item>
           </SectionCard>
 
-          <SectionCard title="Lease Terms & Rates" icon={<DollarOutlined />}>
+          <SectionCard title="Lease Terms & Rates" icon={<WalletOutlined />}>
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item
@@ -273,7 +270,7 @@ const RentalForm = () => {
                         min={0}
                         step={100}
                         size="large"
-                        prefix={<DollarOutlined style={prefixIconStyle} />}
+                        prefix="₹"
                       />
                     )}
                   />
@@ -295,7 +292,7 @@ const RentalForm = () => {
                         min={0}
                         step={10}
                         size="large"
-                        prefix={<DollarOutlined style={prefixIconStyle} />}
+                        prefix="₹"
                       />
                     )}
                   />

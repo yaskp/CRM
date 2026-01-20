@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Card, Table, Button, Tag, Input, Select, Space, message, Row, Col, Statistic, Typography } from 'antd'
 import {
-  PlusOutlined,
   SearchOutlined,
   EyeOutlined,
   ContactsOutlined,
   FilterOutlined,
   PhoneOutlined,
   MailOutlined,
-  UserAddOutlined
+  UserAddOutlined,
+  ProjectOutlined,
+  FileTextOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { leadService } from '../../services/api/leads'
@@ -26,8 +27,12 @@ interface Lead {
   company_name?: string
   phone?: string
   email?: string
+  address?: string
   enquiry_date: string
   source?: string
+  soil_report_url?: string
+  layout_url?: string
+  section_url?: string
   status: string
   created_at: string
 }
@@ -133,6 +138,30 @@ const LeadList = () => {
       render: (source: string) => source ? source.charAt(0).toUpperCase() + source.slice(1) : '-',
     },
     {
+      title: 'Docs',
+      key: 'docs',
+      width: 120,
+      render: (_, record: Lead) => (
+        <Space>
+          {record.soil_report_url && (
+            <a href={record.soil_report_url} target="_blank" rel="noopener noreferrer" title="Soil Report">
+              <FileTextOutlined style={{ color: theme.colors.primary.main, fontSize: '16px' }} />
+            </a>
+          )}
+          {record.layout_url && (
+            <a href={record.layout_url} target="_blank" rel="noopener noreferrer" title="Layout Plan">
+              <ProjectOutlined style={{ color: theme.colors.secondary.main, fontSize: '16px' }} />
+            </a>
+          )}
+          {record.section_url && (
+            <a href={record.section_url} target="_blank" rel="noopener noreferrer" title="Section Drawing">
+              <ContactsOutlined style={{ color: theme.colors.success.main, fontSize: '16px' }} />
+            </a>
+          )}
+        </Space>
+      ),
+    },
+    {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
@@ -149,17 +178,54 @@ const LeadList = () => {
       width: 100,
       fixed: 'right' as const,
       render: (_: any, record: Lead) => (
-        <Button
-          type="link"
-          icon={<EyeOutlined />}
-          onClick={(e) => {
-            e.stopPropagation()
-            navigate(`/sales/leads/${record.id}`)
-          }}
-          style={{ padding: 0 }}
-        >
-          View
-        </Button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/sales/leads/${record.id}`)
+            }}
+            style={{ padding: 0 }}
+          >
+            View
+          </Button>
+          <Button
+            type="link"
+            icon={<FileTextOutlined />}
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/sales/quotations/new?lead_id=${record.id}`)
+            }}
+            style={{ padding: 0 }}
+          >
+            Quote
+          </Button>
+          <Button
+            type="link"
+            icon={<ProjectOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              // If lead is not converted and no project linked, allow creating project
+              if (record.status !== 'converted' && record.status !== 'lost') {
+                navigate('/sales/projects/new', {
+                  state: {
+                    name: record.name,
+                    company_name: record.company_name, // Map company name if needed
+                    location: record.address, // Mapping address to location
+                    lead_id: record.id
+                  }
+                });
+              } else {
+                message.info('Lead is already converted or lost');
+              }
+            }}
+            disabled={record.status === 'converted' || record.status === 'lost'}
+            style={{ padding: 0 }}
+          >
+            Convert
+          </Button>
+        </div>
       ),
     },
   ]

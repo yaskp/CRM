@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Card, Table, Button, Tag, Space, message, Row, Col, Statistic, Typography } from 'antd'
-import { PlusOutlined, EyeOutlined, HomeOutlined, CheckCircleOutlined, GlobalOutlined } from '@ant-design/icons'
+import { PlusOutlined, EyeOutlined, HomeOutlined, CheckCircleOutlined, GlobalOutlined, BankOutlined, ShopOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { warehouseService } from '../../services/api/warehouses'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
@@ -15,6 +15,7 @@ interface Warehouse {
   code: string
   address?: string
   is_common: boolean
+  type: 'central' | 'site'
 }
 
 const WarehouseList = () => {
@@ -66,10 +67,10 @@ const WarehouseList = () => {
       ellipsis: true,
     },
     {
-      title: 'Type',
+      title: 'Scope',
       dataIndex: 'is_common',
       key: 'is_common',
-      width: 180,
+      width: 150,
       render: (isCommon: boolean) => (
         <Tag
           icon={isCommon ? <GlobalOutlined /> : <HomeOutlined />}
@@ -79,6 +80,24 @@ const WarehouseList = () => {
           {isCommon ? 'Common' : 'Company Specific'}
         </Tag>
       ),
+    },
+    {
+      title: 'Type',
+      dataIndex: 'type',
+      key: 'type',
+      width: 150,
+      render: (type: string) => {
+        const isSite = type === 'site'
+        return (
+          <Tag
+            icon={isSite ? <ShopOutlined /> : <BankOutlined />}
+            color={isSite ? 'orange' : 'purple'}
+            style={{ fontWeight: 500, textTransform: 'capitalize' }}
+          >
+            {type || 'Central'}
+          </Tag>
+        )
+      },
     },
     {
       title: 'Actions',

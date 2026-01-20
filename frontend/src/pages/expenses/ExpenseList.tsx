@@ -5,7 +5,7 @@ import {
   EyeOutlined,
   CheckOutlined,
   CloseOutlined,
-  DollarOutlined,
+  MoneyCollectOutlined,
   CalendarOutlined,
   ProjectOutlined,
   SolutionOutlined,
@@ -260,7 +260,7 @@ const ExpenseList = () => {
             <Statistic
               title="Total Claims Volume"
               value={stats.totalAmount}
-              prefix={<DollarOutlined style={{ color: theme.colors.primary.main }} />}
+              prefix={<span style={{ fontWeight: 'bold' }}>₹</span>}
               valueStyle={{ color: theme.colors.primary.main }}
             />
           </Card>

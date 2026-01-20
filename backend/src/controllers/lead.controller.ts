@@ -22,17 +22,15 @@ export const createLead = async (req: AuthRequest, res: Response, next: NextFunc
       remarks
     } = req.body
 
-    if (!project_id) {
-      throw createError('Project ID is required', 400)
-    }
-
-    const project = await Project.findByPk(project_id)
-    if (!project) {
-      throw createError('Project not found', 404)
+    if (project_id) {
+      const project = await Project.findByPk(project_id)
+      if (!project) {
+        throw createError('Project not found', 404)
+      }
     }
 
     const lead = await Lead.create({
-      project_id,
+      project_id: project_id || null,
       name,
       company_name,
       phone,
@@ -63,7 +61,11 @@ export const getLeads = async (req: AuthRequest, res: Response, next: NextFuncti
     const offset = (Number(page) - 1) * Number(limit)
 
     const where: any = {}
-    if (project_id) where.project_id = project_id
+    if (project_id === 'null') {
+      where.project_id = null
+    } else if (project_id) {
+      where.project_id = project_id
+    }
     if (status) where.status = status
     if (search) {
       where[Op.or] = [

@@ -250,7 +250,8 @@ const ProjectDetails = () => {
         </Col>
 
         <Col xs={24} lg={12}>
-          <SectionCard title="Project Documents" icon={<FileTextOutlined />}>
+          <SectionCard title="Documents" icon={<FileTextOutlined />}>
+            <Title level={5} style={{ fontSize: 14, marginBottom: 12, color: theme.colors.neutral.gray600 }}>Lead Phase Documents</Title>
             {project.leads?.length > 0 ? (
               project.leads.map((lead: any) => (
                 <div key={lead.id} style={{ marginBottom: 16 }}>
@@ -339,13 +340,55 @@ const ProjectDetails = () => {
                     </div>
                   )}
                   {!lead.soil_report_url && !lead.layout_url && !lead.section_url && (
-                    <Text type="secondary" style={{ fontStyle: 'italic' }}>No documents uploaded for Lead #{lead.id}</Text>
+                    <Text type="secondary" style={{ fontStyle: 'italic', display: 'block', marginBottom: 8 }}>No documents uploaded for Lead #{lead.id}</Text>
                   )}
                 </div>
               ))
             ) : (
-              <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <Text type="secondary">No documents found</Text>
+              <div style={{ padding: '0 0 16px 0' }}>
+                <Text type="secondary">No linked leads found.</Text>
+              </div>
+            )}
+
+            <Divider style={{ margin: '12px 0' }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Title level={5} style={{ fontSize: 14, margin: 0, color: theme.colors.neutral.gray600 }}>Project Phase Documents</Title>
+              <Button type="link" size="small" icon={<EditOutlined />} onClick={() => message.info('Upload functionality coming soon')}>Upload</Button>
+            </div>
+
+            {project.documents?.length > 0 ? (
+              project.documents.map((doc: any) => (
+                <div key={doc.id} style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px',
+                  marginBottom: 8,
+                  border: `1px solid ${theme.colors.neutral.gray200}`,
+                  borderRadius: theme.borderRadius.sm,
+                  background: theme.colors.neutral.gray50
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <FileTextOutlined style={{ fontSize: 20, color: theme.colors.primary.main }} />
+                    <div>
+                      <Text strong style={{ display: 'block' }}>{doc.document_name}</Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {doc.document_type.toUpperCase()} • {new Date(doc.created_at).toLocaleDateString()}
+                      </Text>
+                    </div>
+                  </div>
+                  <Button
+                    type="link"
+                    href={`http://localhost:5000${doc.file_path}`}
+                    target="_blank"
+                    icon={<DownloadOutlined />}
+                  />
+                </div>
+              ))
+            ) : (
+              <div style={{ padding: '8px 0' }}>
+                <Text type="secondary">No project documents found.</Text>
               </div>
             )}
           </SectionCard>

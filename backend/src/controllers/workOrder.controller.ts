@@ -39,7 +39,7 @@ export const createWorkOrder = async (req: AuthRequest, res: Response, next: Nex
       discount_percentage: discount,
       final_amount,
       payment_terms,
-      status: 'draft',
+      status: req.body.status || 'draft',
     })
 
     // Create work order items

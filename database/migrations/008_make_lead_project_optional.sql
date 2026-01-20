@@ -1,0 +1,1 @@
+ALTER TABLE leads MODIFY COLUMN project_id INTEGER NULL;

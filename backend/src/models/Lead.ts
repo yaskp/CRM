@@ -3,7 +3,7 @@ import { sequelize } from '../database/connection'
 
 interface LeadAttributes {
   id: number
-  project_id: number
+  project_id?: number | null
   name: string
   company_name?: string
   phone?: string
@@ -23,7 +23,7 @@ interface LeadCreationAttributes extends Optional<LeadAttributes, 'id' | 'create
 
 class Lead extends Model<LeadAttributes, LeadCreationAttributes> implements LeadAttributes {
   public id!: number
-  public project_id!: number
+  public project_id?: number | null
   public name!: string
   public company_name?: string
   public phone?: string
@@ -49,7 +49,7 @@ Lead.init(
     },
     project_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: 'projects',
         key: 'id',

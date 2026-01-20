@@ -7,9 +7,7 @@ import {
   CalendarOutlined,
   ProjectOutlined,
   SafetyCertificateOutlined,
-  DollarOutlined,
   WarningOutlined,
-  CheckCircleOutlined,
   ClockCircleOutlined,
   SearchOutlined,
   FilterOutlined,
@@ -204,7 +202,7 @@ const EquipmentRentals = () => {
             <Statistic
               title="Total Net Payload"
               value={stats.netValue}
-              prefix={<DollarOutlined style={{ color: '#52c41a' }} />}
+              prefix="₹"
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>

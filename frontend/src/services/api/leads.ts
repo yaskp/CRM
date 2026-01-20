@@ -6,6 +6,7 @@ export const leadService = {
     search?: string
     page?: number
     limit?: number
+    project_id?: string | number
   }) => {
     const response = await api.get('/leads', { params })
     return response.data

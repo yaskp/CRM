@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Tag, Input, Select, Space, message, Row, Col, Statistic, Typography } from 'antd'
+import { Card, Table, Button, Tag, Input, Select, Space, message, Row, Col, Statistic, Typography, Modal, Form } from 'antd'
 import {
   PlusOutlined,
   SearchOutlined,
   EyeOutlined,
   FileTextOutlined,
   FilterOutlined,
-  DollarOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   ClockCircleOutlined,
   DownloadOutlined,
-  CopyOutlined
+  CopyOutlined,
+  EditOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { quotationService } from '../../services/api/quotations'
@@ -47,6 +47,11 @@ const QuotationList = () => {
   })
   const navigate = useNavigate()
 
+  const [statusModalVisible, setStatusModalVisible] = useState(false)
+  const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [form] = Form.useForm()
+
   const fetchQuotations = async () => {
     setLoading(true)
     try {
@@ -62,6 +67,28 @@ const QuotationList = () => {
   useEffect(() => {
     fetchQuotations()
   }, [filters.status])
+
+  const handleStatusClick = (record: Quotation) => {
+    setEditingQuotation(record)
+    form.setFieldsValue({ status: record.status })
+    setStatusModalVisible(true)
+  }
+
+  const handleStatusUpdate = async () => {
+    try {
+      const values = await form.validateFields()
+      setUpdatingStatus(true)
+      await quotationService.updateQuotation(editingQuotation!.id, { status: values.status })
+      message.success('Status updated successfully')
+      setStatusModalVisible(false)
+      fetchQuotations()
+    } catch (error: any) {
+      if (error?.errorFields) return // Validation failed
+      message.error(error.response?.data?.message || 'Failed to update status')
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -90,7 +117,15 @@ const QuotationList = () => {
       dataIndex: 'quotation_number',
       key: 'quotation_number',
       width: 150,
-      render: (code: string) => <Text copyable strong>{code}</Text>,
+      render: (code: string, record: Quotation) => (
+        <Text
+          strong
+          style={{ cursor: 'pointer', color: theme.colors.primary.main }}
+          onClick={() => navigate(`/sales/quotations/${record.id}`)}
+        >
+          {code}
+        </Text>
+      ),
     },
     {
       title: 'Version',
@@ -144,11 +179,22 @@ const QuotationList = () => {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 120,
-      render: (status: string) => (
-        <Tag color={getStatusColor(status)} style={{ fontWeight: 500 }}>
-          {status.toUpperCase()}
-        </Tag>
+      width: 150,
+      render: (status: string, record: Quotation) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Tag color={getStatusColor(status)} style={{ fontWeight: 500, marginRight: 0 }}>
+            {status.toUpperCase()}
+          </Tag>
+          <Button
+            type="text"
+            icon={<EditOutlined />}
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleStatusClick(record)
+            }}
+          />
+        </div>
       ),
     },
     {
@@ -185,11 +231,6 @@ const QuotationList = () => {
             icon={<DownloadOutlined />}
             onClick={(e) => {
               e.stopPropagation()
-              const token = localStorage.getItem('token')
-              // Use fetch with blob to handle auth header correctly if needed, or simple window.open if cookies/query param auth supported.
-              // Since our backend uses Bearer token header, standard href won't work easily unless we use a utility or pass token in query (less secure but practical for download links sometimes).
-              // BUT: window.open cannot set headers.
-              // BETTER APPROACH: Use a helper function to download with Auth header.
               handleDownload(record.id, record.quotation_number)
             }}
             style={{ padding: 0 }}
@@ -367,13 +408,35 @@ const QuotationList = () => {
           loading={loading}
           rowKey="id"
           pagination={{ pageSize: 10, showSizeChanger: true }}
-          onRow={(record) => ({
-            onClick: () => navigate(`/sales/quotations/${record.id}`),
-            style: { cursor: 'pointer' }
-          })}
+          onRow={undefined}
           scroll={{ x: 1000 }}
         />
       </Card>
+
+      <Modal
+        title="Update Quotation Status"
+        open={statusModalVisible}
+        onCancel={() => setStatusModalVisible(false)}
+        onOk={handleStatusUpdate}
+        confirmLoading={updatingStatus}
+        destroyOnClose
+      >
+        <Form form={form} layout="vertical" preserve={false}>
+          <Form.Item
+            name="status"
+            label="Status"
+            rules={[{ required: true, message: 'Please select a status' }]}
+          >
+            <Select size="large">
+              <Option value="draft">📝 Draft</Option>
+              <Option value="sent">📤 Sent</Option>
+              <Option value="accepted">✅ Accepted</Option>
+              <Option value="rejected">❌ Rejected</Option>
+              <Option value="expired">⏰ Expired</Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </PageContainer>
   )
 }

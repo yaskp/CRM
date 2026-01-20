@@ -6,12 +6,12 @@ import {
   SaveOutlined,
   SafetyCertificateOutlined,
   ProjectOutlined,
-  DollarOutlined,
+  WalletOutlined,
   InfoCircleOutlined,
   TagOutlined,
   PercentageOutlined
 } from '@ant-design/icons'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { workOrderService } from '../../services/api/workOrders'
 import { workItemTypeService } from '../../services/api/workItemTypes'
 import { projectService } from '../../services/api/projects'
@@ -49,6 +49,7 @@ const WorkOrderForm = () => {
   const [workItemTypes, setWorkItemTypes] = useState<any[]>([])
   const [form] = Form.useForm()
   const navigate = useNavigate()
+  const location = useLocation()
   const { id } = useParams<{ id: string }>()
 
   useEffect(() => {
@@ -56,8 +57,10 @@ const WorkOrderForm = () => {
     fetchWorkItemTypes()
     if (id) {
       fetchWorkOrder()
+    } else if (location.state?.project_id) {
+      form.setFieldsValue({ project_id: location.state.project_id })
     }
-  }, [id])
+  }, [id, location.state])
 
   const fetchWorkItemTypes = async () => {
     try {
@@ -123,9 +126,7 @@ const WorkOrderForm = () => {
 
     setLoading(true)
     try {
-      // Unused calculation removed: const total = calculateTotal()
       const discount = values.discount_percentage || 0
-      // Unused calculation removed: const finalAmount = total - (total * discount) / 100
 
       const data = {
         project_id: values.project_id,
@@ -139,6 +140,7 @@ const WorkOrderForm = () => {
         })),
         discount_percentage: discount,
         payment_terms: values.payment_terms,
+        status: values.status,
       }
 
       if (id) {
@@ -267,6 +269,9 @@ const WorkOrderForm = () => {
       />
 
       <Form form={form} layout="vertical" onFinish={onFinish}>
+        <Form.Item name="status" hidden>
+          <Input />
+        </Form.Item>
         <div style={twoColumnGridStyle}>
           <SectionCard title="Order Authorization" icon={<ProjectOutlined />}>
             <Form.Item
@@ -295,7 +300,7 @@ const WorkOrderForm = () => {
             </Form.Item>
           </SectionCard>
 
-          <SectionCard title="Financial Controls" icon={<DollarOutlined />}>
+          <SectionCard title="Financial Controls" icon={<WalletOutlined />}>
             <Form.Item label={<span style={getLabelStyle()}>Contract Discount (%)</span>} name="discount_percentage">
               <InputNumber
                 style={{ width: '100%', ...largeInputStyle }}
@@ -368,14 +373,27 @@ const WorkOrderForm = () => {
                 Cancel
               </Button>
               <Button
+                onClick={() => {
+                  form.setFieldsValue({ status: 'draft' })
+                  form.submit()
+                }}
+                size="large"
+                style={{ ...getSecondaryButtonStyle(), borderColor: theme.colors.primary.main, color: theme.colors.primary.main }}
+              >
+                Save as Draft
+              </Button>
+              <Button
                 type="primary"
-                htmlType="submit"
+                onClick={() => {
+                  form.setFieldsValue({ status: 'active' })
+                  form.submit()
+                }}
                 loading={loading}
                 icon={<SaveOutlined />}
                 size="large"
                 style={getPrimaryButtonStyle()}
               >
-                {id ? 'Update Work Order' : 'Authorize & Issue Order'}
+                {id ? 'Update & Authorize' : 'Authorize & Issue Order'}
               </Button>
             </Space>
           </div>

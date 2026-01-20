@@ -7,7 +7,6 @@ import {
   FileTextOutlined,
   InboxOutlined,
   InfoCircleOutlined,
-  DollarOutlined,
   BarcodeOutlined,
   UserOutlined,
 } from '@ant-design/icons'
@@ -298,7 +297,7 @@ const GRNForm = () => {
           step={0.01}
           onChange={(value) => updateItem(index, 'unit_price', value || undefined)}
           size="large"
-          prefix={<DollarOutlined />}
+          prefix="₹"
         />
       ),
     },

@@ -177,14 +177,15 @@ const LeadForm = () => {
             <Form.Item
               label={<span style={getLabelStyle()}>Project</span>}
               name="project_id"
-              rules={[{ required: true, message: 'Please select a project!' }]}
+              tooltip="Optional: Select an existing project if applicable. Leave blank for new project leads."
             >
               <Select
-                placeholder="Select project"
+                placeholder="Select project (Optional)"
                 showSearch
                 optionFilterProp="children"
                 size="large"
                 style={largeInputStyle}
+                allowClear
               >
                 {projects.map(project => (
                   <Option key={project.id} value={project.id}>

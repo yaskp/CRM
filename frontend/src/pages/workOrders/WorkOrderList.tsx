@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Tag, Select, Space, message, Row, Col, Statistic, Typography } from 'antd'
+import { Card, Table, Button, Tag, Select, Space, message, Row, Col, Statistic, Typography, Modal, Form } from 'antd'
 import {
   PlusOutlined,
   EyeOutlined,
   FileTextOutlined,
   SafetyCertificateOutlined,
-  CheckCircleOutlined,
   ClockCircleOutlined,
   FilterOutlined,
-  DollarOutlined
+  EditOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { workOrderService } from '../../services/api/workOrders'
@@ -35,6 +34,11 @@ const WorkOrderList = () => {
   const [filters, setFilters] = useState({ status: '', page: 1, limit: 10 })
   const navigate = useNavigate()
 
+  const [statusModalVisible, setStatusModalVisible] = useState(false)
+  const [editingWorkOrder, setEditingWorkOrder] = useState<WorkOrder | null>(null)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [form] = Form.useForm()
+
   const fetchWorkOrders = async () => {
     setLoading(true)
     try {
@@ -50,6 +54,28 @@ const WorkOrderList = () => {
   useEffect(() => {
     fetchWorkOrders()
   }, [filters.status])
+
+  const handleStatusClick = (record: WorkOrder) => {
+    setEditingWorkOrder(record)
+    form.setFieldsValue({ status: record.status })
+    setStatusModalVisible(true)
+  }
+
+  const handleStatusUpdate = async () => {
+    try {
+      const values = await form.validateFields()
+      setUpdatingStatus(true)
+      await workOrderService.updateWorkOrder(editingWorkOrder!.id, { status: values.status })
+      message.success('Status updated successfully')
+      setStatusModalVisible(false)
+      fetchWorkOrders()
+    } catch (error: any) {
+      if (error?.errorFields) return // Validation failed
+      message.error(error.response?.data?.message || 'Failed to update status')
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
 
   const getStats = () => {
     const totalCount = workOrders.length
@@ -77,7 +103,15 @@ const WorkOrderList = () => {
       dataIndex: 'work_order_number',
       key: 'work_order_number',
       width: 180,
-      render: (text: string) => <Text strong style={{ color: theme.colors.primary.main }}>{text}</Text>,
+      render: (text: string, record: WorkOrder) => (
+        <Text
+          strong
+          style={{ color: theme.colors.primary.main, cursor: 'pointer' }}
+          onClick={() => navigate(`/operations/work-orders/${record.id}`)}
+        >
+          {text}
+        </Text>
+      ),
     },
     {
       title: 'Total Order Value',
@@ -100,10 +134,21 @@ const WorkOrderList = () => {
       dataIndex: 'status',
       key: 'status',
       width: 160,
-      render: (status: string) => (
-        <Tag color={getStatusColor(status)} style={{ padding: '0 8px', borderRadius: '4px' }}>
-          {status.toUpperCase()}
-        </Tag>
+      render: (status: string, record: WorkOrder) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Tag color={getStatusColor(status)} style={{ padding: '0 8px', borderRadius: '4px', marginRight: 0 }}>
+            {status.toUpperCase()}
+          </Tag>
+          <Button
+            type="text"
+            icon={<EditOutlined />}
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleStatusClick(record)
+            }}
+          />
+        </div>
       ),
     },
     {
@@ -158,7 +203,7 @@ const WorkOrderList = () => {
             <Statistic
               title="Total Order Value"
               value={stats.totalValue}
-              prefix={<DollarOutlined style={{ color: '#52c41a' }} />}
+              prefix="₹"
               valueStyle={{ color: '#52c41a' }}
             />
           </Card>
@@ -209,6 +254,31 @@ const WorkOrderList = () => {
           }}
         />
       </Card>
+
+      <Modal
+        title="Update Work Order Status"
+        open={statusModalVisible}
+        onCancel={() => setStatusModalVisible(false)}
+        onOk={handleStatusUpdate}
+        confirmLoading={updatingStatus}
+        destroyOnClose
+      >
+        <Form form={form} layout="vertical" preserve={false}>
+          <Form.Item
+            name="status"
+            label="Status"
+            rules={[{ required: true, message: 'Please select a status' }]}
+          >
+            <Select size="large">
+              <Option value="draft">⏳ Draft</Option>
+              <Option value="approved">✅ Approved</Option>
+              <Option value="active">🚀 Active</Option>
+              <Option value="completed">🏆 Completed</Option>
+              <Option value="cancelled">❌ Cancelled</Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </PageContainer>
   )
 }

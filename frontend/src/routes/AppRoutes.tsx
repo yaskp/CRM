@@ -138,7 +138,6 @@ const AppRoutes = () => {
         <Route path="material-requisitions/create" element={<MaterialRequisitionForm />} />
         <Route path="material-requisitions" element={<MaterialRequisitionList />} />
 
-        <Route path="procurement/vendors" element={<VendorList />} />
         <Route path="procurement/purchase-orders" element={<PurchaseOrderList />} />
         <Route path="procurement/purchase-orders/new" element={<PurchaseOrderForm />} />
         <Route path="purchase-orders" element={<PurchaseOrderList />} />
@@ -171,9 +170,7 @@ const AppRoutes = () => {
         <Route path="operations/bar-bending" element={<BarBendingScheduleList />} />
         <Route path="operations/bar-bending/new" element={<BarBendingScheduleForm />} />
         <Route path="operations/bar-bending/:id" element={<BarBendingScheduleForm />} />
-        <Route path="operations/equipment" element={<EquipmentList />} />
-        <Route path="operations/equipment/new" element={<EquipmentForm />} />
-        <Route path="operations/equipment/:id/edit" element={<EquipmentForm />} />
+
         <Route path="operations/equipment/rentals" element={<EquipmentRentals />} />
         <Route path="operations/equipment/rentals/new" element={<RentalForm />} />
         <Route path="operations/equipment/rentals/:rentalId/breakdown" element={<BreakdownForm />} />

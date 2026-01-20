@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, Upload, Radio, Typography, Divider } from 'antd'
+import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, Upload, Radio, Typography } from 'antd'
 import {
   SaveOutlined,
-  ArrowLeftOutlined,
-  UploadOutlined,
   CameraOutlined,
   ProjectOutlined,
-  DollarOutlined,
-  CalendarOutlined,
+  WalletOutlined,
   FileTextOutlined,
   InfoCircleOutlined,
   AuditOutlined,
@@ -21,7 +18,6 @@ import { projectService } from '../../services/api/projects'
 import { expenseSchema, ExpenseFormData } from '../../utils/validationSchemas'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, Controller } from 'react-hook-form'
-import type { UploadFile } from 'antd/es/upload/interface'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
@@ -31,7 +27,6 @@ import {
   getLabelStyle,
   flexBetweenStyle,
   actionCardStyle,
-  prefixIconStyle,
   twoColumnGridStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
@@ -48,7 +43,7 @@ const ExpenseForm = () => {
   const [selfieFile, setSelfieFile] = useState<File | null>(null)
   const [expenseType, setExpenseType] = useState<string>('conveyance')
 
-  const { control, handleSubmit, formState: { errors }, setValue, watch } = useForm<ExpenseFormData>({
+  const { control, handleSubmit, formState: { errors }, setValue } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
       expense_date: dayjs().format('YYYY-MM-DD'),
@@ -218,7 +213,7 @@ const ExpenseForm = () => {
             </Form.Item>
           </SectionCard>
 
-          <SectionCard title="Value & Verification" icon={<DollarOutlined />}>
+          <SectionCard title="Value & Verification" icon={<WalletOutlined />}>
             <Form.Item
               label={<span style={getLabelStyle()}>Transaction Amount (₹)</span>}
               validateStatus={errors.amount ? 'error' : ''}
@@ -237,7 +232,7 @@ const ExpenseForm = () => {
                     step={0.01}
                     size="large"
                     formatter={(value) => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                    parser={(value) => value!.replace(/₹\s?|(,*)/g, '')}
+                    parser={(value) => value ? value.replace(/₹\s?|(,*)/g, '') as unknown as number : 0}
                     value={field.value}
                     onChange={(value) => field.onChange(value || 0)}
                   />

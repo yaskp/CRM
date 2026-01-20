@@ -1,15 +1,16 @@
-import { useState } from 'react'
-import { Form, Input, Button, Card, message, DatePicker, InputNumber, Typography } from 'antd'
+import { useState, useEffect } from 'react'
+import { Form, Input, Button, Card, message, DatePicker, InputNumber, Typography, Select } from 'antd'
 import {
   ProjectOutlined,
   EnvironmentOutlined,
   BankOutlined,
   CalendarOutlined,
-  DollarOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  UserOutlined,
 } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { projectService } from '../../services/api/projects'
+import { leadService } from '../../services/api/leads'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
   largeInputStyle,
@@ -27,8 +28,51 @@ const { Text } = Typography
 
 const ProjectCreate = () => {
   const [loading, setLoading] = useState(false)
+  const [leads, setLeads] = useState<any[]>([])
   const [form] = Form.useForm()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  useEffect(() => {
+    fetchLeads()
+  }, [])
+
+  useEffect(() => {
+    if (location.state) {
+      const { name, company_name, location: loc, city, state, lead_id } = location.state
+      form.setFieldsValue({
+        name: name ? `${name} (Project)` : undefined,
+        client_ho_address: loc, // Mapping address/location if needed
+        city: city,
+        state: state,
+        lead_id: lead_id // Set the lead_id if coming from conversion
+      })
+    }
+  }, [location.state, form])
+
+  const fetchLeads = async () => {
+    try {
+      // Fetch only unassigned leads
+      const response = await leadService.getLeads({ project_id: 'null', limit: 100 })
+      if (response.success) {
+        setLeads(response.leads)
+      }
+    } catch (error) {
+      console.error('Failed to fetch leads:', error)
+    }
+  }
+
+  const onLeadChange = (leadId: number) => {
+    const selectedLead = leads.find(l => l.id === leadId)
+    if (selectedLead) {
+      form.setFieldsValue({
+        name: selectedLead.name ? `${selectedLead.name} (Project)` : undefined,
+        company_name: selectedLead.company_name, // If project has this field
+        client_ho_address: selectedLead.address,
+        // We could map other fields if they existed in Lead and Project
+      })
+    }
+  }
 
   const onFinish = async (values: any) => {
     setLoading(true)
@@ -40,6 +84,11 @@ const ProjectCreate = () => {
       }
       await projectService.createProject(formattedValues)
       message.success('Project created successfully!')
+      // Navigate to the newly created project or list? List is safer, or maybe details if we had ID.
+      // Ideally we should get the ID back and go to details to create Work Order.
+      // But verify createProject returns project object. It does.
+      // navigate('/sales/projects') // Current
+      // Let's stick to list for now as per current code, user can find it. 
       navigate('/sales/projects')
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to create project')
@@ -67,6 +116,26 @@ const ProjectCreate = () => {
 
           {/* Column 1: Basic Information */}
           <SectionCard title="Basic Information" icon={<EnvironmentOutlined />}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Link Lead (Optional)</span>}
+              name="lead_id"
+              tooltip="Select a sales lead to pre-fill project details"
+            >
+              <Select
+                placeholder="Select a lead to convert"
+                size="large"
+                allowClear
+                onChange={onLeadChange}
+                style={largeInputStyle}
+                options={leads.map(lead => ({
+                  label: `${lead.name} (${lead.company_name || 'No Company'})`,
+                  value: lead.id
+                }))}
+              // If the lead from location.state isn't in the list (e.g. pagination limit), we might need to handle that, 
+              // but usually it will be 'new' and thus in the 'null' list.
+              />
+            </Form.Item>
+
             <Form.Item
               label={<span style={getLabelStyle()}>Project Name</span>}
               name="name"
@@ -188,11 +257,11 @@ const ProjectCreate = () => {
               name="contract_value"
             >
               <InputNumber
-                prefix={<DollarOutlined style={prefixIconStyle} />}
+                prefix="₹"
                 style={{ width: '100%', ...largeInputStyle }}
                 size="large"
                 placeholder="0.00"
-                formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                 parser={value => value!.replace(/\₹\s?|(,*)/g, '')}
               />
             </Form.Item>

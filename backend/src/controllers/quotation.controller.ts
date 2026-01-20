@@ -1,7 +1,9 @@
 import { Response, NextFunction } from 'express'
 import { AuthRequest } from '../middleware/auth.middleware'
 import Quotation from '../models/Quotation'
+import QuotationItem from '../models/QuotationItem'
 import Lead from '../models/Lead'
+import { sequelize } from '../database/connection'
 import { generateQuotationNumber } from '../utils/quotationCodeGenerator'
 import { createError } from '../middleware/errorHandler'
 import { generateQuotationPDF } from '../utils/pdfGenerator'
@@ -15,6 +17,7 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
       discount_percentage,
       payment_terms,
       valid_until,
+      items
     } = req.body
 
     if (!lead_id || !total_amount) {
@@ -26,35 +29,52 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
       throw createError('Lead not found', 404)
     }
 
-    // Get latest version number for this lead
-    const latestQuotation = await Quotation.findOne({
-      where: { lead_id },
-      order: [['version_number', 'DESC']],
+    const result = await sequelize.transaction(async (t) => {
+      // Get latest version number for this lead
+      const latestQuotation = await Quotation.findOne({
+        where: { lead_id },
+        order: [['version_number', 'DESC']],
+        transaction: t,
+      })
+
+      const version_number = latestQuotation ? latestQuotation.version_number + 1 : 1
+
+      const quotation_number = await generateQuotationNumber()
+      const discount = discount_percentage || 0
+      const final_amount = total_amount - (total_amount * discount) / 100
+
+      const quotation = await Quotation.create({
+        lead_id,
+        version_number,
+        quotation_number,
+        total_amount,
+        discount_percentage: discount,
+        final_amount,
+        payment_terms,
+        valid_until,
+        status: 'draft',
+        created_by: req.user!.id,
+      }, { transaction: t })
+
+      if (items && Array.isArray(items)) {
+        const quotationItems = items.map((item: any) => ({
+          ...item,
+          quotation_id: quotation.id
+        }))
+        await QuotationItem.bulkCreate(quotationItems, { transaction: t })
+      }
+
+      return quotation
     })
 
-    const version_number = latestQuotation ? latestQuotation.version_number + 1 : 1
-
-    const quotation_number = await generateQuotationNumber()
-    const discount = discount_percentage || 0
-    const final_amount = total_amount - (total_amount * discount) / 100
-
-    const quotation = await Quotation.create({
-      lead_id,
-      version_number,
-      quotation_number,
-      total_amount,
-      discount_percentage: discount,
-      final_amount,
-      payment_terms,
-      valid_until,
-      status: 'draft',
-      created_by: req.user!.id,
+    const quotationWithItems = await Quotation.findByPk(result.id, {
+      include: [{ association: 'items' }]
     })
 
     res.status(201).json({
       success: true,
       message: 'Quotation created successfully',
-      quotation,
+      quotation: quotationWithItems,
     })
   } catch (error) {
     next(error)
@@ -124,6 +144,9 @@ export const getQuotation = async (req: AuthRequest, res: Response, next: NextFu
     const quotation = await Quotation.findByPk(id, {
       include: [
         {
+          association: 'items',
+        },
+        {
           association: 'lead',
           include: [
             {
@@ -161,6 +184,7 @@ export const updateQuotation = async (req: AuthRequest, res: Response, next: Nex
       payment_terms,
       valid_until,
       status,
+      items
     } = req.body
 
     const quotation = await Quotation.findByPk(id)
@@ -168,17 +192,30 @@ export const updateQuotation = async (req: AuthRequest, res: Response, next: Nex
       throw createError('Quotation not found', 404)
     }
 
-    const discount = discount_percentage !== undefined ? discount_percentage : quotation.discount_percentage
-    const total = total_amount !== undefined ? total_amount : quotation.total_amount
-    const final_amount = total - (total * discount) / 100
+    await sequelize.transaction(async (t) => {
+      const discount = discount_percentage !== undefined ? discount_percentage : quotation.discount_percentage
+      const total = total_amount !== undefined ? total_amount : quotation.total_amount
+      const final_amount = total - (total * discount) / 100
 
-    await quotation.update({
-      total_amount: total,
-      discount_percentage: discount,
-      final_amount,
-      payment_terms,
-      valid_until,
-      status,
+      await quotation.update({
+        total_amount: total,
+        discount_percentage: discount,
+        final_amount,
+        payment_terms,
+        valid_until,
+        status,
+      }, { transaction: t })
+
+      if (items && Array.isArray(items)) {
+        // Simple strategy: Delete all existing items and recreate
+        await QuotationItem.destroy({ where: { quotation_id: id }, transaction: t })
+
+        const quotationItems = items.map((item: any) => ({
+          ...item,
+          quotation_id: id
+        }))
+        await QuotationItem.bulkCreate(quotationItems, { transaction: t })
+      }
     })
 
     res.json({

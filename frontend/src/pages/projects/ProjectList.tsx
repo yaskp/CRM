@@ -6,7 +6,8 @@ import {
   ProjectOutlined,
   EyeOutlined,
   FilterOutlined,
-  AppstoreOutlined
+  AppstoreOutlined,
+  SafetyCertificateOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { projectService } from '../../services/api/projects'
@@ -141,17 +142,32 @@ const ProjectList = () => {
       width: 100,
       fixed: 'right' as const,
       render: (_: any, record: Project) => (
-        <Button
-          type="link"
-          icon={<EyeOutlined />}
-          onClick={(e) => {
-            e.stopPropagation()
-            navigate(`/sales/projects/${record.id}`)
-          }}
-          style={{ padding: 0 }}
-        >
-          View
-        </Button>
+        <Space>
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/sales/projects/${record.id}`)
+            }}
+            style={{ padding: 0 }}
+          >
+            View
+          </Button>
+          <Button
+            type="link"
+            icon={<SafetyCertificateOutlined />}
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate('/operations/work-orders/new', {
+                state: { project_id: record.id }
+              })
+            }}
+            style={{ padding: 0 }}
+          >
+            Work Order
+          </Button>
+        </Space>
       ),
     },
   ]

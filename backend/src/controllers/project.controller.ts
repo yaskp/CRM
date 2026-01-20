@@ -5,11 +5,14 @@ import { generateProjectCode } from '../utils/projectCodeGenerator'
 import { createError } from '../middleware/errorHandler'
 import { Op } from 'sequelize'
 
+import Lead from '../models/Lead'
+
 export const createProject = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const {
       name, location, city, state, client_ho_address, company_id,
-      client_gstin, rera_number, start_date, end_date, contract_value
+      client_gstin, rera_number, start_date, end_date, contract_value,
+      lead_id // Add lead_id to destructured body
     } = req.body
 
     if (!name) {
@@ -30,10 +33,21 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
       start_date,
       end_date,
       contract_value,
-      status: 'lead',
+      status: 'lead', // Or 'confirmed' if coming from a lead? usually 'lead' status in project means its in lead phase, but if we just converted a Sales Lead, it might be 'confirmed'. Let's keep 'lead' or 'mobilization' depending on logic, but currently defaulting to 'lead' is fine, user can update. 
       created_by: req.user!.id,
       company_id: company_id || req.user!.company_id,
     })
+
+    // If created from a Lead, link them and update lead status
+    if (lead_id) {
+      const lead = await Lead.findByPk(lead_id)
+      if (lead) {
+        await lead.update({
+          project_id: project.id,
+          status: 'converted'
+        })
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -116,6 +130,9 @@ export const getProject = async (req: AuthRequest, res: Response, next: NextFunc
         {
           association: 'company',
           attributes: ['id', 'name', 'code'],
+        },
+        {
+          association: 'documents',
         },
       ],
     })

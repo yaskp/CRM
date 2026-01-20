@@ -176,11 +176,19 @@ Permission.belongsToMany(Role, {
   as: 'roles'
 })
 
+import PurchaseOrderItem from './PurchaseOrderItem'
+
+// ...
+
 // Purchase Orders
 PurchaseOrder.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 PurchaseOrder.belongsTo(Vendor, { foreignKey: 'vendor_id', as: 'vendor' })
 PurchaseOrder.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
 PurchaseOrder.belongsTo(User, { foreignKey: 'approved_by', as: 'approver' })
+PurchaseOrder.hasMany(PurchaseOrderItem, { foreignKey: 'po_id', as: 'items' })
+PurchaseOrderItem.belongsTo(PurchaseOrder, { foreignKey: 'po_id', as: 'purchaseOrder' })
+PurchaseOrderItem.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
+
 Project.hasMany(PurchaseOrder, { foreignKey: 'project_id', as: 'purchaseOrders' })
 Vendor.hasMany(PurchaseOrder, { foreignKey: 'vendor_id', as: 'purchaseOrders' })
 User.hasMany(PurchaseOrder, { foreignKey: 'created_by', as: 'createdPurchaseOrders' })
@@ -222,5 +230,6 @@ export {
   PanelProgress,
   Notification,
   PurchaseOrder,
+  PurchaseOrderItem,
 }
 

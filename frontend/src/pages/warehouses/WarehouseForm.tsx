@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Form, Input, Button, Card, message, Switch, Typography } from 'antd'
-import { HomeOutlined, NumberOutlined, EnvironmentOutlined, GlobalOutlined } from '@ant-design/icons'
+import { HomeOutlined, NumberOutlined, EnvironmentOutlined, GlobalOutlined, BankOutlined, ShopOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { warehouseService } from '../../services/api/warehouses'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
@@ -23,7 +23,11 @@ const WarehouseForm = () => {
   const fetchWarehouse = async () => {
     try {
       const response = await warehouseService.getWarehouse(Number(id))
-      form.setFieldsValue(response.warehouse)
+      const warehouse = response.warehouse
+      form.setFieldsValue({
+        ...warehouse,
+        is_site: warehouse.type === 'site'
+      })
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch warehouse')
     }
@@ -32,11 +36,18 @@ const WarehouseForm = () => {
   const onFinish = async (values: any) => {
     setLoading(true)
     try {
+      // Map is_site (boolean) to type (string)
+      const payload = {
+        ...values,
+        type: values.is_site ? 'site' : 'central',
+      }
+      delete payload.is_site
+
       if (id) {
-        await warehouseService.updateWarehouse(Number(id), values)
+        await warehouseService.updateWarehouse(Number(id), payload)
         message.success('Warehouse updated successfully!')
       } else {
-        await warehouseService.createWarehouse(values)
+        await warehouseService.createWarehouse(payload)
         message.success('Warehouse created successfully!')
       }
       navigate('/master/warehouses')
@@ -97,16 +108,31 @@ const WarehouseForm = () => {
             />
           </Form.Item>
 
-          <Form.Item
-            label={<span style={getLabelStyle()}>Common Warehouse (VHPT & VHSHREE)</span>}
-            name="is_common"
-            valuePropName="checked"
-          >
-            <Switch
-              checkedChildren={<><GlobalOutlined /> Common</>}
-              unCheckedChildren="Company Specific"
-            />
-          </Form.Item>
+
+          <div style={twoColumnGridStyle}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Warehouse Type</span>}
+              name="is_site"
+              valuePropName="checked"
+              initialValue={false}
+            >
+              <Switch
+                checkedChildren={<><ShopOutlined /> Site Warehouse</>}
+                unCheckedChildren={<><BankOutlined /> Central Warehouse</>}
+              />
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Common Warehouse (VHPT & VHSHREE)</span>}
+              name="is_common"
+              valuePropName="checked"
+            >
+              <Switch
+                checkedChildren={<><GlobalOutlined /> Common</>}
+                unCheckedChildren="Company Specific"
+              />
+            </Form.Item>
+          </div>
 
           <InfoCard title="🏢 Warehouse Type">
             Enable "Common Warehouse" if this warehouse is shared between VHPT and VHSHREE companies. Otherwise, it will be company-specific.

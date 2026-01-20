@@ -8,6 +8,7 @@ interface PageHeaderProps {
     title: string
     subtitle?: string
     icon?: React.ReactNode
+    extra?: React.ReactNode
     gradient?: keyof typeof theme.gradients
     style?: CSSProperties
 }
@@ -16,46 +17,55 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     title,
     subtitle,
     icon,
+    extra,
     gradient = 'primary',
     style,
 }) => {
     return (
         <div
+            className="premium-page-header"
             style={{
                 marginBottom: theme.spacing.xl,
                 background: theme.gradients[gradient],
                 borderRadius: theme.borderRadius.lg,
-                padding: `${theme.spacing.xl}px ${theme.spacing.xxl}px`,
                 boxShadow: theme.shadows.primary,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: theme.spacing.md,
                 ...style,
             }}
         >
-            <Title
-                level={2}
-                style={{
-                    color: 'white',
-                    margin: 0,
-                    fontSize: theme.typography.fontSize.xxxl,
-                    fontWeight: theme.typography.fontWeight.semibold,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: theme.spacing.md,
-                }}
-            >
-                {icon}
-                {title}
-            </Title>
-            {subtitle && (
-                <div
+            <div>
+                <Title
+                    level={2}
                     style={{
-                        color: 'rgba(255,255,255,0.9)',
-                        fontSize: theme.typography.fontSize.md,
-                        marginTop: theme.spacing.sm,
+                        color: 'white',
+                        margin: 0,
+                        fontSize: theme.typography.fontSize.xxxl,
+                        fontWeight: theme.typography.fontWeight.semibold,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: theme.spacing.md,
                     }}
                 >
-                    {subtitle}
-                </div>
-            )}
+                    {icon}
+                    {title}
+                </Title>
+                {subtitle && (
+                    <div
+                        style={{
+                            color: 'rgba(255,255,255,0.9)',
+                            fontSize: theme.typography.fontSize.md,
+                            marginTop: theme.spacing.sm,
+                        }}
+                    >
+                        {subtitle}
+                    </div>
+                )}
+            </div>
+            {extra && <div>{extra}</div>}
         </div>
     )
 }
@@ -63,6 +73,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 interface SectionCardProps {
     title: string
     icon?: React.ReactNode
+    extra?: React.ReactNode
     children: React.ReactNode
     hoverable?: boolean
     style?: CSSProperties
@@ -71,6 +82,7 @@ interface SectionCardProps {
 export const SectionCard: React.FC<SectionCardProps> = ({
     title,
     icon,
+    extra,
     children,
     hoverable = true,
     style,
@@ -86,7 +98,7 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     const sectionHeaderStyle: CSSProperties = {
         display: 'flex',
         alignItems: 'center',
-        gap: theme.spacing.md,
+        justifyContent: 'space-between',
         marginBottom: theme.spacing.lg,
         paddingBottom: theme.spacing.md,
         borderBottom: `2px solid ${theme.colors.neutral.gray100}`,
@@ -105,10 +117,13 @@ export const SectionCard: React.FC<SectionCardProps> = ({
             }}
         >
             <div style={sectionHeaderStyle}>
-                {icon && <div style={iconStyle}>{icon}</div>}
-                <Title level={4} style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
-                    {title}
-                </Title>
+                <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
+                    {icon && <div style={iconStyle}>{icon}</div>}
+                    <Title level={4} style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
+                        {title}
+                    </Title>
+                </div>
+                {extra && <div>{extra}</div>}
             </div>
             {children}
         </AntCard>
@@ -128,10 +143,11 @@ export const PageContainer: React.FC<PageContainerProps> = ({
 }) => {
     return (
         <div
+            className="premium-page-container"
             style={{
                 background: theme.colors.background.main,
                 minHeight: '100vh',
-                padding: theme.spacing.lg,
+                // padding handled by CSS class for responsiveness
                 ...style,
             }}
         >

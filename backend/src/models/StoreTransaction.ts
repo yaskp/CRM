@@ -5,9 +5,23 @@ interface StoreTransactionAttributes {
   id: number
   transaction_number: string
   transaction_type: 'GRN' | 'STN' | 'SRN' | 'CONSUMPTION'
-  warehouse_id: number
-  to_warehouse_id?: number
-  project_id?: number
+
+  source_type?: 'warehouse' | 'project' | 'vendor'
+  destination_type?: 'warehouse' | 'project' | 'vendor'
+
+  warehouse_id?: number // Now nullable (represents Source Warehouse)
+  to_warehouse_id?: number // Nullable (represents Dest Warehouse)
+
+  // Specific Project References
+  from_project_id?: number
+  to_project_id?: number // Distinct from project_id for clarity in transfers? Or reuse?
+
+  // Vendor Return fields
+  vendor_id?: number
+  purchase_order_id?: number
+
+  project_id?: number // Legacy/Generic project ref
+
   transaction_date: Date
   status: 'draft' | 'approved' | 'rejected'
   remarks?: string
@@ -16,15 +30,25 @@ interface StoreTransactionAttributes {
   created_at?: Date
 }
 
-interface StoreTransactionCreationAttributes extends Optional<StoreTransactionAttributes, 'id' | 'created_at'> {}
+interface StoreTransactionCreationAttributes extends Optional<StoreTransactionAttributes, 'id' | 'created_at'> { }
 
 class StoreTransaction extends Model<StoreTransactionAttributes, StoreTransactionCreationAttributes> implements StoreTransactionAttributes {
   public id!: number
   public transaction_number!: string
   public transaction_type!: StoreTransactionAttributes['transaction_type']
-  public warehouse_id!: number
+
+  public source_type?: 'warehouse' | 'project' | 'vendor'
+  public destination_type?: 'warehouse' | 'project' | 'vendor'
+
+  public warehouse_id?: number
   public to_warehouse_id?: number
+
+  public from_project_id?: number
+  public to_project_id?: number
+  public vendor_id?: number
+  public purchase_order_id?: number
   public project_id?: number
+
   public transaction_date!: Date
   public status!: StoreTransactionAttributes['status']
   public remarks?: string
@@ -49,9 +73,19 @@ StoreTransaction.init(
       type: DataTypes.ENUM('GRN', 'STN', 'SRN', 'CONSUMPTION'),
       allowNull: false,
     },
+    source_type: {
+      type: DataTypes.ENUM('warehouse', 'project', 'vendor'),
+      defaultValue: 'warehouse',
+      allowNull: true
+    },
+    destination_type: {
+      type: DataTypes.ENUM('warehouse', 'project', 'vendor'),
+      defaultValue: 'warehouse',
+      allowNull: true
+    },
     warehouse_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true, // Changed from false
       references: {
         model: 'warehouses',
         key: 'id',
@@ -62,6 +96,38 @@ StoreTransaction.init(
       allowNull: true,
       references: {
         model: 'warehouses',
+        key: 'id',
+      },
+    },
+    from_project_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'projects',
+        key: 'id',
+      },
+    },
+    to_project_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'projects',
+        key: 'id',
+      },
+    },
+    vendor_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'vendors',
+        key: 'id',
+      },
+    },
+    purchase_order_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'purchase_orders',
         key: 'id',
       },
     },

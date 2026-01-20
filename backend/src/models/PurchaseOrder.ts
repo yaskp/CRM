@@ -12,6 +12,10 @@ interface PurchaseOrderAttributes {
     created_by: number
     approved_by?: number
     approved_at?: Date
+    expected_delivery_date?: string
+    shipping_address?: string
+    payment_terms?: string
+    notes?: string
     created_at?: Date
     updated_at?: Date
 }
@@ -29,6 +33,10 @@ class PurchaseOrder extends Model<PurchaseOrderAttributes, PurchaseOrderCreation
     public created_by!: number
     public approved_by?: number
     public approved_at?: Date
+    public expected_delivery_date?: string
+    public shipping_address?: string
+    public payment_terms?: string
+    public notes?: string
     public readonly created_at!: Date
     public readonly updated_at!: Date
 }
@@ -43,12 +51,12 @@ PurchaseOrder.init(
         temp_number: {
             type: DataTypes.STRING(50),
             allowNull: false,
-            unique: true, // e.g. TMP-PO-1705602322
+            unique: true,
         },
         po_number: {
             type: DataTypes.STRING(50),
             allowNull: true,
-            unique: true, // e.g. PO-2026-001
+            unique: true,
         },
         project_id: {
             type: DataTypes.INTEGER,
@@ -70,6 +78,22 @@ PurchaseOrder.init(
             type: DataTypes.DECIMAL(15, 2),
             allowNull: false,
             defaultValue: 0,
+        },
+        expected_delivery_date: {
+            type: DataTypes.DATEONLY,
+            allowNull: true,
+        },
+        shipping_address: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+        payment_terms: {
+            type: DataTypes.TEXT,
+            allowNull: true,
+        },
+        notes: {
+            type: DataTypes.TEXT,
+            allowNull: true,
         },
         status: {
             type: DataTypes.ENUM('draft', 'pending_approval', 'approved', 'rejected'),

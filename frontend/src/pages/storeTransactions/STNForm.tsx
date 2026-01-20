@@ -4,19 +4,21 @@ import {
   SaveOutlined,
   PlusOutlined,
   DeleteOutlined,
-  ArrowLeftOutlined,
   SyncOutlined,
   HomeOutlined,
   SwapOutlined,
-  CalendarOutlined,
   FileTextOutlined,
   InfoCircleOutlined,
-  BarcodeOutlined
+  BarcodeOutlined,
+  ProjectOutlined,
+  ArrowRightOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { storeTransactionService, STNItem } from '../../services/api/storeTransactions'
 import { materialService } from '../../services/api/materials'
 import { warehouseService } from '../../services/api/warehouses'
+import { projectService } from '../../services/api/projects'
+import { inventoryService } from '../../services/api/inventory'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
@@ -27,9 +29,11 @@ import {
   flexBetweenStyle,
   actionCardStyle,
   prefixIconStyle,
-  twoColumnGridStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
+import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { stnSchema, STNFormData } from '../../utils/validationSchemas'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -44,38 +48,81 @@ const STNForm = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
-  const [form] = Form.useForm()
+
+  // Master data
   const [materials, setMaterials] = useState<any[]>([])
   const [warehouses, setWarehouses] = useState<any[]>([])
+  const [projects, setProjects] = useState<any[]>([])
+
   const [items, setItems] = useState<STNFormItem[]>([])
+  const [stockMap, setStockMap] = useState<Record<number, number>>({})
+  const [stockLoading, setStockLoading] = useState(false)
+
+  const { control, handleSubmit, formState: { errors }, setValue, watch } = useForm<STNFormData>({
+    resolver: zodResolver(stnSchema),
+    defaultValues: {
+      transaction_date: dayjs().format('YYYY-MM-DD'),
+      from_type: 'warehouse',
+      to_type: 'warehouse',
+      items: [],
+    },
+  })
+
+  const fromType = watch('from_type')
+  const toType = watch('to_type')
+  const fromId = watch('from_id')
+  const toId = watch('to_id')
 
   useEffect(() => {
-    fetchMaterials()
-    fetchWarehouses()
+    fetchMetadata()
     if (id) {
       fetchSTN()
-    } else {
-      form.setFieldsValue({
-        transaction_date: dayjs(),
-      })
     }
   }, [id])
 
-  const fetchMaterials = async () => {
+  useEffect(() => {
+    if (fromId) {
+      fetchSourceStock(fromType, fromId)
+    } else {
+      setStockMap({})
+    }
+  }, [fromType, fromId])
+
+  const fetchSourceStock = async (type: string, id: number) => {
+    setStockLoading(true)
     try {
-      const response = await materialService.getMaterials()
-      setMaterials(response.materials || [])
+      // API supports either warehouse_id or project_id
+      const params = type === 'project' ? { project_id: id } : { warehouse_id: id }
+      const response = await inventoryService.getInventory({ ...params, limit: 1000 })
+
+      const map: Record<number, number> = {}
+      response.inventory?.forEach((inv: any) => {
+        // Ensure we only map positive stock
+        if (Number(inv.quantity) > 0) {
+          map[inv.material_id] = Number(inv.quantity)
+        }
+      })
+      setStockMap(map)
     } catch (error) {
-      message.error('Failed to fetch materials')
+      console.error('Failed to fetch stock', error)
+      message.warning('Could not verify stock levels')
+    } finally {
+      setStockLoading(false)
     }
   }
 
-  const fetchWarehouses = async () => {
+  const fetchMetadata = async () => {
     try {
-      const response = await warehouseService.getWarehouses()
-      setWarehouses(response.warehouses || [])
+      const [matRes, whRes, projRes] = await Promise.all([
+        materialService.getMaterials(),
+        warehouseService.getWarehouses(),
+        projectService.getProjects(),
+      ])
+      setMaterials(matRes.materials || [])
+      setWarehouses(whRes.warehouses || [])
+      setProjects(projRes.projects || [])
     } catch (error) {
-      message.error('Failed to fetch warehouses')
+      message.error('Failed to load metadata')
     }
   }
 
@@ -84,18 +131,22 @@ const STNForm = () => {
     try {
       const response = await storeTransactionService.getTransaction(Number(id))
       const stn = response.transaction
-      form.setFieldsValue({
-        warehouse_id: stn.warehouse_id,
-        to_warehouse_id: stn.to_warehouse_id,
-        transaction_date: dayjs(stn.transaction_date),
-        remarks: stn.remarks,
-      })
+
+      setValue('transaction_date', stn.transaction_date)
+      setValue('remarks', stn.remarks)
+      setValue('from_type', stn.from_type || 'warehouse')
+      setValue('to_type', stn.to_type || 'warehouse')
+      setValue('from_id', stn.from_id)
+      setValue('to_id', stn.to_id)
+
       setItems(stn.items?.map((item: any) => ({
         material_id: item.material_id,
         material_name: item.material?.name,
         quantity: Number(item.quantity),
         batch_number: item.batch_number,
       })) || [])
+      setValue('items', stn.items || [])
+
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch STN')
     } finally {
@@ -104,11 +155,14 @@ const STNForm = () => {
   }
 
   const addItem = () => {
-    setItems([...items, { material_id: 0, quantity: 0 }])
+    const newItem = { material_id: 0, quantity: 0 }
+    setItems([...items, newItem])
   }
 
   const removeItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index))
+    const newItems = items.filter((_, i) => i !== index)
+    setItems(newItems)
+    setValue('items', newItems)
   }
 
   const updateItem = (index: number, field: keyof STNFormItem, value: any) => {
@@ -119,9 +173,10 @@ const STNForm = () => {
       newItems[index].material_name = material?.name
     }
     setItems(newItems)
+    setValue('items', newItems)
   }
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (data: STNFormData) => {
     if (items.length === 0) {
       message.error('Please add at least one item')
       return
@@ -133,18 +188,31 @@ const STNForm = () => {
       return
     }
 
-    if (values.warehouse_id === values.to_warehouse_id) {
-      message.error('Source and Destination Warehouses must be different')
+    if (data.from_type === data.to_type && data.from_id === data.to_id) {
+      message.error('Source and Destination cannot be the same')
       return
+    }
+
+    // Stock Validation for Warehouse source
+    if (fromType === 'warehouse' && Object.keys(stockMap).length > 0) {
+      const errors: string[] = []
+      items.forEach(item => {
+        const available = stockMap[item.material_id] || 0
+        if (item.quantity > available) {
+          errors.push(`Insufficient stock for ${item.material_name || 'Item'}. Available: ${available}`)
+        }
+      })
+
+      if (errors.length > 0) {
+        message.error(errors[0])
+        return
+      }
     }
 
     setLoading(true)
     try {
       const payload = {
-        warehouse_id: values.warehouse_id,
-        to_warehouse_id: values.to_warehouse_id,
-        transaction_date: values.transaction_date.format('YYYY-MM-DD'),
-        remarks: values.remarks,
+        ...data,
         items: items.map(item => ({
           material_id: item.material_id,
           quantity: item.quantity,
@@ -153,7 +221,7 @@ const STNForm = () => {
       }
 
       await storeTransactionService.createSTN(payload)
-      message.success('STN created successfully!')
+      message.success('Stock Transfer Note created successfully!')
       navigate('/inventory/stn')
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to save STN')
@@ -167,28 +235,81 @@ const STNForm = () => {
       title: 'Material / Product',
       key: 'material',
       width: '40%',
-      render: (_: any, record: STNFormItem, index: number) => (
-        <Select
-          style={{ width: '100%' }}
-          placeholder="Select Material"
-          value={record.material_id || undefined}
-          onChange={(value) => updateItem(index, 'material_id', value)}
-          showSearch
-          optionFilterProp="children"
-          size="large"
-        >
-          {materials.map((material) => (
-            <Option key={material.id} value={material.id}>
-              {material.name} ({material.material_code})
-            </Option>
-          ))}
-        </Select>
-      ),
+      render: (_: any, record: STNFormItem, index: number) => {
+        const available = stockMap[record.material_id]
+
+        let stockDisplay = null
+
+        if (record.material_id > 0) {
+          if (fromType === 'project') {
+            stockDisplay = <span style={{ color: 'gray', fontStyle: 'italic' }}>Stock visibility unavailable for Project source</span>
+          } else if (!fromId) {
+            stockDisplay = <span style={{ color: 'orange' }}>Please select Source above to view stock</span>
+          } else if (stockLoading) {
+            stockDisplay = <span style={{ color: theme.colors.primary.main }}>Checking stock...</span>
+          } else {
+            const qty = available || 0
+            const isLow = qty < (record.quantity || 0)
+            stockDisplay = (
+              <span style={{ color: isLow ? 'red' : 'green', fontWeight: 500 }}>
+                Available Stock: {qty} {materials.find(m => m.id === record.material_id)?.unit || ''}
+              </span>
+            )
+          }
+        }
+
+        return (
+          <div>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Select Material"
+              value={record.material_id || undefined}
+              onChange={(value) => updateItem(index, 'material_id', value)}
+              showSearch
+              optionFilterProp="children"
+              size="large"
+              loading={stockLoading}
+              dropdownRender={(menu) => (
+                <>
+                  {menu}
+                  {fromId && Object.keys(stockMap).length === 0 && !stockLoading && (
+                    <div style={{ padding: '8px', color: 'orange', textAlign: 'center' }}>
+                      No available stock at source
+                    </div>
+                  )}
+                </>
+              )}
+            >
+              {materials
+                .filter(m => {
+                  // If source is selected, ONLY show materials with stock > 0
+                  if (fromId && !stockLoading) {
+                    return (stockMap[m.id] || 0) > 0
+                  }
+                  return true
+                })
+                .map((material) => {
+                  const stock = stockMap[material.id]
+                  return (
+                    <Option key={material.id} value={material.id}>
+                      {material.name} ({material.material_code})
+                      {fromId && stock !== undefined ? ` - Avail: ${stock}` : ''}
+                    </Option>
+                  )
+                })}
+            </Select>
+            {stockDisplay && (
+              <div style={{ marginTop: 4, fontSize: '12px' }}>
+                {stockDisplay}
+              </div>
+            )}
+          </div>
+        )
+      },
     },
     {
       title: 'Quantity',
       key: 'quantity',
-      width: '20%',
       render: (_: any, record: STNFormItem, index: number) => (
         <InputNumber
           style={{ width: '100%' }}
@@ -196,6 +317,7 @@ const STNForm = () => {
           value={record.quantity}
           min={0}
           step={0.01}
+          status={fromType === 'warehouse' && (stockMap[record.material_id] || 0) < record.quantity ? 'error' : ''}
           onChange={(value) => updateItem(index, 'quantity', value || 0)}
           size="large"
         />
@@ -239,79 +361,140 @@ const STNForm = () => {
         icon={<SyncOutlined />}
       />
 
-      <Form
-        form={form}
-        layout="vertical"
-        onFinish={onFinish}
-        disabled={!!id}
-      >
-        <div style={twoColumnGridStyle}>
-          <SectionCard title="Transfer Route" icon={<SwapOutlined />}>
-            <Form.Item
-              label={<span style={getLabelStyle()}>Source Warehouse</span>}
-              name="warehouse_id"
-              rules={[{ required: true, message: 'Please select from warehouse!' }]}
-            >
-              <Select
-                placeholder="From where?"
-                showSearch
-                optionFilterProp="children"
-                size="large"
-                style={largeInputStyle}
-                suffixIcon={<HomeOutlined />}
-              >
-                {warehouses.map((wh) => (
-                  <Option key={wh.id} value={wh.id}>
-                    {wh.name} ({wh.code})
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
+      <form onSubmit={handleSubmit(onFinish)}>
+        <Row gutter={24}>
+          <Col xs={24} lg={12}>
+            <SectionCard title="Transfer Route" icon={<SwapOutlined />}>
 
-            <div style={{ display: 'flex', justifyContent: 'center', margin: '-10px 0 10px 0' }}>
-              <Tag color="blue" style={{ borderRadius: '50%', padding: '8px' }}><SwapOutlined style={{ transform: 'rotate(90deg)', fontSize: '18px' }} /></Tag>
-            </div>
+              {/* SOURCE */}
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ display: 'block', marginBottom: 8 }}>From (Source)</Text>
+                <Space.Compact block>
+                  <Controller
+                    name="from_type"
+                    control={control}
+                    render={({ field }) => (
+                      <Select {...field} style={{ width: '130px' }} size="large" onChange={(val) => { field.onChange(val); setValue('from_id', 0); }}>
+                        <Option value="warehouse"><HomeOutlined /> Warehouse</Option>
+                        <Option value="project"><ProjectOutlined /> Project Site</Option>
+                      </Select>
+                    )}
+                  />
+                  <Controller
+                    name="from_id"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        style={{ width: '100%' }}
+                        size="large"
+                        placeholder="Select Source..."
+                        showSearch
+                        optionFilterProp="children"
+                        value={field.value || undefined}
+                      >
+                        {fromType === 'warehouse'
+                          ? warehouses.map(w => <Option key={w.id} value={w.id}>{w.name} ({w.code})</Option>)
+                          : projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)
+                        }
+                      </Select>
+                    )}
+                  />
+                </Space.Compact>
+              </div>
 
-            <Form.Item
-              label={<span style={getLabelStyle()}>Destination Warehouse</span>}
-              name="to_warehouse_id"
-              rules={[{ required: true, message: 'Please select to warehouse!' }]}
-            >
-              <Select
-                placeholder="To where?"
-                showSearch
-                optionFilterProp="children"
-                size="large"
-                style={largeInputStyle}
-                suffixIcon={<HomeOutlined />}
-              >
-                {warehouses.map((wh) => (
-                  <Option key={wh.id} value={wh.id}>
-                    {wh.name} ({wh.code})
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </SectionCard>
+              <div style={{ display: 'flex', justifyContent: 'center', margin: '16px 0' }}>
+                <ArrowRightOutlined style={{ fontSize: '24px', color: theme.colors.primary.main }} />
+              </div>
 
-          <SectionCard title="Transfer Logistics" icon={<FileTextOutlined />}>
-            <Form.Item
-              label={<span style={getLabelStyle()}>Transfer Date</span>}
-              name="transaction_date"
-              rules={[{ required: true, message: 'Please select transaction date!' }]}
-            >
-              <DatePicker style={{ width: '100%', ...largeInputStyle }} format="DD-MMM-YYYY" size="large" />
-            </Form.Item>
+              {/* DESTINATION */}
+              <div style={{ marginBottom: 16 }}>
+                <Text strong style={{ display: 'block', marginBottom: 8 }}>To (Destination)</Text>
+                <Space.Compact block>
+                  <Controller
+                    name="to_type"
+                    control={control}
+                    render={({ field }) => (
+                      <Select {...field} style={{ width: '130px' }} size="large" onChange={(val) => { field.onChange(val); setValue('to_id', 0); }}>
+                        <Option value="warehouse"><HomeOutlined /> Warehouse</Option>
+                        <Option value="project"><ProjectOutlined /> Project Site</Option>
+                      </Select>
+                    )}
+                  />
+                  <Controller
+                    name="to_id"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        style={{ width: '100%' }}
+                        size="large"
+                        placeholder="Select Destination..."
+                        showSearch
+                        optionFilterProp="children"
+                        value={field.value || undefined}
+                      >
+                        {toType === 'warehouse'
+                          ? warehouses
+                            .filter(w => !(fromType === 'warehouse' && w.id === fromId))
+                            .map(w => <Option key={w.id} value={w.id}>{w.name} ({w.code})</Option>)
+                          : projects
+                            .filter(p => !(fromType === 'project' && p.id === fromId))
+                            .map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)
+                        }
+                      </Select>
+                    )}
+                  />
+                </Space.Compact>
+              </div>
 
-            <Form.Item label={<span style={getLabelStyle()}>Logistics Remarks</span>} name="remarks">
-              <TextArea rows={4} placeholder="Vehicle info, driver name, or transfer reason..." style={largeInputStyle} />
-            </Form.Item>
+            </SectionCard>
+          </Col>
 
-            <InfoCard title="💡 Stock Impact">
-              Stock will be deducted from source and added to destination only after approval.
-            </InfoCard>
-          </SectionCard>
-        </div>
+          <Col xs={24} lg={12}>
+            <SectionCard title="Logistics Details" icon={<FileTextOutlined />}>
+              <Form.Item label={<span style={getLabelStyle()}>Transfer Date</span>} required>
+                <Controller
+                  name="transaction_date"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePicker
+                      {...field}
+                      style={{ width: '100%', ...largeInputStyle }}
+                      format="DD-MMM-YYYY"
+                      size="large"
+                      value={field.value ? dayjs(field.value) : null}
+                      onChange={(date) => field.onChange(date ? date.format('YYYY-MM-DD') : '')}
+                    />
+                  )}
+                />
+              </Form.Item>
+
+              <Form.Item label={<span style={getLabelStyle()}>Remarks / Vehicle No.</span>}>
+                <Controller
+                  name="remarks"
+                  control={control}
+                  render={({ field }) => (
+                    <TextArea {...field} rows={4} placeholder="Vehicle info, driver name, or transfer reason..." style={largeInputStyle} />
+                  )}
+                />
+              </Form.Item>
+
+              <InfoCard title="💡 Stock Movement">
+                {fromType === 'warehouse' && toType === 'project' && 'This will ISSUE stock from Warehouse to Project.'}
+                {fromType === 'project' && toType === 'warehouse' && 'This will RETURN stock from Project to Warehouse.'}
+                {fromType === 'warehouse' && toType === 'warehouse' && 'This will TRANSFER stock between Warehouses.'}
+                {fromType === 'project' && toType === 'project' && 'This will TRANSFER stock between Sites.'}
+              </InfoCard>
+
+              <div style={{ marginTop: 12 }}>
+                <Text type="secondary" style={{ fontSize: '13px' }}>
+                  <InfoCircleOutlined /> <b>Note:</b> Transfers only move assets. P&L impact occurs upon Material Consumption.
+                </Text>
+              </div>
+            </SectionCard>
+          </Col>
+        </Row>
 
         <div style={{ marginTop: theme.spacing.lg }}>
           <SectionCard
@@ -328,22 +511,23 @@ const STNForm = () => {
             <Table
               columns={itemColumns}
               dataSource={items}
-              rowKey={(_, index) => index.toString()}
+              rowKey={(_, index) => (index || 0).toString()}
               pagination={false}
               bordered
+              scroll={{ x: 800 }}
               locale={{ emptyText: <div style={{ padding: '30px' }}><Text type="secondary">No materials listed for transfer. Click "Add Item Row" to begin.</Text></div> }}
             />
           </SectionCard>
         </div>
 
         <Card style={actionCardStyle}>
-          <div style={flexBetweenStyle}>
+          <div style={{ ...flexBetweenStyle, flexWrap: 'wrap', gap: theme.spacing.md }}>
             <Text type="secondary">
               <InfoCircleOutlined style={{ marginRight: '8px' }} />
-              Ensure stock availability in source warehouse before submitting.
+              Ensure stock availability in source before submitting.
             </Text>
             {!id && (
-              <Space size="middle">
+              <Space size="middle" wrap>
                 <Button onClick={() => navigate('/inventory/stn')} size="large" style={getSecondaryButtonStyle()}>
                   Cancel
                 </Button>
@@ -361,7 +545,7 @@ const STNForm = () => {
             )}
           </div>
         </Card>
-      </Form>
+      </form>
     </PageContainer>
   )
 }

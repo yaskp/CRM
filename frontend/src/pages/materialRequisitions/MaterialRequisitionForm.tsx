@@ -1,22 +1,21 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Button, Card, DatePicker, Table, InputNumber, message, Space, Modal, Row, Col, Typography, Tag } from 'antd'
+import { Form, Input, Select, Button, Card, DatePicker, Table, InputNumber, message, Space, Modal, Typography, Tag } from 'antd'
 import {
     PlusOutlined,
     DeleteOutlined,
     ContainerOutlined,
     ProjectOutlined,
-    HomeOutlined,
     CalendarOutlined,
     InfoCircleOutlined,
     InboxOutlined,
-    DollarOutlined,
-    FileTextOutlined
+    DollarOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { materialRequisitionService, MaterialRequisitionItem } from '../../services/api/materialRequisitions'
 import { materialService } from '../../services/api/materials'
 import { projectService } from '../../services/api/projects'
 import { warehouseService } from '../../services/api/warehouses'
+import { unitService } from '../../services/api/units'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
@@ -58,8 +57,10 @@ interface Warehouse {
 
 const MaterialRequisitionForm = () => {
     const [form] = Form.useForm()
+    const [modalForm] = Form.useForm()
     const [loading, setLoading] = useState(false)
     const [materials, setMaterials] = useState<Material[]>([])
+    const [units, setUnits] = useState<any[]>([])
     const [projects, setProjects] = useState<Project[]>([])
     const [warehouses, setWarehouses] = useState<Warehouse[]>([])
     const [items, setItems] = useState<MaterialRequisitionItem[]>([])
@@ -70,12 +71,22 @@ const MaterialRequisitionForm = () => {
 
     useEffect(() => {
         fetchMaterials()
+        fetchUnits()
         fetchProjects()
         fetchWarehouses()
         if (isEdit) {
             fetchRequisition()
         }
     }, [id])
+
+    const fetchUnits = async () => {
+        try {
+            const response = await unitService.getUnits()
+            setUnits(response.data || [])
+        } catch (error) {
+            console.error('Failed to fetch units:', error)
+        }
+    }
 
     const fetchMaterials = async () => {
         try {
@@ -131,18 +142,18 @@ const MaterialRequisitionForm = () => {
         const newItem: MaterialRequisitionItem = {
             material_id: values.material_id,
             requested_quantity: values.requested_quantity,
-            unit: material.unit,
+            unit: values.unit,
             estimated_rate: values.estimated_rate,
             estimated_amount: values.estimated_rate ? values.requested_quantity * values.estimated_rate : undefined,
             specification: values.specification,
-            remarks: values.remarks,
+            remarks: values.item_remarks, // Fixed: was values.remarks but form field is item_remarks
             material: material,
         }
 
         setItems([...items, newItem])
         setShowAddItem(false)
         // Reset only item fields
-        form.resetFields(['material_id', 'requested_quantity', 'estimated_rate', 'specification', 'item_remarks'])
+        modalForm.resetFields()
     }
 
     const handleRemoveItem = (index: number) => {
@@ -183,7 +194,7 @@ const MaterialRequisitionForm = () => {
                 message.success('Requisition created successfully')
             }
 
-            navigate('/material-requisitions')
+            navigate('/procurement/requisitions')
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to save requisition')
         } finally {
@@ -357,7 +368,7 @@ const MaterialRequisitionForm = () => {
                         <Table
                             columns={itemColumns}
                             dataSource={items}
-                            rowKey={(record, index) => `item-${index}`}
+                            rowKey={(_, index) => `item-${index}`}
                             pagination={false}
                             scroll={{ x: 900 }}
                             locale={{ emptyText: <div style={{ padding: '40px 0' }}><Text type="secondary">No materials added yet. Click 'Add Material' to start.</Text></div> }}
@@ -389,7 +400,7 @@ const MaterialRequisitionForm = () => {
                         </Text>
                         <Space size="middle">
                             <Button
-                                onClick={() => navigate('/material-requisitions')}
+                                onClick={() => navigate('/procurement/requisitions')}
                                 size="large"
                                 style={getSecondaryButtonStyle()}
                             >
@@ -418,7 +429,7 @@ const MaterialRequisitionForm = () => {
                 width={650}
                 centered
             >
-                <Form layout="vertical" onFinish={handleAddItem} style={{ marginTop: '16px' }}>
+                <Form form={modalForm} layout="vertical" onFinish={handleAddItem} style={{ marginTop: '16px' }}>
                     <Form.Item
                         label={<span style={getLabelStyle()}>Material / Product</span>}
                         name="material_id"
@@ -430,10 +441,16 @@ const MaterialRequisitionForm = () => {
                             optionFilterProp="children"
                             size="large"
                             style={largeInputStyle}
+                            onChange={(value) => {
+                                const material = materials.find(m => m.id === value)
+                                if (material) {
+                                    modalForm.setFieldsValue({ unit: material.unit })
+                                }
+                            }}
                         >
                             {materials.map(material => (
                                 <Option key={material.id} value={material.id}>
-                                    {material.name} ({material.code}) - {material.unit}
+                                    {material.name} ({material.code})
                                 </Option>
                             ))}
                         </Select>
@@ -457,17 +474,37 @@ const MaterialRequisitionForm = () => {
                             />
                         </Form.Item>
 
-                        <Form.Item label={<span style={getLabelStyle()}>Est. Rate (₹)</span>} name="estimated_rate">
-                            <InputNumber
-                                style={{ width: '100%', ...largeInputStyle }}
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Unit</span>}
+                            name="unit"
+                            rules={[{ required: true, message: 'Please select unit' }]}
+                        >
+                            <Select
+                                placeholder="Select unit"
+                                showSearch
+                                optionFilterProp="children"
                                 size="large"
-                                placeholder="Market rate"
-                                min={0}
-                                step={0.01}
-                                prefix={<DollarOutlined style={prefixIconStyle} />}
-                            />
+                                style={largeInputStyle}
+                            >
+                                {units.map(unit => (
+                                    <Option key={unit.id} value={unit.code}>
+                                        {unit.name} ({unit.code})
+                                    </Option>
+                                ))}
+                            </Select>
                         </Form.Item>
                     </div>
+
+                    <Form.Item label={<span style={getLabelStyle()}>Est. Rate (₹)</span>} name="estimated_rate">
+                        <InputNumber
+                            style={{ width: '100%', ...largeInputStyle }}
+                            size="large"
+                            placeholder="Market rate"
+                            min={0}
+                            step={0.01}
+                            prefix={<DollarOutlined style={prefixIconStyle} />}
+                        />
+                    </Form.Item>
 
                     <Form.Item label={<span style={getLabelStyle()}>Specification</span>} name="specification">
                         <TextArea rows={2} placeholder="Dimensions, grade, or specific details..." style={largeInputStyle} />

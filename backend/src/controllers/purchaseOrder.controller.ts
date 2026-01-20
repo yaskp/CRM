@@ -33,9 +33,26 @@ const generatePoNumber = async () => {
     return `${prefix}${String(nextSequence).padStart(4, '0')}`
 }
 
+import PurchaseOrderItem from '../models/PurchaseOrderItem'
+
+// ...
+
 export const createPurchaseOrder = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { project_id, vendor_id, total_amount } = req.body
+        const {
+            project_id,
+            vendor_id,
+            total_amount,
+            items,
+            expected_delivery_date,
+            shipping_address,
+            payment_terms,
+            notes
+        } = req.body
+
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            throw createError('Purchase Order must have at least one item', 400)
+        }
 
         const temp_number = generateTempNumber()
 
@@ -45,13 +62,38 @@ export const createPurchaseOrder = async (req: AuthRequest, res: Response, next:
             vendor_id,
             total_amount,
             status: 'draft',
-            created_by: req.user!.id
+            created_by: req.user!.id,
+            expected_delivery_date,
+            shipping_address,
+            payment_terms,
+            notes
+        })
+
+        const itemPromises = items.map((item: any) => {
+            return PurchaseOrderItem.create({
+                po_id: po.id,
+                material_id: item.material_id, // can be null
+                description: item.description,
+                quantity: item.quantity,
+                unit: item.unit,
+                unit_price: item.unit_price,
+                tax_percentage: item.tax_percentage,
+                tax_amount: item.tax_amount,
+                total_amount: item.total_amount
+            })
+        })
+
+        await Promise.all(itemPromises)
+
+        // Refetch with items
+        const finalPO = await PurchaseOrder.findByPk(po.id, {
+            include: ['items']
         })
 
         res.status(201).json({
             success: true,
             message: 'Purchase Order created (Draft)',
-            purchaseOrder: po
+            purchaseOrder: finalPO
         })
     } catch (error) {
         next(error)
@@ -121,14 +163,42 @@ export const rejectPurchaseOrder = async (req: AuthRequest, res: Response, next:
 
 export const getPurchaseOrders = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
+        const { vendor_id, status } = req.query
+        const where: any = {}
+
+        if (vendor_id) where.vendor_id = vendor_id
+        if (status) where.status = status
+
         const orders = await PurchaseOrder.findAll({
+            where,
             order: [['created_at', 'DESC']],
-            include: ['project', 'vendor', 'creator'] // Assuming associations are set up
+            include: ['project', 'vendor', 'creator', 'items']
         })
+
 
         res.json({
             success: true,
             purchaseOrders: orders
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const getPurchaseOrderById = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params
+        const po = await PurchaseOrder.findByPk(id, {
+            include: ['project', 'vendor', 'creator', 'items']
+        })
+
+        if (!po) {
+            throw createError('Purchase Order not found', 404)
+        }
+
+        res.json({
+            success: true,
+            purchaseOrder: po
         })
     } catch (error) {
         next(error)

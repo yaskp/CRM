@@ -30,15 +30,24 @@ export const grnItemSchema = z.object({
 })
 
 export const grnSchema = z.object({
-  warehouse_id: z.number().min(1, 'Warehouse is required'),
+  warehouse_id: z.number().optional(), // Legacy, replaced by destination_id
+  destination_type: z.enum(['warehouse', 'project']).default('warehouse'),
+  destination_id: z.number().min(1, 'Destination is required'), // Warehouse ID or Project ID
+
   transaction_date: z.string().min(1, 'Transaction date is required'),
+  received_from_type: z.enum(['vendor', 'project']).default('vendor'),
+  received_from_id: z.number().optional(), // Can be vendor_id or project_id
+  reference_number: z.string().optional(), // DC or Invoice Num
+  po_id: z.number().optional().nullable(),
   items: z.array(grnItemSchema).min(1, 'At least one item is required'),
   remarks: z.string().optional(),
 })
 
 export const stnSchema = z.object({
-  warehouse_id: z.number().min(1, 'Source warehouse is required'),
-  to_warehouse_id: z.number().min(1, 'Destination warehouse is required'),
+  from_type: z.enum(['warehouse', 'project']).default('warehouse'),
+  from_id: z.number().min(1, 'Source is required'),
+  to_type: z.enum(['warehouse', 'project']).default('warehouse'),
+  to_id: z.number().min(1, 'Destination is required'),
   transaction_date: z.string().min(1, 'Transaction date is required'),
   items: z.array(z.object({
     material_id: z.number().min(1, 'Material is required'),
@@ -49,12 +58,23 @@ export const stnSchema = z.object({
 })
 
 export const srnSchema = z.object({
-  warehouse_id: z.number().min(1, 'Warehouse is required'),
-  project_id: z.number().min(1, 'Project is required'),
+  // Flex fields
+  source_type: z.enum(['project', 'warehouse']).default('project'),
+  source_id: z.number().min(1, 'Source is required'),
+
+  destination_type: z.enum(['warehouse', 'vendor']).default('warehouse'),
+  destination_id: z.number().min(1, 'Destination is required'),
+
+  // Specific for Vendor Return
+  purchase_order_id: z.number().optional().nullable(),
+
+  // Common
   transaction_date: z.string().min(1, 'Transaction date is required'),
   items: z.array(z.object({
     material_id: z.number().min(1, 'Material is required'),
     quantity: z.number().positive('Quantity must be positive'),
+    batch_number: z.string().optional(),
+    remarks: z.string().optional(),
   })).min(1, 'At least one item is required'),
   remarks: z.string().optional(),
 })

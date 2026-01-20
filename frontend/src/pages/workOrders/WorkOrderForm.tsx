@@ -1,20 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Form, Button, Card, message, Select, Input, InputNumber, Space, Table, Row, Col, Typography, Divider } from 'antd'
+import { Form, Button, Card, message, Select, Input, InputNumber, Space, Table, Typography } from 'antd'
 import {
   PlusOutlined,
   DeleteOutlined,
   SaveOutlined,
-  ArrowLeftOutlined,
   SafetyCertificateOutlined,
   ProjectOutlined,
   DollarOutlined,
-  FileTextOutlined,
   InfoCircleOutlined,
   TagOutlined,
   PercentageOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { workOrderService } from '../../services/api/workOrders'
+import { workItemTypeService } from '../../services/api/workItemTypes'
 import { projectService } from '../../services/api/projects'
 import type { ColumnsType } from 'antd/es/table'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
@@ -47,16 +46,27 @@ const WorkOrderForm = () => {
   const [loading, setLoading] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
   const [items, setItems] = useState<WorkOrderItem[]>([])
+  const [workItemTypes, setWorkItemTypes] = useState<any[]>([])
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
   useEffect(() => {
     fetchProjects()
+    fetchWorkItemTypes()
     if (id) {
       fetchWorkOrder()
     }
   }, [id])
+
+  const fetchWorkItemTypes = async () => {
+    try {
+      const response = await workItemTypeService.getWorkItemTypes()
+      setWorkItemTypes(response.data || [])
+    } catch (error) {
+      console.error('Failed to fetch work item types')
+    }
+  }
 
   const fetchProjects = async () => {
     try {
@@ -70,7 +80,7 @@ const WorkOrderForm = () => {
   const fetchWorkOrder = async () => {
     try {
       const response = await workOrderService.getWorkOrder(Number(id))
-      const wo = response.work_order
+      const wo = response.workOrder
       form.setFieldsValue(wo)
       setItems(wo.items || [])
     } catch (error: any) {
@@ -113,12 +123,13 @@ const WorkOrderForm = () => {
 
     setLoading(true)
     try {
-      const total = calculateTotal()
+      // Unused calculation removed: const total = calculateTotal()
       const discount = values.discount_percentage || 0
-      const finalAmount = total - (total * discount) / 100
+      // Unused calculation removed: const finalAmount = total - (total * discount) / 100
 
       const data = {
         project_id: values.project_id,
+        work_order_date: new Date().toISOString(),
         items: items.map(item => ({
           item_type: item.item_type,
           description: item.description,
@@ -150,20 +161,21 @@ const WorkOrderForm = () => {
       title: 'Work Type',
       dataIndex: 'item_type',
       width: '20%',
-      render: (value, record, index) => (
+      render: (value, _, index) => (
         <Select
           value={value}
           onChange={(val) => updateItem(index, 'item_type', val)}
           style={{ width: '100%' }}
           size="large"
+          showSearch
+          optionFilterProp="children"
+          placeholder="Select work type"
         >
-          <Option value="guide_wall">Guide Wall</Option>
-          <Option value="grabbing">Grabbing</Option>
-          <Option value="stop_end">Stop End</Option>
-          <Option value="rubber_stop">Rubber Stop</Option>
-          <Option value="steel_fabrication">Steel Fabrication</Option>
-          <Option value="anchor">Anchor</Option>
-          <Option value="anchor_sleeve">Anchor Sleeve</Option>
+          {workItemTypes.map((type) => (
+            <Option key={type.id} value={type.name}>
+              {type.name}
+            </Option>
+          ))}
         </Select>
       ),
     },
@@ -171,7 +183,7 @@ const WorkOrderForm = () => {
       title: 'Description',
       dataIndex: 'description',
       width: '25%',
-      render: (value, record, index) => (
+      render: (value, _, index) => (
         <Input
           value={value}
           onChange={(e) => updateItem(index, 'description', e.target.value)}
@@ -184,7 +196,7 @@ const WorkOrderForm = () => {
       title: 'Quantity',
       dataIndex: 'quantity',
       width: '12%',
-      render: (value, record, index) => (
+      render: (value, _, index) => (
         <InputNumber
           value={value}
           onChange={(val) => updateItem(index, 'quantity', val || 0)}
@@ -199,7 +211,7 @@ const WorkOrderForm = () => {
       title: 'Unit',
       dataIndex: 'unit',
       width: '10%',
-      render: (value, record, index) => (
+      render: (value, _, index) => (
         <Input
           value={value}
           onChange={(e) => updateItem(index, 'unit', e.target.value)}
@@ -212,7 +224,7 @@ const WorkOrderForm = () => {
       title: 'Rate (₹)',
       dataIndex: 'rate',
       width: '15%',
-      render: (value, record, index) => (
+      render: (value, _, index) => (
         <InputNumber
           value={value}
           onChange={(val) => updateItem(index, 'rate', val || 0)}
@@ -234,7 +246,7 @@ const WorkOrderForm = () => {
     {
       title: '',
       width: 50,
-      render: (_: any, record: any, index: number) => (
+      render: (_1: any, _2: any, index: number) => (
         <Button
           type="link"
           danger

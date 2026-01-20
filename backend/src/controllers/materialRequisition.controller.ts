@@ -6,6 +6,7 @@ import Material from '../models/Material'
 import Project from '../models/Project'
 import User from '../models/User'
 import Inventory from '../models/Inventory'
+import Unit from '../models/Unit'
 import { createError } from '../middleware/errorHandler'
 import { AuthRequest } from '../middleware/auth.middleware'
 
@@ -44,6 +45,7 @@ export const getRequisitions = async (req: Request, res: Response, next: NextFun
 
         if (project_id) where.project_id = project_id
         if (status) where.status = status
+        if (priority) where.priority = priority
 
         if (from_date || to_date) {
             where.requested_date = {}
@@ -149,6 +151,7 @@ export const createRequisition = async (req: AuthRequest, res: Response, next: N
             project_id,
             from_warehouse_id,
             required_date,
+            priority,
             items,
         } = req.body
 
@@ -166,7 +169,8 @@ export const createRequisition = async (req: AuthRequest, res: Response, next: N
             from_warehouse_id,
             requested_by: req.user!.id,
             requested_date: new Date(),
-            required_date: required_date ? new Date(required_date) : null,
+            required_date: required_date ? new Date(required_date) : undefined,
+            priority: priority || 'medium',
             status: 'pending',
         })
 
@@ -211,7 +215,7 @@ export const createRequisition = async (req: AuthRequest, res: Response, next: N
 export const updateRequisition = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
-        const { required_date, items } = req.body
+        const { required_date, priority, items } = req.body
 
         const requisition = await MaterialRequisition.findByPk(id)
 
@@ -226,6 +230,7 @@ export const updateRequisition = async (req: Request, res: Response, next: NextF
         // Update requisition
         await requisition.update({
             required_date: required_date ? new Date(required_date) : requisition.required_date,
+            priority: priority || requisition.priority,
         })
 
         // Update items if provided
@@ -277,7 +282,9 @@ export const updateRequisition = async (req: Request, res: Response, next: NextF
 export const approveRequisition = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
-        const { action, rejection_reason, items } = req.body
+        const { action, items } = req.body
+
+        console.log('Approve Payload:', JSON.stringify(req.body, null, 2))
 
         if (!action || !['approve', 'reject'].includes(action)) {
             throw createError('Invalid action', 400)
@@ -293,9 +300,40 @@ export const approveRequisition = async (req: AuthRequest, res: Response, next: 
             throw createError('Requisition is not in pending status', 400)
         }
 
+        if (!req.user?.roles?.some(role => ['Admin', 'Store Manager'].includes(role))) {
+            throw createError('Only Store Managers or Admins can approve requisitions', 403)
+        }
+
         if (action === 'approve') {
             // Update item issued quantities if provided
             if (items && items.length > 0) {
+                // Helper to calculate stock unit quantity
+                const getRequiredStockQty = async (materialId: number, issuedQty: number) => {
+                    const originalItem = requisition.items?.find((i: any) => i.material_id === materialId)
+                    const requestUnitCode = originalItem?.unit
+                    const material = await Material.findByPk(materialId)
+                    const stockUnitCode = material?.unit
+
+                    let requiredInStockUnit = Number(issuedQty)
+
+                    if (requestUnitCode && stockUnitCode && requestUnitCode !== stockUnitCode) {
+                        const requestUnit = await Unit.findOne({ where: { code: requestUnitCode } })
+                        const stockUnit = await Unit.findOne({ where: { code: stockUnitCode } })
+
+                        if (requestUnit && stockUnit) {
+                            // Check compatibility: Same base or one is base of other
+                            // Simplification: We assume if they exist, we try conversion based on factors.
+                            // In a robust system, we check Dimension/Base ID.
+                            // For now, trust the Master Data.
+                            const reqFactor = Number(requestUnit.conversion_factor || 1)
+                            const stockFactor = Number(stockUnit.conversion_factor || 1)
+
+                            requiredInStockUnit = (Number(issuedQty) * reqFactor) / stockFactor
+                        }
+                    }
+                    return requiredInStockUnit
+                }
+
                 // First pass: Validate Stock
                 for (const item of items) {
                     if (item.issued_quantity > 0) {
@@ -306,9 +344,12 @@ export const approveRequisition = async (req: AuthRequest, res: Response, next: 
                             }
                         })
 
+                        const availableStock = Number(invRecord?.quantity || 0)
+                        const requiredQty = await getRequiredStockQty(item.material_id, item.issued_quantity)
+
                         // Check if inventory exists and has enough stock
-                        if (!invRecord || invRecord.quantity < item.issued_quantity) {
-                            throw createError(`Insufficient stock for Material ID ${item.material_id}. Available: ${invRecord?.quantity || 0}`, 400)
+                        if (!invRecord || availableStock < requiredQty) {
+                            throw createError(`Insufficient stock for Material ID ${item.material_id}. Available: ${availableStock}. Required: ${requiredQty.toFixed(2)} (in stock units)`, 400)
                         }
                     }
                 }
@@ -323,8 +364,10 @@ export const approveRequisition = async (req: AuthRequest, res: Response, next: 
                             }
                         })
 
+                        const requiredQty = await getRequiredStockQty(item.material_id, item.issued_quantity)
+
                         if (invRecord) {
-                            await invRecord.decrement('quantity', { by: item.issued_quantity })
+                            await invRecord.decrement('quantity', { by: requiredQty })
                         }
                     }
 
@@ -357,7 +400,7 @@ export const approveRequisition = async (req: AuthRequest, res: Response, next: 
             }
 
             await requisition.update({
-                status,
+                status: status as any,
                 approved_by: req.user!.id,
             })
         } else {

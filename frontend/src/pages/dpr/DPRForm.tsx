@@ -1,20 +1,17 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, Table, Divider, Typography, Tooltip } from 'antd'
+import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, Table, Typography } from 'antd'
 import {
   SaveOutlined,
-  ArrowLeftOutlined,
   PlusOutlined,
   DeleteOutlined,
   DashboardOutlined,
-  ProjectOutlined,
-  CalendarOutlined,
   EnvironmentOutlined,
   ExperimentOutlined,
   BarChartOutlined,
   CloudOutlined,
   TeamOutlined,
   InfoCircleOutlined,
-  DeploymentUnitOutlined
+  FileTextOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { dprService } from '../../services/api/dpr'
@@ -31,8 +28,7 @@ import {
   getLabelStyle,
   flexBetweenStyle,
   actionCardStyle,
-  prefixIconStyle,
-  twoColumnGridStyle
+  prefixIconStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
@@ -54,7 +50,7 @@ const DPRForm = () => {
   const [projects, setProjects] = useState<any[]>([])
   const [manpower, setManpower] = useState<ManpowerEntry[]>([])
 
-  const { control, handleSubmit, formState: { errors }, setValue, watch } = useForm<DPRFormData>({
+  const { control, handleSubmit, formState: { errors }, setValue } = useForm<DPRFormData>({
     resolver: zodResolver(dprSchema),
     defaultValues: {
       report_date: dayjs().format('YYYY-MM-DD'),
@@ -203,7 +199,7 @@ const DPRForm = () => {
       title: '',
       key: 'actions',
       width: 50,
-      render: (_: any, record: ManpowerEntry, index: number) => (
+      render: (_: any, __: any, index: number) => (
         <Button
           type="link"
           danger
@@ -224,181 +220,185 @@ const DPRForm = () => {
       />
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        <div style={twoColumnGridStyle}>
-          <SectionCard title="Basic Site Details" icon={<EnvironmentOutlined />}>
-            <Form.Item
-              label={<span style={getLabelStyle()}>Project Selection</span>}
-              validateStatus={errors.project_id ? 'error' : ''}
-              help={errors.project_id?.message}
-              required
-            >
-              <Controller
-                name="project_id"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    {...field}
-                    placeholder="Which project is this for?"
-                    showSearch
-                    optionFilterProp="children"
-                    size="large"
-                    style={largeInputStyle}
-                  >
-                    {projects.map((project) => (
-                      <Option key={project.id} value={project.id}>
-                        {project.name} ({project.project_code})
-                      </Option>
-                    ))}
-                  </Select>
-                )}
-              />
-            </Form.Item>
+        <Row gutter={24}>
+          <Col xs={24} lg={12}>
+            <SectionCard title="Basic Site Details" icon={<EnvironmentOutlined />}>
+              <Form.Item
+                label={<span style={getLabelStyle()}>Project Selection</span>}
+                validateStatus={errors.project_id ? 'error' : ''}
+                help={errors.project_id?.message}
+                required
+              >
+                <Controller
+                  name="project_id"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      {...field}
+                      placeholder="Which project is this for?"
+                      showSearch
+                      optionFilterProp="children"
+                      size="large"
+                      style={largeInputStyle}
+                    >
+                      {projects.map((project) => (
+                        <Option key={project.id} value={project.id}>
+                          {project.name} ({project.project_code})
+                        </Option>
+                      ))}
+                    </Select>
+                  )}
+                />
+              </Form.Item>
 
-            <Form.Item
-              label={<span style={getLabelStyle()}>Reporting Date</span>}
-              validateStatus={errors.report_date ? 'error' : ''}
-              help={errors.report_date?.message}
-              required
-            >
-              <Controller
-                name="report_date"
-                control={control}
-                render={({ field }) => (
-                  <DatePicker
-                    {...field}
-                    style={{ width: '100%', ...largeInputStyle }}
-                    format="DD-MMM-YYYY"
-                    size="large"
-                    value={field.value ? dayjs(field.value) : null}
-                    onChange={(date) => field.onChange(date ? date.format('YYYY-MM-DD') : '')}
-                  />
-                )}
-              />
-            </Form.Item>
+              <Form.Item
+                label={<span style={getLabelStyle()}>Reporting Date</span>}
+                validateStatus={errors.report_date ? 'error' : ''}
+                help={errors.report_date?.message}
+                required
+              >
+                <Controller
+                  name="report_date"
+                  control={control}
+                  render={({ field }) => (
+                    <DatePicker
+                      {...field}
+                      style={{ width: '100%', ...largeInputStyle }}
+                      format="DD-MMM-YYYY"
+                      size="large"
+                      value={field.value ? dayjs(field.value) : null}
+                      onChange={(date) => field.onChange(date ? date.format('YYYY-MM-DD') : '')}
+                    />
+                  )}
+                />
+              </Form.Item>
 
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label={<span style={getLabelStyle()}>Site Location</span>}>
-                  <Controller
-                    name="site_location"
-                    control={control}
-                    render={({ field }) => (
-                      <Input {...field} placeholder="Specific area/site" style={largeInputStyle} size="large" />
-                    )}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label={<span style={getLabelStyle()}>Panel Selection</span>}>
-                  <Controller
-                    name="panel_number"
-                    control={control}
-                    render={({ field }) => (
-                      <Input {...field} placeholder="Panel ID" style={largeInputStyle} size="large" />
-                    )}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
-          </SectionCard>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item label={<span style={getLabelStyle()}>Site Location</span>}>
+                    <Controller
+                      name="site_location"
+                      control={control}
+                      render={({ field }) => (
+                        <Input {...field} placeholder="Specific area/site" style={largeInputStyle} size="large" />
+                      )}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label={<span style={getLabelStyle()}>Panel Selection</span>}>
+                    <Controller
+                      name="panel_number"
+                      control={control}
+                      render={({ field }) => (
+                        <Input {...field} placeholder="Panel ID" style={largeInputStyle} size="large" />
+                      )}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </SectionCard>
+          </Col>
 
-          <SectionCard title="Progress Metrics" icon={<BarChartOutlined />}>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label={<span style={getLabelStyle()}>Guide Wall (m)</span>}>
-                  <Controller
-                    name="guide_wall_running_meter"
-                    control={control}
-                    render={({ field }) => (
-                      <InputNumber
-                        {...field}
-                        style={{ width: '100%', ...largeInputStyle }}
-                        placeholder="0.00"
-                        min={0}
-                        step={0.01}
-                        size="large"
-                      />
-                    )}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label={<span style={getLabelStyle()}>Steel Usage (kg)</span>}>
-                  <Controller
-                    name="steel_quantity_kg"
-                    control={control}
-                    render={({ field }) => (
-                      <InputNumber
-                        {...field}
-                        style={{ width: '100%', ...largeInputStyle }}
-                        placeholder="0.00"
-                        min={0}
-                        step={0.01}
-                        size="large"
-                      />
-                    )}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
+          <Col xs={24} lg={12}>
+            <SectionCard title="Progress Metrics" icon={<BarChartOutlined />}>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item label={<span style={getLabelStyle()}>Guide Wall (m)</span>}>
+                    <Controller
+                      name="guide_wall_running_meter"
+                      control={control}
+                      render={({ field }) => (
+                        <InputNumber
+                          {...field}
+                          style={{ width: '100%', ...largeInputStyle }}
+                          placeholder="0.00"
+                          min={0}
+                          step={0.01}
+                          size="large"
+                        />
+                      )}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label={<span style={getLabelStyle()}>Steel Usage (kg)</span>}>
+                    <Controller
+                      name="steel_quantity_kg"
+                      control={control}
+                      render={({ field }) => (
+                        <InputNumber
+                          {...field}
+                          style={{ width: '100%', ...largeInputStyle }}
+                          placeholder="0.00"
+                          min={0}
+                          step={0.01}
+                          size="large"
+                        />
+                      )}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
 
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item label={<span style={getLabelStyle()}>Concrete (m³)</span>}>
-                  <Controller
-                    name="concrete_quantity_cubic_meter"
-                    control={control}
-                    render={({ field }) => (
-                      <InputNumber
-                        {...field}
-                        style={{ width: '100%', ...largeInputStyle }}
-                        placeholder="0.00"
-                        min={0}
-                        step={0.01}
-                        size="large"
-                      />
-                    )}
-                  />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item label={<span style={getLabelStyle()}>Polymer Bags</span>}>
-                  <Controller
-                    name="polymer_consumption_bags"
-                    control={control}
-                    render={({ field }) => (
-                      <InputNumber
-                        {...field}
-                        style={{ width: '100%', ...largeInputStyle }}
-                        placeholder="0"
-                        min={0}
-                        size="large"
-                      />
-                    )}
-                  />
-                </Form.Item>
-              </Col>
-            </Row>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item label={<span style={getLabelStyle()}>Concrete (m³)</span>}>
+                    <Controller
+                      name="concrete_quantity_cubic_meter"
+                      control={control}
+                      render={({ field }) => (
+                        <InputNumber
+                          {...field}
+                          style={{ width: '100%', ...largeInputStyle }}
+                          placeholder="0.00"
+                          min={0}
+                          step={0.01}
+                          size="large"
+                        />
+                      )}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label={<span style={getLabelStyle()}>Polymer Bags</span>}>
+                    <Controller
+                      name="polymer_consumption_bags"
+                      control={control}
+                      render={({ field }) => (
+                        <InputNumber
+                          {...field}
+                          style={{ width: '100%', ...largeInputStyle }}
+                          placeholder="0"
+                          min={0}
+                          size="large"
+                        />
+                      )}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
 
-            <Form.Item label={<span style={getLabelStyle()}>Diesel Consumption (Liters)</span>}>
-              <Controller
-                name="diesel_consumption_liters"
-                control={control}
-                render={({ field }) => (
-                  <InputNumber
-                    {...field}
-                    style={{ width: '100%', ...largeInputStyle }}
-                    placeholder="0.00"
-                    min={0}
-                    step={0.01}
-                    size="large"
-                    prefix={<ExperimentOutlined style={{ color: theme.colors.neutral.gray400 }} />}
-                  />
-                )}
-              />
-            </Form.Item>
-          </SectionCard>
-        </div>
+              <Form.Item label={<span style={getLabelStyle()}>Diesel Consumption (Liters)</span>}>
+                <Controller
+                  name="diesel_consumption_liters"
+                  control={control}
+                  render={({ field }) => (
+                    <InputNumber
+                      {...field}
+                      style={{ width: '100%', ...largeInputStyle }}
+                      placeholder="0.00"
+                      min={0}
+                      step={0.01}
+                      size="large"
+                      prefix={<ExperimentOutlined style={{ color: theme.colors.neutral.gray400 }} />}
+                    />
+                  )}
+                />
+              </Form.Item>
+            </SectionCard>
+          </Col>
+        </Row>
 
         <div style={{ marginTop: theme.spacing.lg }}>
           <SectionCard
@@ -413,43 +413,48 @@ const DPRForm = () => {
             <Table
               columns={manpowerColumns}
               dataSource={manpower}
-              rowKey={(_, index) => index.toString()}
+              rowKey={(_, index) => (index || 0).toString()}
               pagination={false}
               bordered
+              scroll={{ x: 800 }}
               locale={{ emptyText: <div style={{ padding: '20px' }}><Text type="secondary">No manpower reported for today. Click "Add Worker Type" to record consumption.</Text></div> }}
             />
           </SectionCard>
         </div>
 
-        <div style={{ marginTop: theme.spacing.lg }} {...twoColumnGridStyle}>
-          <SectionCard title="Site Conditions" icon={<CloudOutlined />}>
-            <Form.Item label={<span style={getLabelStyle()}>Weather Conditions</span>}>
-              <Controller
-                name="weather_conditions"
-                control={control}
-                render={({ field }) => (
-                  <Input {...field} placeholder="e.g., Sunny, Light Rain, High Heat" style={largeInputStyle} size="large" prefix={<CloudOutlined style={prefixIconStyle} />} />
-                )}
-              />
-            </Form.Item>
+        <Row gutter={24} style={{ marginTop: theme.spacing.lg }}>
+          <Col xs={24} lg={12}>
+            <SectionCard title="Site Conditions" icon={<CloudOutlined />}>
+              <Form.Item label={<span style={getLabelStyle()}>Weather Conditions</span>}>
+                <Controller
+                  name="weather_conditions"
+                  control={control}
+                  render={({ field }) => (
+                    <Input {...field} placeholder="e.g., Sunny, Light Rain, High Heat" style={largeInputStyle} size="large" prefix={<CloudOutlined style={prefixIconStyle} />} />
+                  )}
+                />
+              </Form.Item>
 
-            <InfoCard title="💡 Reporting Rule">
-              Daily reports should ideally be submitted by 6:00 PM on the reporting day or early next morning.
-            </InfoCard>
-          </SectionCard>
+              <InfoCard title="💡 Reporting Rule">
+                Daily reports should ideally be submitted by 6:00 PM on the reporting day or early next morning.
+              </InfoCard>
+            </SectionCard>
+          </Col>
 
-          <SectionCard title="Observatons & Remarks" icon={<FileTextOutlined />}>
-            <Form.Item label={<span style={getLabelStyle()}>Site Remarks</span>}>
-              <Controller
-                name="remarks"
-                control={control}
-                render={({ field }) => (
-                  <TextArea {...field} rows={4} placeholder="Major events, breakdowns, delays or milestones achieved today..." style={largeInputStyle} />
-                )}
-              />
-            </Form.Item>
-          </SectionCard>
-        </div>
+          <Col xs={24} lg={12}>
+            <SectionCard title="Observatons & Remarks" icon={<FileTextOutlined />}>
+              <Form.Item label={<span style={getLabelStyle()}>Site Remarks</span>}>
+                <Controller
+                  name="remarks"
+                  control={control}
+                  render={({ field }) => (
+                    <TextArea {...field} rows={4} placeholder="Major events, breakdowns, delays or milestones achieved today..." style={largeInputStyle} />
+                  )}
+                />
+              </Form.Item>
+            </SectionCard>
+          </Col>
+        </Row>
 
         <Card style={actionCardStyle}>
           <div style={flexBetweenStyle}>

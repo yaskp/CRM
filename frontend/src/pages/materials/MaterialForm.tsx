@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import { largeInputStyle, getLabelStyle, getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle, actionCardStyle, prefixIconStyle, twoColumnGridStyle } from '../../styles/styleUtils'
+import { unitService } from '../../services/api/units'
 
 const { Option } = Select
 const { TextArea } = Input
@@ -13,15 +14,26 @@ const { Text } = Typography
 const MaterialForm = () => {
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
+    const [units, setUnits] = useState<any[]>([])
     const navigate = useNavigate()
     const { id } = useParams()
     const isEdit = !!id
 
     useEffect(() => {
+        fetchUnits()
         if (isEdit) {
             fetchMaterial()
         }
     }, [id])
+
+    const fetchUnits = async () => {
+        try {
+            const response = await unitService.getUnits()
+            setUnits(response.data || [])
+        } catch (error) {
+            console.error('Failed to fetch units')
+        }
+    }
 
     const fetchMaterial = async () => {
         try {
@@ -61,7 +73,7 @@ const MaterialForm = () => {
     }
 
     const categories = ['Cement', 'Steel', 'Sand', 'Aggregate', 'Bricks', 'Paint', 'Electrical', 'Plumbing', 'Hardware', 'Tiles', 'Wood', 'Glass', 'Aluminum', 'Other']
-    const units = ['KG', 'MT', 'Ton', 'Bag', 'Nos', 'Pcs', 'Sqft', 'Sqm', 'Cft', 'Cum', 'Ltr', 'Rmt', 'Bundle', 'Box', 'Packet']
+    // Units are now fetched from API
 
     return (
         <PageContainer maxWidth={1000}>
@@ -140,9 +152,10 @@ const MaterialForm = () => {
                                 showSearch
                                 size="large"
                                 style={largeInputStyle}
+                                optionFilterProp="children"
                             >
-                                {units.map(unit => (
-                                    <Option key={unit} value={unit}>{unit}</Option>
+                                {units.map((unit: any) => (
+                                    <Option key={unit.id} value={unit.code}>{unit.name} ({unit.code})</Option>
                                 ))}
                             </Select>
                         </Form.Item>

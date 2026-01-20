@@ -39,7 +39,7 @@ const WorkOrderList = () => {
     setLoading(true)
     try {
       const response = await workOrderService.getWorkOrders(filters)
-      setWorkOrders(response.work_orders || [])
+      setWorkOrders(response.workOrders || [])
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch work orders')
     } finally {

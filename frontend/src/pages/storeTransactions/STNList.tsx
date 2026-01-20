@@ -139,7 +139,6 @@ const STNList = () => {
       title: 'Actions',
       key: 'actions',
       width: 200,
-      fixed: 'right' as const,
       render: (_: any, record: any) => (
         <Space size="middle">
           <Button

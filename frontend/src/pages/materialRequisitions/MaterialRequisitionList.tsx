@@ -24,7 +24,10 @@ const { Search } = Input
 const { Option } = Select
 const { Text } = Typography
 
+import { useAuth } from '../../context/AuthContext'
+
 const MaterialRequisitionList = () => {
+    const { user } = useAuth()
     const [requisitions, setRequisitions] = useState<MaterialRequisition[]>([])
     const [loading, setLoading] = useState(false)
     const [filters, setFilters] = useState({
@@ -90,6 +93,7 @@ const MaterialRequisitionList = () => {
         setSelectedRequisition(record)
         const items = record.items?.map(item => ({
             id: item.id,
+            material_id: item.material_id || item.material?.id,
             material: item.material,
             requested_quantity: item.requested_quantity,
             issued_quantity: item.requested_quantity,
@@ -107,6 +111,7 @@ const MaterialRequisitionList = () => {
                 action: 'approve',
                 items: approvalItems.map(item => ({
                     id: item.id,
+                    material_id: item.material_id,
                     issued_quantity: Number(item.issued_quantity)
                 }))
             })
@@ -194,7 +199,7 @@ const MaterialRequisitionList = () => {
             width: 120,
             render: (priority: string) => (
                 <Tag color={getPriorityColor(priority)} style={{ borderRadius: '4px' }}>
-                    {priority.toUpperCase()}
+                    {priority ? priority.toUpperCase() : 'N/A'}
                 </Tag>
             ),
         },
@@ -227,7 +232,7 @@ const MaterialRequisitionList = () => {
                     <Button
                         type="link"
                         icon={<EyeOutlined />}
-                        onClick={() => navigate(`/material-requisitions/${record.id}`)}
+                        onClick={() => navigate(`/procurement/requisitions/${record.id}`)}
                         style={{ padding: 0 }}
                     >
                         View
@@ -236,13 +241,13 @@ const MaterialRequisitionList = () => {
                         <Button
                             type="link"
                             icon={<EditOutlined />}
-                            onClick={() => navigate(`/material-requisitions/${record.id}/edit`)}
+                            onClick={() => navigate(`/procurement/requisitions/${record.id}/edit`)}
                             style={{ padding: 0 }}
                         >
                             Edit
                         </Button>
                     )}
-                    {record.status === 'pending' && (
+                    {record.status === 'pending' && user?.roles?.some(role => ['Admin', 'Store Manager'].includes(role)) && (
                         <>
                             <Button
                                 type="link"
@@ -356,7 +361,7 @@ const MaterialRequisitionList = () => {
                     <Button
                         type="primary"
                         icon={<PlusOutlined />}
-                        onClick={() => navigate('/material-requisitions/create')}
+                        onClick={() => navigate('/procurement/requisitions/new')}
                         size="large"
                         style={getPrimaryButtonStyle(200)}
                     >

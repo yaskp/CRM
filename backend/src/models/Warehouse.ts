@@ -5,6 +5,7 @@ interface WarehouseAttributes {
   id: number
   name: string
   code: string
+  type: 'central' | 'site'
   address?: string
   company_id?: number
   is_common: boolean
@@ -12,12 +13,13 @@ interface WarehouseAttributes {
   created_at?: Date
 }
 
-interface WarehouseCreationAttributes extends Optional<WarehouseAttributes, 'id' | 'created_at'> {}
+interface WarehouseCreationAttributes extends Optional<WarehouseAttributes, 'id' | 'created_at'> { }
 
 class Warehouse extends Model<WarehouseAttributes, WarehouseCreationAttributes> implements WarehouseAttributes {
   public id!: number
   public name!: string
   public code!: string
+  public type!: 'central' | 'site'
   public address?: string
   public company_id?: number
   public is_common!: boolean
@@ -40,6 +42,10 @@ Warehouse.init(
       type: DataTypes.STRING(20),
       allowNull: false,
       unique: true,
+    },
+    type: {
+      type: DataTypes.ENUM('central', 'site'),
+      defaultValue: 'central',
     },
     address: {
       type: DataTypes.TEXT,

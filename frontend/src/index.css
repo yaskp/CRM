@@ -55,3 +55,24 @@ code {
   -webkit-text-fill-color: transparent;
 }
 
+/* Premium Component Responsive Overrides */
+.premium-page-header {
+  padding: 32px 48px;
+}
+
+@media (max-width: 768px) {
+  .premium-page-header {
+    padding: 24px 16px !important;
+    justify-content: flex-start !important;
+  }
+}
+
+.premium-page-container {
+  padding: 24px;
+}
+
+@media (max-width: 768px) {
+  .premium-page-container {
+    padding: 12px !important;
+  }
+}

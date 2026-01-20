@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import purchaseOrderRoutes from './purchaseOrder.routes'
 import authRoutes from './auth.routes'
 import projectRoutes from './project.routes'
 import leadRoutes from './lead.routes'
@@ -19,10 +20,20 @@ import roleRoutes from './role.routes'
 import inventoryRoutes from './inventory.routes'
 import vendorTypeRoutes from './vendorType.routes'
 import uploadRoutes from './upload.routes'
+import workItemTypeRoutes from './workItemType.routes'
+import unitRoutes from './unit.routes'
+import reportRoutes from './reports'
+// ...
 
 const router = Router()
 
+// ...
+router.use('/reports', reportRoutes)
 router.use('/auth', authRoutes)
+router.use('/units', unitRoutes)
+router.use('/work-item-types', workItemTypeRoutes)
+router.use('/purchase-orders', purchaseOrderRoutes)
+router.use('/upload', uploadRoutes)
 router.use('/projects', projectRoutes)
 router.use('/leads', leadRoutes)
 router.use('/quotations', quotationRoutes)
@@ -41,7 +52,6 @@ router.use('/bar-bending-schedules', barBendingScheduleRoutes)
 router.use('/users', userRoutes)
 router.use('/roles', roleRoutes)
 router.use('/inventory', inventoryRoutes)
-router.use('/upload', uploadRoutes)
 
 export default router
 

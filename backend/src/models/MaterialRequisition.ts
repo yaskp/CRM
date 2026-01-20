@@ -9,12 +9,13 @@ interface MaterialRequisitionAttributes {
   requested_by: number
   requested_date: Date
   required_date?: Date
+  priority: 'low' | 'medium' | 'high' | 'urgent'
   status: 'pending' | 'approved' | 'partially_issued' | 'issued' | 'rejected'
   approved_by?: number
   created_at?: Date
 }
 
-interface MaterialRequisitionCreationAttributes extends Optional<MaterialRequisitionAttributes, 'id' | 'created_at'> {}
+interface MaterialRequisitionCreationAttributes extends Optional<MaterialRequisitionAttributes, 'id' | 'created_at'> { }
 
 class MaterialRequisition extends Model<MaterialRequisitionAttributes, MaterialRequisitionCreationAttributes> implements MaterialRequisitionAttributes {
   public id!: number
@@ -24,9 +25,11 @@ class MaterialRequisition extends Model<MaterialRequisitionAttributes, MaterialR
   public requested_by!: number
   public requested_date!: Date
   public required_date?: Date
+  public priority!: MaterialRequisitionAttributes['priority']
   public status!: MaterialRequisitionAttributes['status']
   public approved_by?: number
   public readonly created_at!: Date
+  public items?: any[]
 }
 
 MaterialRequisition.init(
@@ -72,6 +75,11 @@ MaterialRequisition.init(
     required_date: {
       type: DataTypes.DATEONLY,
       allowNull: true,
+    },
+    priority: {
+      type: DataTypes.ENUM('low', 'medium', 'high', 'urgent'),
+      defaultValue: 'medium',
+      allowNull: false,
     },
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'partially_issued', 'issued', 'rejected'),

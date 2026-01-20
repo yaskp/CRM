@@ -34,18 +34,23 @@ import BreakdownForm from '../pages/equipment/BreakdownForm'
 // Expenses
 import ExpenseList from '../pages/expenses/ExpenseList'
 import ExpenseForm from '../pages/expenses/ExpenseForm'
+import ProjectConsumptionReport from '../pages/reports/ProjectConsumptionReport'
 
 // Materials
 import MaterialList from '../pages/materials/MaterialList'
 import MaterialForm from '../pages/materials/MaterialForm'
+import WorkItemTypeList from '../pages/master/WorkItemTypeList'
+import UnitList from '../pages/master/UnitList' // Import new page
 
 // Vendors
 import VendorList from '../pages/vendors/VendorList'
 import VendorForm from '../pages/vendors/VendorForm'
 
-// Material Requisitions
+// Procurement
 import MaterialRequisitionList from '../pages/materialRequisitions/MaterialRequisitionList'
 import MaterialRequisitionForm from '../pages/materialRequisitions/MaterialRequisitionForm'
+import PurchaseOrderList from '../pages/purchase-orders/PurchaseOrderList'
+import PurchaseOrderForm from '../pages/purchase-orders/PurchaseOrderForm'
 
 // Leads
 import LeadList from '../pages/leads/LeadList'
@@ -120,11 +125,24 @@ const AppRoutes = () => {
         <Route path="master/equipment" element={<EquipmentList />} />
         <Route path="master/equipment/new" element={<EquipmentForm />} />
         <Route path="master/equipment/:id" element={<EquipmentForm />} />
+        <Route path="master/work-item-types" element={<WorkItemTypeList />} />
+        <Route path="master/units" element={<UnitList />} />
 
         {/* Procurement - Material Requisitions */}
         <Route path="procurement/requisitions" element={<MaterialRequisitionList />} />
         <Route path="procurement/requisitions/new" element={<MaterialRequisitionForm />} />
+        <Route path="procurement/requisitions/:id" element={<MaterialRequisitionForm />} /> {/* View/Edit handled by form for now or make View component later */}
+        <Route path="procurement/requisitions/:id/edit" element={<MaterialRequisitionForm />} />
+
+        {/* Aliases for legacy/user typed URLs */}
+        <Route path="material-requisitions/create" element={<MaterialRequisitionForm />} />
+        <Route path="material-requisitions" element={<MaterialRequisitionList />} />
+
         <Route path="procurement/vendors" element={<VendorList />} />
+        <Route path="procurement/purchase-orders" element={<PurchaseOrderList />} />
+        <Route path="procurement/purchase-orders/new" element={<PurchaseOrderForm />} />
+        <Route path="purchase-orders" element={<PurchaseOrderList />} />
+        <Route path="purchase-orders/new" element={<PurchaseOrderForm />} />
 
         {/* Inventory - Store Transactions */}
         <Route path="inventory/grn" element={<GRNList />} />
@@ -163,6 +181,10 @@ const AppRoutes = () => {
         {/* Finance - Expenses */}
         <Route path="finance/expenses" element={<ExpenseList />} />
         <Route path="finance/expenses/new" element={<ExpenseForm />} />
+        <Route path="finance/project-consumption" element={<ProjectConsumptionReport />} />
+
+        {/* Reports */}
+        <Route path="reports/project" element={<ProjectConsumptionReport />} />
 
         {/* Drawings */}
         <Route path="drawings" element={<DrawingList />} />

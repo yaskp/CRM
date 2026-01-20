@@ -6,7 +6,7 @@ import { Op } from 'sequelize'
 
 export const createWarehouse = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { name, code, address, company_id, is_common, warehouse_manager_id } = req.body
+    const { name, code, type, address, company_id, is_common, warehouse_manager_id } = req.body
 
     if (!name || !code) {
       throw createError('Warehouse name and code are required', 400)
@@ -15,6 +15,7 @@ export const createWarehouse = async (req: AuthRequest, res: Response, next: Nex
     const warehouse = await Warehouse.create({
       name,
       code,
+      type: type || 'central',
       address: address || req.body.location,
       company_id: company_id || req.user!.company_id,
       is_common: is_common || false,
@@ -39,7 +40,7 @@ export const getWarehouses = async (req: AuthRequest, res: Response, next: NextF
     const warehouses = await Warehouse.findAll({
       where: {
         [Op.or]: [
-          { company_id: req.user?.company_id || null },
+          ...(req.user?.company_id ? [{ company_id: req.user.company_id }] : []),
           { is_common: true },
         ],
       },
@@ -98,7 +99,7 @@ export const getWarehouse = async (req: AuthRequest, res: Response, next: NextFu
 export const updateWarehouse = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params
-    const { name, address, warehouse_manager_id } = req.body
+    const { name, type, address, is_common, warehouse_manager_id } = req.body
 
     const warehouse = await Warehouse.findByPk(id)
     if (!warehouse) {
@@ -107,7 +108,9 @@ export const updateWarehouse = async (req: AuthRequest, res: Response, next: Nex
 
     await warehouse.update({
       name,
+      type,
       address: address || req.body.location,
+      is_common,
       warehouse_manager_id,
     })
 

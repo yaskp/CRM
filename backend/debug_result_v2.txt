@@ -1,0 +1,13 @@
+Database Connected Successfully
+
+Users Found: 2
+- ID: 1, User: user_1, Company: 1, Roles: [Admin]
+- ID: 2, User: testuser123, Company: null, Roles: [Site Engineer]
+
+Projects Found: 1
+- ID: 1, Code: PRJ-2026-001, Name: Test Milan, Company: null, CreatedBy: 1, Status: lead
+
+Expenses Found: 0
+
+DPR Found: 0
+Writing to D:\CRM\backend\debug_result_v2.txt

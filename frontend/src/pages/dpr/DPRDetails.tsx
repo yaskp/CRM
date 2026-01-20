@@ -8,21 +8,21 @@ import {
   ProjectOutlined,
   CalendarOutlined,
   EnvironmentOutlined,
-  ExperimentOutlined,
   BarChartOutlined,
   CloudOutlined,
   TeamOutlined,
   FileTextOutlined,
-  InfoCircleOutlined
+  InfoCircleOutlined,
+  DeploymentUnitOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { dprService } from '../../services/api/dpr'
 import dayjs from 'dayjs'
-import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
+import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import { theme } from '../../styles/theme'
 import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 
 const DPRDetails = () => {
   const { id } = useParams()

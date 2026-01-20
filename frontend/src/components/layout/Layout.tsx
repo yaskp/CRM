@@ -94,7 +94,7 @@ const Layout = () => {
           </div>
         </Header>
         <Content className="app-content">
-          <div style={{ background: '#fff', padding: 24, minHeight: '100%' }}>
+          <div style={{ position: 'relative', minHeight: '100%' }}>
             <Outlet />
           </div>
         </Content>

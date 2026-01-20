@@ -64,8 +64,10 @@ export const getProjects = async (req: AuthRequest, res: Response, next: NextFun
       ]
     }
 
-    // Filter by company if user has company_id
-    if (req.user!.company_id) {
+    // Filter by company if user has company_id and is NOT Admin
+    // Admins should see all projects (or at least valid ones)
+    const isAdmin = req.user!.roles?.includes('Admin')
+    if (req.user!.company_id && !isAdmin) {
       where.company_id = req.user!.company_id
     }
 

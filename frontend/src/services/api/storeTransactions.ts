@@ -17,26 +17,47 @@ export interface STNItem {
 export interface SRNItem {
   material_id: number
   quantity: number
+  batch_number?: string
+  remarks?: string
 }
 
 export interface CreateGRNRequest {
-  warehouse_id: number
+  warehouse_id?: number
+  destination_type?: 'warehouse' | 'project'
+  destination_id?: number
+
+  received_from_type?: string
+  received_from_id?: number
+  reference_number?: string
+  po_id?: number
+
   transaction_date: string
   items: GRNItem[]
   remarks?: string
 }
 
 export interface CreateSTNRequest {
-  warehouse_id: number
-  to_warehouse_id: number
+  warehouse_id?: number // Legacy support
+  to_warehouse_id?: number // Legacy support
+  from_type?: 'warehouse' | 'project'
+  to_type?: 'warehouse' | 'project'
+  from_id?: number
+  to_id?: number
   transaction_date: string
   items: STNItem[]
   remarks?: string
 }
 
 export interface CreateSRNRequest {
-  warehouse_id: number
-  project_id: number
+  warehouse_id?: number
+  project_id?: number
+
+  source_type?: 'project' | 'warehouse'
+  destination_type?: 'warehouse' | 'vendor'
+  source_id?: number
+  destination_id?: number
+  purchase_order_id?: number | null
+
   transaction_date: string
   items: SRNItem[]
   remarks?: string
@@ -82,13 +103,13 @@ export const storeTransactionService = {
 
   // Approve transaction
   approveTransaction: async (id: number) => {
-    const response = await api.put(`/store/transactions/${id}/approve`)
+    const response = await api.put(`/store/${id}/approve`)
     return response.data
   },
 
   // Reject transaction
   rejectTransaction: async (id: number, remarks?: string) => {
-    const response = await api.put(`/store/transactions/${id}/reject`, { remarks })
+    const response = await api.put(`/store/${id}/reject`, { remarks })
     return response.data
   },
 }

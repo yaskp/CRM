@@ -1,3 +1,13 @@
+[plugin:vite:react-babel] D:\CRM\frontend\src\pages\storeTransactions\STNForm.tsx: Expected corresponding JSX closing tag for <Form>. (364:6)
+
+  362 |           </div>
+  363 |         </Card>
+> 364 |       </form>
+      |       ^
+  365 |     </PageContainer>
+  366 |   )
+  367 | }
+D:/CRM/frontend/src/pages/storeTransactions/STNForm.tsx:364:6
 # 🎉 DESIGN SYSTEM IMPLEMENTATION - FINAL COMPLETION REPORT
 
 ## ✅ ACHIEVEMENT: 18/46 Pages Complete (39%)

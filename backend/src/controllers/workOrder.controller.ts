@@ -5,7 +5,6 @@ import WorkOrderItem from '../models/WorkOrderItem'
 import Project from '../models/Project'
 import { generateWorkOrderNumber } from '../utils/workOrderCodeGenerator'
 import { createError } from '../middleware/errorHandler'
-import { Sequelize } from 'sequelize'
 
 export const createWorkOrder = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -72,6 +71,7 @@ export const createWorkOrder = async (req: AuthRequest, res: Response, next: Nex
 export const getWorkOrders = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { project_id, status, page = 1, limit = 10 } = req.query
+
     const offset = (Number(page) - 1) * Number(limit)
 
     const where: any = {}
@@ -214,15 +214,15 @@ export const addWorkOrderItem = async (req: AuthRequest, res: Response, next: Ne
       throw createError('Work order not found', 404)
     }
 
-    const amount = quantity * rate
+    const amount = Number(quantity) * Number(rate)
 
     const item = await WorkOrderItem.create({
-      work_order_id: id,
+      work_order_id: Number(id),
       item_type,
       description,
-      quantity,
+      quantity: Number(quantity),
       unit,
-      rate,
+      rate: Number(rate),
       amount,
     })
 

@@ -3,7 +3,7 @@ import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
 dotenv.config()
-// Import models FIRST to ensure all associations are loaded
+// Import models FIRST to ensure all associations are loaded (Force Rewrite)
 import './models/index'
 import { sequelize } from './database/connection'
 import routes from './routes'
@@ -38,7 +38,7 @@ const startServer = async () => {
   try {
     await sequelize.authenticate()
     logger.info('Database connection established successfully')
-    
+
     // Sync database (remove in production, use migrations)
     if (process.env.NODE_ENV === 'development') {
       await sequelize.sync({ alter: false })

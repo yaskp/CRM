@@ -1,23 +1,24 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography } from 'antd'
+import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography, Radio } from 'antd'
 import {
   SaveOutlined,
   PlusOutlined,
   DeleteOutlined,
-  ArrowLeftOutlined,
   FileTextOutlined,
-  HomeOutlined,
-  CalendarOutlined,
   InboxOutlined,
   InfoCircleOutlined,
   DollarOutlined,
-  BarcodeOutlined
+  BarcodeOutlined,
+  UserOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
 import { materialService } from '../../services/api/materials'
 import { useForm } from 'react-hook-form'
 import { warehouseService } from '../../services/api/warehouses'
+import { projectService } from '../../services/api/projects'
+import { vendorService } from '../../services/api/vendors'
+import { purchaseOrderService } from '../../services/api/purchaseOrders'
 import { grnSchema, GRNFormData } from '../../utils/validationSchemas'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller } from 'react-hook-form'
@@ -27,11 +28,8 @@ import {
   getPrimaryButtonStyle,
   getSecondaryButtonStyle,
   largeInputStyle,
-  getLabelStyle,
   flexBetweenStyle,
   actionCardStyle,
-  prefixIconStyle,
-  twoColumnGridStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
@@ -53,41 +51,80 @@ const GRNForm = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+
+  // Master Data
   const [materials, setMaterials] = useState<any[]>([])
   const [warehouses, setWarehouses] = useState<any[]>([])
+  const [projects, setProjects] = useState<any[]>([])
+  const [vendors, setVendors] = useState<any[]>([])
+  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([])
+  const [filteredPOs, setFilteredPOs] = useState<any[]>([])
+  const [activeVendorIds, setActiveVendorIds] = useState<Set<number>>(new Set())
+
   const [items, setItems] = useState<GRNItem[]>([])
 
   const { control, handleSubmit, formState: { errors }, setValue, watch } = useForm<GRNFormData>({
     resolver: zodResolver(grnSchema),
     defaultValues: {
       transaction_date: dayjs().format('YYYY-MM-DD'),
+      received_from_type: 'vendor',
       items: [],
     },
   })
 
+  // Watch for source changes
+  const receivedFromType = watch('received_from_type')
+  const receivedFromId = watch('received_from_id')
+
   useEffect(() => {
-    fetchMaterials()
-    fetchWarehouses()
+    fetchMetadata()
     if (id) {
       fetchGRN()
     }
   }, [id])
 
-  const fetchMaterials = async () => {
-    try {
-      const response = await materialService.getMaterials()
-      setMaterials(response.materials || [])
-    } catch (error) {
-      message.error('Failed to fetch materials')
+  useEffect(() => {
+    // Filter POs when source (vendor/project) changes
+    if (receivedFromType === 'vendor' && receivedFromId) {
+      const relatedPOs = purchaseOrders.filter(po =>
+        Number(po.vendor_id) === Number(receivedFromId) &&
+        (po.status === 'approved' || po.status === 'Approved')
+      )
+      setFilteredPOs(relatedPOs)
+    } else {
+      setFilteredPOs([])
     }
-  }
+  }, [receivedFromType, receivedFromId, purchaseOrders])
 
-  const fetchWarehouses = async () => {
+  useEffect(() => {
+    // Extract vendor IDs who have Approved POs
+    if (purchaseOrders.length > 0) {
+      const vIds = new Set(
+        purchaseOrders
+          .filter(po => po.status === 'approved' || po.status === 'Approved')
+          .map(po => Number(po.vendor_id))
+      )
+      setActiveVendorIds(vIds)
+    }
+  }, [purchaseOrders])
+
+  const fetchMetadata = async () => {
     try {
-      const response = await warehouseService.getWarehouses()
-      setWarehouses(response.warehouses || [])
+      const [matRes, whRes, projRes, vendRes, poRes] = await Promise.all([
+        materialService.getMaterials(),
+        warehouseService.getWarehouses(),
+        projectService.getProjects(),
+        vendorService.getVendors(),
+        purchaseOrderService.getPurchaseOrders(),
+      ])
+
+      setMaterials(matRes.materials || [])
+      setWarehouses(whRes.warehouses || [])
+      setProjects(projRes.projects || [])
+      setVendors(vendRes.vendors || [])
+      setPurchaseOrders(poRes.purchaseOrders || poRes || []) // Handle potential response variations
     } catch (error) {
-      message.error('Failed to fetch warehouses')
+      message.error('Failed to load metadata')
     }
   }
 
@@ -96,9 +133,15 @@ const GRNForm = () => {
     try {
       const response = await storeTransactionService.getTransaction(Number(id))
       const grn = response.transaction
+
       setValue('warehouse_id', grn.warehouse_id)
       setValue('transaction_date', grn.transaction_date)
       setValue('remarks', grn.remarks)
+      setValue('received_from_type', grn.received_from_type || 'vendor')
+      setValue('received_from_id', grn.received_from_id)
+      setValue('reference_number', grn.reference_number)
+      setValue('po_id', grn.po_id)
+
       setItems(grn.items?.map((item: any) => ({
         material_id: item.material_id,
         material_name: item.material?.name,
@@ -112,6 +155,22 @@ const GRNForm = () => {
       message.error(error.response?.data?.message || 'Failed to fetch GRN')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handlePOSelect = (poId: number) => {
+    const po = purchaseOrders.find(p => p.id === poId)
+    if (po && po.items) {
+      // Auto-populate items from PO
+      const poItems = po.items.map((item: any) => ({
+        material_id: item.material_id,
+        material_name: item.material?.name, // careful if material didn't populate
+        quantity: Number(item.quantity), // Default to remaining? For now total
+        unit_price: Number(item.unit_price)
+      }))
+      setItems(poItems)
+      setValue('items', poItems)
+      message.info('Items loaded from Purchase Order')
     }
   }
 
@@ -159,6 +218,13 @@ const GRNForm = () => {
           batch_number: item.batch_number || undefined,
           expiry_date: item.expiry_date || undefined,
         })),
+        // Ensure optional fields are sent
+        destination_type: data.destination_type,
+        destination_id: data.destination_id,
+        received_from_type: data.received_from_type,
+        received_from_id: data.received_from_id,
+        reference_number: data.reference_number,
+        po_id: data.po_id || undefined // Ensure null becomes undefined
       }
 
       if (id) {
@@ -184,7 +250,7 @@ const GRNForm = () => {
       render: (_: any, record: GRNItem, index: number) => (
         <Select
           style={{ width: '100%' }}
-          placeholder="Select Material"
+          placeholder="Select"
           value={record.material_id || undefined}
           onChange={(value) => {
             const material = materials.find(m => m.id === value)
@@ -232,7 +298,7 @@ const GRNForm = () => {
           step={0.01}
           onChange={(value) => updateItem(index, 'unit_price', value || undefined)}
           size="large"
-          prefix={<DollarOutlined style={{ color: theme.colors.neutral.gray400 }} />}
+          prefix={<DollarOutlined />}
         />
       ),
     },
@@ -246,7 +312,7 @@ const GRNForm = () => {
             value={record.batch_number}
             onChange={(e) => updateItem(index, 'batch_number', e.target.value)}
             size="middle"
-            prefix={<BarcodeOutlined style={{ color: theme.colors.neutral.gray400 }} />}
+            prefix={<BarcodeOutlined />}
           />
           <DatePicker
             style={{ width: '100%' }}
@@ -260,106 +326,178 @@ const GRNForm = () => {
     },
     {
       title: '',
-      key: 'actions',
-      width: 50,
-      render: (_: any, record: GRNItem, index: number) => (
-        <Button
-          type="link"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => removeItem(index)}
-          style={{ padding: 0 }}
-        />
-      ),
-    },
+      key: 'action',
+      render: (_: any, record: any, index: number) => (
+        <Button type="text" danger icon={<DeleteOutlined />} onClick={() => removeItem(index)} />
+      )
+    }
   ]
 
   return (
     <PageContainer maxWidth={1200}>
       <PageHeader
-        title={id ? 'View GRN Details' : 'Create New GRN'}
-        subtitle={id ? `Reference: #GRN-${id}` : 'Record material receipts from vendors or other projects'}
+        title={id ? 'View GRN Details' : 'New Goods Receipt Note (GRN)'}
+        subtitle={id ? `Reference: #GRN-${id}` : 'Record material receipts against POs or transfers'}
         icon={<FileTextOutlined />}
       />
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        <div style={twoColumnGridStyle}>
-          <SectionCard title="Receipt Information" icon={<InboxOutlined />}>
-            <Form.Item
-              label={<span style={getLabelStyle()}>Destination Warehouse</span>}
-              validateStatus={errors.warehouse_id ? 'error' : ''}
-              help={errors.warehouse_id?.message}
-              required
-            >
-              <Controller
-                name="warehouse_id"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    {...field}
-                    placeholder="Where is material being received?"
-                    showSearch
-                    optionFilterProp="children"
-                    size="large"
-                    style={largeInputStyle}
-                  >
-                    {warehouses.map((wh) => (
-                      <Option key={wh.id} value={wh.id}>
-                        {wh.name} ({wh.code})
-                      </Option>
-                    ))}
-                  </Select>
-                )}
-              />
-            </Form.Item>
+        {/* Top Section: Header Info */}
+        <Row gutter={24}>
+          <Col xs={24} lg={12}>
+            <SectionCard title="Receipt Source" icon={<UserOutlined />}>
+              <Form.Item label="Received From Type">
+                <Controller
+                  name="received_from_type"
+                  control={control}
+                  render={({ field }) => (
+                    <Radio.Group {...field} buttonStyle="solid">
+                      <Radio.Button value="vendor">External Vendor</Radio.Button>
+                      <Radio.Button value="project">Internal Project</Radio.Button>
+                    </Radio.Group>
+                  )}
+                />
+              </Form.Item>
 
-            <Form.Item
-              label={<span style={getLabelStyle()}>Receipt Date</span>}
-              validateStatus={errors.transaction_date ? 'error' : ''}
-              help={errors.transaction_date?.message}
-              required
-            >
-              <Controller
-                name="transaction_date"
-                control={control}
-                render={({ field }) => (
-                  <DatePicker
-                    {...field}
-                    style={{ width: '100%', ...largeInputStyle }}
-                    format="DD-MMM-YYYY"
-                    size="large"
-                    value={field.value ? dayjs(field.value) : null}
-                    onChange={(date) => field.onChange(date ? date.format('YYYY-MM-DD') : '')}
-                  />
-                )}
-              />
-            </Form.Item>
-          </SectionCard>
+              <Form.Item label={receivedFromType === 'vendor' ? "Select Vendor" : "Select Origin Project"}>
+                <Controller
+                  name="received_from_id"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      {...field}
+                      size="large"
+                      style={largeInputStyle}
+                      placeholder="Select source..."
+                      showSearch
+                      optionFilterProp="children"
+                    >
+                      {receivedFromType === 'vendor'
+                        ? vendors.filter(v => activeVendorIds.has(v.id)).map(v => <Option key={v.id} value={v.id}>{v.name}</Option>)
+                        : projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)
+                      }
+                    </Select>
+                  )}
+                />
+              </Form.Item>
 
-          <SectionCard title="Additional Notes" icon={<FileTextOutlined />}>
-            <Form.Item label={<span style={getLabelStyle()}>Receipt Remarks</span>}>
-              <Controller
-                name="remarks"
-                control={control}
-                render={({ field }) => (
-                  <TextArea
-                    {...field}
-                    rows={4}
-                    placeholder="Enter delivery note details, vehicle number, or other info..."
-                    style={largeInputStyle}
+              {receivedFromType === 'vendor' && (
+                <Form.Item label="Link Purchase Order (Optional)">
+                  <Controller
+                    name="po_id"
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        size="large"
+                        style={largeInputStyle}
+                        placeholder="Select PO to populate items"
+                        onChange={(val) => {
+                          field.onChange(val)
+                          handlePOSelect(val)
+                        }}
+                        allowClear
+                      >
+                        {filteredPOs.map((po: any) => (
+                          <Option key={po.id} value={po.id}>{po.po_number || po.temp_number} - ₹{Number(po.total_amount).toLocaleString()}</Option>
+                        ))}
+                      </Select>
+                    )}
                   />
-                )}
-              />
-            </Form.Item>
-            <InfoCard title="💡 Stock Update">
-              Once approved, the quantity will be immediately added to the selected warehouse stock.
-            </InfoCard>
-          </SectionCard>
-        </div>
+                </Form.Item>
+              )}
+            </SectionCard>
+          </Col>
+
+          <Col xs={24} lg={12}>
+            <SectionCard title="Receipt Details" icon={<InboxOutlined />}>
+              <Form.Item label="Destination Type">
+                <Radio.Group
+                  value={watch('destination_type') || 'warehouse'}
+                  onChange={(e) => {
+                    setValue('destination_type', e.target.value)
+                    setValue('destination_id', 0) // Reset ID
+                  }}
+                  buttonStyle="solid"
+                >
+                  <Radio.Button value="warehouse">Receive at Warehouse</Radio.Button>
+                  <Radio.Button value="project">Direct to Project Site</Radio.Button>
+                </Radio.Group>
+              </Form.Item>
+
+              <Form.Item label={watch('destination_type') === 'project' ? "Select Destination Project" : "Destination Warehouse"} required>
+                <Controller
+                  name="destination_id"
+                  control={control}
+                  rules={{ required: 'Destination is required' }}
+                  render={({ field }) => (
+                    <Select
+                      {...field}
+                      placeholder={watch('destination_type') === 'project' ? "Select Project..." : "Select Warehouse..."}
+                      size="large"
+                      style={largeInputStyle}
+                      showSearch
+                      optionFilterProp="children"
+                    >
+                      {watch('destination_type') === 'project'
+                        ? projects.map((p) => <Option key={p.id} value={p.id}>{p.name}</Option>)
+                        : warehouses.map((wh) => <Option key={wh.id} value={wh.id}>{wh.name} ({wh.code})</Option>)
+                      }
+                    </Select>
+                  )}
+                />
+              </Form.Item>
+
+              <Row gutter={16}>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Receipt Date" required>
+                    <Controller
+                      name="transaction_date"
+                      control={control}
+                      render={({ field }) => (
+                        <DatePicker
+                          {...field}
+                          style={{ width: '100%', ...largeInputStyle }}
+                          format="DD-MMM-YYYY"
+                          size="large"
+                          value={field.value ? dayjs(field.value) : null}
+                          onChange={(date) => field.onChange(date ? date.format('YYYY-MM-DD') : '')}
+                        />
+                      )}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Form.Item label="Ref No. (DC/Invoice)">
+                    <Controller
+                      name="reference_number"
+                      control={control}
+                      render={({ field }) => <Input {...field} size="large" placeholder="Invoice #" style={largeInputStyle} />}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Form.Item label="Remarks">
+                <Controller
+                  name="remarks"
+                  control={control}
+                  render={({ field }) => (
+                    <TextArea
+                      {...field}
+                      rows={2}
+                      placeholder="Vehicle no, unloading details..."
+                    />
+                  )}
+                />
+              </Form.Item>
+            </SectionCard>
+          </Col>
+        </Row>
 
         <div style={{ marginTop: theme.spacing.lg }}>
           <SectionCard
-            title="Material Items"
+            title="Received Items"
             icon={<BarcodeOutlined />}
             extra={
               <Button
@@ -368,31 +506,29 @@ const GRNForm = () => {
                 onClick={addItem}
                 style={{ borderRadius: '6px' }}
               >
-                Add Material Row
+                Add Item
               </Button>
             }
           >
             <Table
               columns={itemColumns}
               dataSource={items}
-              rowKey={(_, index) => index.toString()}
+              rowKey={(_, index) => (index || 0).toString()}
               pagination={false}
               bordered
-              locale={{ emptyText: <div style={{ padding: '30px' }}><Text type="secondary">No items added. Click "Add Material Row" to continue.</Text></div> }}
+              scroll={{ x: 800 }}
+              locale={{ emptyText: <div style={{ padding: '30px' }}><Text type="secondary">No items. Select a PO or add manually.</Text></div> }}
             />
-            {errors.items && (
-              <div style={{ color: theme.colors.error.main, marginTop: 8 }}>{errors.items.message}</div>
-            )}
           </SectionCard>
         </div>
 
         <Card style={actionCardStyle}>
-          <div style={flexBetweenStyle}>
+          <div style={{ ...flexBetweenStyle, flexWrap: 'wrap', gap: theme.spacing.md }}>
             <Text type="secondary">
               <InfoCircleOutlined style={{ marginRight: '8px' }} />
-              Make sure to verify physical quantity before submitting.
+              Verifying physical integrity is mandatory before saving.
             </Text>
-            <Space size="middle">
+            <Space size="middle" wrap>
               <Button
                 onClick={() => navigate('/inventory/grn')}
                 size="large"

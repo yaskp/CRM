@@ -16,6 +16,7 @@ import {
   ContainerOutlined,
   ShopOutlined,
   TeamOutlined,
+  NumberOutlined
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -39,6 +40,8 @@ const menuPermissions: Record<string, string[]> = {
   '/master/warehouses': ['Admin', 'Store Manager'],
   '/master/vendors': ['Admin', 'Operation Manager', 'Store Manager'],
   '/master/equipment': ['Admin', 'Operation Manager'],
+  '/master/work-item-types': ['Admin', 'Operation Manager'],
+  '/master/units': ['Admin', 'Operation Manager', 'Store Manager'],
   '/master/users': ['Admin'],
   '/master/roles': ['Admin'],
 
@@ -49,6 +52,7 @@ const menuPermissions: Record<string, string[]> = {
 
   // Procurement
   '/procurement/requisitions': ['Admin', 'Site Engineer', 'Store Manager'],
+  '/procurement/purchase-orders': ['Admin', 'Operation Manager', 'Store Manager', 'Project Manager', 'Site Engineer'],
   '/procurement/vendors': ['Admin', 'Operation Manager'],
 
   // Inventory
@@ -65,6 +69,7 @@ const menuPermissions: Record<string, string[]> = {
 
   // Finance
   '/finance/expenses': ['Admin', 'Site Engineer', 'Operation Manager', 'Head/Accounts'],
+  '/finance/project-consumption': ['Admin', 'Operation Manager', 'Head/Accounts'],
   '/finance/approvals': ['Admin', 'Store Manager', 'Operation Manager', 'Head/Accounts'],
 
   // Documents
@@ -125,6 +130,16 @@ const MasterMenu = () => {
       label: 'Equipment Master',
     },
     {
+      key: '/master/work-item-types',
+      icon: <FileTextOutlined />,
+      label: 'Work Item Types',
+    },
+    {
+      key: '/master/units',
+      icon: <NumberOutlined />,
+      label: 'Unit Master',
+    },
+    {
       key: '/master/users',
       icon: <UserOutlined />,
       label: 'User Management',
@@ -171,6 +186,10 @@ const MasterMenu = () => {
     {
       key: '/procurement/requisitions',
       label: 'Material Requisition',
+    },
+    {
+      key: '/procurement/purchase-orders',
+      label: 'Purchase Orders',
     },
     {
       key: '/procurement/vendors',
@@ -248,6 +267,10 @@ const MasterMenu = () => {
     {
       key: '/finance/expenses',
       label: 'Expense Management',
+    },
+    {
+      key: '/finance/project-consumption',
+      label: 'Project Consumption',
     },
   ])
 

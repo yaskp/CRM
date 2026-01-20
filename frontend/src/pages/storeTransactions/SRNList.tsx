@@ -142,7 +142,6 @@ const SRNList = () => {
       title: 'Actions',
       key: 'actions',
       width: 220,
-      fixed: 'right' as const,
       render: (_: any, record: any) => (
         <Space size="middle">
           <Button

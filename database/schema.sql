@@ -207,6 +207,7 @@ CREATE TABLE IF NOT EXISTS warehouses (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   code VARCHAR(20) UNIQUE NOT NULL,
+  type ENUM('central', 'site') DEFAULT 'central',
   address TEXT,
   company_id INT,
   is_common BOOLEAN DEFAULT FALSE,

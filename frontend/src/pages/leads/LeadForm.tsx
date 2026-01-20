@@ -12,6 +12,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import { leadService } from '../../services/api/leads'
 import { projectService } from '../../services/api/projects'
+import { clientService } from '../../services/api/clients'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
   largeInputStyle,
@@ -36,12 +37,14 @@ const LeadForm = () => {
 
   const [loading, setLoading] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
   useEffect(() => {
     fetchProjects()
+    fetchClients()
     if (id) {
       fetchLead()
     }
@@ -53,6 +56,15 @@ const LeadForm = () => {
       setProjects(response.projects || [])
     } catch (error) {
       console.error('Failed to fetch projects:', error)
+    }
+  }
+
+  const fetchClients = async () => {
+    try {
+      const response = await clientService.getClients({ limit: 100 })
+      setClients(response.clients || [])
+    } catch (error) {
+      console.error('Failed to fetch clients:', error)
     }
   }
 
@@ -174,6 +186,27 @@ const LeadForm = () => {
 
           {/* Column 2: Lead Details */}
           <SectionCard title="Lead Details" icon={<ProjectOutlined />}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Client (Optional)</span>}
+              name="client_id"
+              tooltip="Select an existing client if this is an inquiry from a repeat customer. Leave blank for new inquiries - you can create the client later from Client Management."
+            >
+              <Select
+                placeholder="Select existing client or leave blank for new inquiry"
+                showSearch
+                optionFilterProp="children"
+                size="large"
+                style={largeInputStyle}
+                allowClear
+              >
+                {clients.map(client => (
+                  <Option key={client.id} value={client.id}>
+                    {client.company_name} ({client.client_code})
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+
             <Form.Item
               label={<span style={getLabelStyle()}>Project</span>}
               name="project_id"

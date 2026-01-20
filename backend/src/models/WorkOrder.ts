@@ -4,6 +4,7 @@ import { sequelize } from '../database/connection'
 interface WorkOrderAttributes {
   id: number
   project_id: number
+  vendor_id?: number | null
   work_order_number: string
   po_wo_document_url?: string
   total_amount: number
@@ -14,11 +15,12 @@ interface WorkOrderAttributes {
   created_at?: Date
 }
 
-interface WorkOrderCreationAttributes extends Optional<WorkOrderAttributes, 'id' | 'created_at'> {}
+interface WorkOrderCreationAttributes extends Optional<WorkOrderAttributes, 'id' | 'created_at'> { }
 
 class WorkOrder extends Model<WorkOrderAttributes, WorkOrderCreationAttributes> implements WorkOrderAttributes {
   public id!: number
   public project_id!: number
+  public vendor_id?: number | null
   public work_order_number!: string
   public po_wo_document_url?: string
   public total_amount!: number
@@ -41,6 +43,14 @@ WorkOrder.init(
       allowNull: false,
       references: {
         model: 'projects',
+        key: 'id',
+      },
+    },
+    vendor_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'vendors',
         key: 'id',
       },
     },

@@ -3,6 +3,7 @@ import { AuthRequest } from '../middleware/auth.middleware'
 import Quotation from '../models/Quotation'
 import QuotationItem from '../models/QuotationItem'
 import Lead from '../models/Lead'
+import Project from '../models/Project'
 import { sequelize } from '../database/connection'
 import { generateQuotationNumber } from '../utils/quotationCodeGenerator'
 import { createError } from '../middleware/errorHandler'
@@ -62,6 +63,20 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
           quotation_id: quotation.id
         }))
         await QuotationItem.bulkCreate(quotationItems, { transaction: t })
+      }
+
+      // AUTOMATION: Update Lead and Project status
+      // When a quotation is created, we consider the lead as 'quoted'
+      await Lead.update(
+        { status: 'quoted' },
+        { where: { id: lead_id }, transaction: t }
+      )
+
+      if (lead.project_id) {
+        await Project.update(
+          { status: 'quotation' },
+          { where: { id: lead.project_id }, transaction: t }
+        )
       }
 
       return quotation
@@ -205,6 +220,33 @@ export const updateQuotation = async (req: AuthRequest, res: Response, next: Nex
         valid_until,
         status,
       }, { transaction: t })
+
+      // AUTOMATION: Update Lead and Project status based on Quotation Status
+      if (status) { // Only if status is being updated
+        const lead = await Lead.findByPk(quotation.lead_id, { transaction: t })
+
+        if (lead) {
+          if (status === 'sent') {
+            await lead.update({ status: 'quoted' }, { transaction: t })
+
+            if (lead.project_id) {
+              await Project.update(
+                { status: 'quotation' },
+                { where: { id: lead.project_id }, transaction: t }
+              )
+            }
+          } else if (status === 'accepted') {
+            await lead.update({ status: 'converted' }, { transaction: t })
+
+            if (lead.project_id) {
+              await Project.update(
+                { status: 'confirmed' },
+                { where: { id: lead.project_id }, transaction: t }
+              )
+            }
+          }
+        }
+      }
 
       if (items && Array.isArray(items)) {
         // Simple strategy: Delete all existing items and recreate

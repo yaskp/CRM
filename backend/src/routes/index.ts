@@ -23,6 +23,7 @@ import uploadRoutes from './upload.routes'
 import workItemTypeRoutes from './workItemType.routes'
 import unitRoutes from './unit.routes'
 import reportRoutes from './reports'
+import clientRoutes from './client.routes'
 // ...
 
 const router = Router()
@@ -52,6 +53,7 @@ router.use('/bar-bending-schedules', barBendingScheduleRoutes)
 router.use('/users', userRoutes)
 router.use('/roles', roleRoutes)
 router.use('/inventory', inventoryRoutes)
+router.use('/clients', clientRoutes)
 
 export default router
 

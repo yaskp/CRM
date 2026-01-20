@@ -15,6 +15,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { workOrderService } from '../../services/api/workOrders'
 import { workItemTypeService } from '../../services/api/workItemTypes'
 import { projectService } from '../../services/api/projects'
+import { vendorService } from '../../services/api/vendors'
+import { clientService } from '../../services/api/clients'
 import type { ColumnsType } from 'antd/es/table'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
@@ -47,6 +49,9 @@ const WorkOrderForm = () => {
   const [projects, setProjects] = useState<any[]>([])
   const [items, setItems] = useState<WorkOrderItem[]>([])
   const [workItemTypes, setWorkItemTypes] = useState<any[]>([])
+  const [vendors, setVendors] = useState<any[]>([])
+  const [isSubcontract, setIsSubcontract] = useState(false)
+  const [clientInfo, setClientInfo] = useState<any>(null)
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const location = useLocation()
@@ -55,10 +60,12 @@ const WorkOrderForm = () => {
   useEffect(() => {
     fetchProjects()
     fetchWorkItemTypes()
+    fetchVendors()
     if (id) {
       fetchWorkOrder()
     } else if (location.state?.project_id) {
       form.setFieldsValue({ project_id: location.state.project_id })
+      fetchClientFromProject(location.state.project_id)
     }
   }, [id, location.state])
 
@@ -80,12 +87,43 @@ const WorkOrderForm = () => {
     }
   }
 
+  const fetchVendors = async () => {
+    try {
+      const response = await vendorService.getVendors({ limit: 100 })
+      setVendors(response.vendors || [])
+    } catch (error) {
+      console.error('Failed to fetch vendors')
+    }
+  }
+
+  const fetchClientFromProject = async (projectId: number) => {
+    try {
+      const project = projects.find(p => p.id === projectId)
+      if (project && project.client_id) {
+        const response = await clientService.getClient(project.client_id)
+        setClientInfo(response.client)
+      } else {
+        setClientInfo(null)
+      }
+    } catch (error) {
+      console.error('Failed to fetch client info')
+      setClientInfo(null)
+    }
+  }
+
+  const onProjectChange = (projectId: number) => {
+    fetchClientFromProject(projectId)
+  }
+
   const fetchWorkOrder = async () => {
     try {
       const response = await workOrderService.getWorkOrder(Number(id))
       const wo = response.workOrder
       form.setFieldsValue(wo)
       setItems(wo.items || [])
+      if (wo.vendor_id) {
+        setIsSubcontract(true)
+      }
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch work order')
     }
@@ -130,6 +168,7 @@ const WorkOrderForm = () => {
 
       const data = {
         project_id: values.project_id,
+        vendor_id: isSubcontract ? values.vendor_id : null,
         work_order_date: new Date().toISOString(),
         items: items.map(item => ({
           item_type: item.item_type,
@@ -285,6 +324,7 @@ const WorkOrderForm = () => {
                 size="large"
                 style={largeInputStyle}
                 showSearch
+                onChange={onProjectChange}
                 optionFilterProp="children"
               >
                 {projects.map((project) => (
@@ -294,6 +334,56 @@ const WorkOrderForm = () => {
                 ))}
               </Select>
             </Form.Item>
+
+            {clientInfo && (
+              <InfoCard title="💼 Client Information">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <Text strong style={{ fontSize: 16 }}>{clientInfo.company_name}</Text>
+                  <Text type="secondary">Client Code: {clientInfo.client_code}</Text>
+                  {clientInfo.contact_person && <Text type="secondary">Contact: {clientInfo.contact_person}</Text>}
+                  {clientInfo.phone && <Text type="secondary">Phone: {clientInfo.phone}</Text>}
+                </div>
+              </InfoCard>
+            )}
+
+            <Form.Item label={<span style={getLabelStyle()}>Work Order Type</span>}>
+              <Select
+                value={isSubcontract ? 'subcontract' : 'internal'}
+                onChange={(val) => {
+                  setIsSubcontract(val === 'subcontract')
+                  if (val === 'internal') {
+                    form.setFieldsValue({ vendor_id: undefined })
+                  }
+                }}
+                size="large"
+                style={largeInputStyle}
+              >
+                <Option value="internal">Internal Team</Option>
+                <Option value="subcontract">Subcontractor/Vendor</Option>
+              </Select>
+            </Form.Item>
+
+            {isSubcontract && (
+              <Form.Item
+                label={<span style={getLabelStyle()}>Subcontractor/Vendor</span>}
+                name="vendor_id"
+                rules={[{ required: true, message: 'Please select a vendor!' }]}
+              >
+                <Select
+                  placeholder="Select vendor"
+                  size="large"
+                  style={largeInputStyle}
+                  showSearch
+                  optionFilterProp="children"
+                >
+                  {vendors.map((vendor) => (
+                    <Option key={vendor.id} value={vendor.id}>
+                      {vendor.name} - {vendor.vendor_type}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            )}
 
             <Form.Item label={<span style={getLabelStyle()}>Payment Schedule & Terms</span>} name="payment_terms">
               <TextArea rows={3} placeholder="e.g., 50% advance, 50% on completion..." style={largeInputStyle} />

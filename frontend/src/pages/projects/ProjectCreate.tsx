@@ -11,6 +11,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom'
 import { projectService } from '../../services/api/projects'
 import { leadService } from '../../services/api/leads'
+import { clientService } from '../../services/api/clients'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
   largeInputStyle,
@@ -29,12 +30,14 @@ const { Text } = Typography
 const ProjectCreate = () => {
   const [loading, setLoading] = useState(false)
   const [leads, setLeads] = useState<any[]>([])
+  const [clients, setClients] = useState<any[]>([])
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const location = useLocation()
 
   useEffect(() => {
     fetchLeads()
+    fetchClients()
   }, [])
 
   useEffect(() => {
@@ -59,6 +62,15 @@ const ProjectCreate = () => {
       }
     } catch (error) {
       console.error('Failed to fetch leads:', error)
+    }
+  }
+
+  const fetchClients = async () => {
+    try {
+      const response = await clientService.getClients({ limit: 100 })
+      setClients(response.clients || [])
+    } catch (error) {
+      console.error('Failed to fetch clients:', error)
     }
   }
 
@@ -116,6 +128,27 @@ const ProjectCreate = () => {
 
           {/* Column 1: Basic Information */}
           <SectionCard title="Basic Information" icon={<EnvironmentOutlined />}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Client</span>}
+              name="client_id"
+              tooltip="Select the client for this project"
+            >
+              <Select
+                placeholder="Select client"
+                size="large"
+                allowClear
+                showSearch
+                optionFilterProp="children"
+                style={largeInputStyle}
+              >
+                {clients.map(client => (
+                  <Select.Option key={client.id} value={client.id}>
+                    {client.company_name} ({client.client_code})
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+
             <Form.Item
               label={<span style={getLabelStyle()}>Link Lead (Optional)</span>}
               name="lead_id"

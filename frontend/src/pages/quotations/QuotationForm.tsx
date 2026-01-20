@@ -4,6 +4,7 @@ import { FileTextOutlined, ContactsOutlined, WalletOutlined, CalendarOutlined, P
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { quotationService } from '../../services/api/quotations'
 import { leadService } from '../../services/api/leads'
+import { clientService } from '../../services/api/clients'
 import { unitService } from '../../services/api/units'
 import { materialService } from '../../services/api/materials'
 import dayjs from 'dayjs'
@@ -29,6 +30,7 @@ const QuotationForm = () => {
   const [units, setUnits] = useState<any[]>([])
   const [materials, setMaterials] = useState<any[]>([])
   const [items, setItems] = useState<QuotationItem[]>([])
+  const [clientInfo, setClientInfo] = useState<any>(null)
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
@@ -47,6 +49,7 @@ const QuotationForm = () => {
       fetchQuotation(Number(sourceId))
     } else if (leadIdParam) {
       form.setFieldsValue({ lead_id: Number(leadIdParam) })
+      fetchClientFromLead(Number(leadIdParam))
     }
   }, [id, sourceId, leadIdParam])
 
@@ -77,6 +80,25 @@ const QuotationForm = () => {
     } catch (error) {
       console.error('Failed to fetch materials')
     }
+  }
+
+  const fetchClientFromLead = async (leadId: number) => {
+    try {
+      const lead = leads.find(l => l.id === leadId)
+      if (lead && lead.client_id) {
+        const response = await clientService.getClient(lead.client_id)
+        setClientInfo(response.client)
+      } else {
+        setClientInfo(null)
+      }
+    } catch (error) {
+      console.error('Failed to fetch client info')
+      setClientInfo(null)
+    }
+  }
+
+  const onLeadChange = (leadId: number) => {
+    fetchClientFromLead(leadId)
   }
 
   const fetchQuotation = async (quotationId: number) => {
@@ -193,6 +215,7 @@ const QuotationForm = () => {
                 size="large"
                 style={{ width: '100%', ...largeInputStyle }}
                 showSearch
+                onChange={onLeadChange}
                 filterOption={(input, option) =>
                   (option?.children as unknown as string).toLowerCase().includes(input.toLowerCase())
                 }
@@ -204,6 +227,17 @@ const QuotationForm = () => {
                 ))}
               </Select>
             </Form.Item>
+
+            {clientInfo && (
+              <InfoCard title="💼 Client Information">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <Text strong style={{ fontSize: 16 }}>{clientInfo.company_name}</Text>
+                  <Text type="secondary">Client Code: {clientInfo.client_code}</Text>
+                  {clientInfo.contact_person && <Text type="secondary">Contact: {clientInfo.contact_person}</Text>}
+                  {clientInfo.phone && <Text type="secondary">Phone: {clientInfo.phone}</Text>}
+                </div>
+              </InfoCard>
+            )}
 
             {id && (
               <Form.Item

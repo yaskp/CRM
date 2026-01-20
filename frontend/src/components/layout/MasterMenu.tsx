@@ -48,6 +48,7 @@ const menuPermissions: Record<string, string[]> = {
   // Sales & CRM
   '/sales/leads': ['Admin', 'Site Engineer', 'Operation Manager'],
   '/sales/quotations': ['Admin', 'Operation Manager'],
+  '/sales/clients': ['Admin', 'Operation Manager', 'Head/Accounts'],
   '/sales/projects': ['Admin', 'Site Engineer', 'Operation Manager', 'Store Manager', 'Head/Accounts'],
 
   // Procurement
@@ -120,11 +121,6 @@ const MasterMenu = () => {
       label: 'Warehouse Master',
     },
     {
-      key: '/master/vendors',
-      icon: <TeamOutlined />,
-      label: 'Vendor Master',
-    },
-    {
       key: '/master/equipment',
       icon: <ToolOutlined />,
       label: 'Equipment Master',
@@ -138,16 +134,6 @@ const MasterMenu = () => {
       key: '/master/units',
       icon: <NumberOutlined />,
       label: 'Unit Master',
-    },
-    {
-      key: '/master/users',
-      icon: <UserOutlined />,
-      label: 'User Management',
-    },
-    {
-      key: '/master/roles',
-      icon: <SettingOutlined />,
-      label: 'Role Management',
     },
   ])
 
@@ -163,6 +149,10 @@ const MasterMenu = () => {
     {
       key: '/sales/leads',
       label: 'Lead Management',
+    },
+    {
+      key: '/sales/clients',
+      label: 'Client Management',
     },
     {
       key: '/sales/quotations',
@@ -190,6 +180,10 @@ const MasterMenu = () => {
     {
       key: '/procurement/purchase-orders',
       label: 'Purchase Orders',
+    },
+    {
+      key: '/master/vendors',
+      label: 'Vendor Management',
     },
   ])
 
@@ -328,17 +322,18 @@ const MasterMenu = () => {
   } : null
 
   // Build menu items array, filtering out null items
+  // Order follows construction workflow: Pre-Sales → Procurement → Execution → Finance → Admin
   const allMenuItems: (MenuItem | null)[] = [
     dashboardMenu,
-    masterDataMenu,
-    salesMenu,
-    procurementMenu,
-    inventoryMenu,
-    operationsMenu,
-    financeMenu,
-    documentsMenu,
-    reportsMenu,
-    adminMenu,
+    salesMenu,           // Pre-Sales: Lead → Client → Quotation → Project
+    procurementMenu,     // Procurement: Requisition → PO → Vendors
+    inventoryMenu,       // Warehouse: GRN → STN → SRN
+    operationsMenu,      // Site Execution: Work Orders → DPR → BBS
+    financeMenu,         // Financial: Expenses → Consumption
+    documentsMenu,       // Documentation: Drawings
+    reportsMenu,         // Analytics: Reports
+    masterDataMenu,      // Reference Data: Materials, Warehouses, Equipment, etc.
+    adminMenu,           // System Settings: Users, Roles, Settings
   ]
 
   const menuItems = allMenuItems.filter((item): item is MenuItem => item !== null)

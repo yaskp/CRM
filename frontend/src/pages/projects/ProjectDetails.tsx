@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Card, Descriptions, Tag, Button, message, Spin, Row, Col, Typography, Divider } from 'antd'
+import { Card, Descriptions, Tag, Button, message, Spin, Row, Col, Typography, Divider, Modal, Select } from 'antd'
 import {
   ArrowLeftOutlined,
   ProjectOutlined,
@@ -25,6 +25,9 @@ const ProjectDetails = () => {
   const navigate = useNavigate()
   const [project, setProject] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [statusModalVisible, setStatusModalVisible] = useState(false)
+  const [updatingStatus, setUpdatingStatus] = useState(false)
+  const [newStatus, setNewStatus] = useState('')
 
   useEffect(() => {
     if (id) {
@@ -44,6 +47,21 @@ const ProjectDetails = () => {
     }
   }
 
+  const handleStatusUpdate = async () => {
+    if (!newStatus) return
+    setUpdatingStatus(true)
+    try {
+      await projectService.updateProjectStatus(Number(id), newStatus)
+      message.success('Project status updated successfully')
+      setProject({ ...project, status: newStatus })
+      setStatusModalVisible(false)
+    } catch (error: any) {
+      message.error(error.response?.data?.message || 'Failed to update status')
+    } finally {
+      setUpdatingStatus(false)
+    }
+  }
+
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       lead: 'blue',
@@ -57,6 +75,18 @@ const ProjectDetails = () => {
     }
     return colors[status] || 'default'
   }
+
+  const statusOptions = [
+    { value: 'lead', label: 'LEAD' },
+    { value: 'quotation', label: 'QUOTATION' },
+    { value: 'confirmed', label: 'CONFIRMED' },
+    { value: 'design', label: 'DESIGN' },
+    { value: 'mobilization', label: 'MOBILIZATION' },
+    { value: 'execution', label: 'EXECUTION' },
+    { value: 'completed', label: 'COMPLETED' },
+    { value: 'on_hold', label: 'ON HOLD' },
+    { value: 'cancelled', label: 'CANCELLED' },
+  ]
 
   if (loading) {
     return (
@@ -123,17 +153,28 @@ const ProjectDetails = () => {
               <Text style={{ fontSize: 12, color: theme.colors.neutral.gray600, display: 'block' }}>
                 Status
               </Text>
-              <Tag
-                color={getStatusColor(project.status)}
-                style={{
-                  marginTop: 8,
-                  fontSize: 14,
-                  padding: '4px 12px',
-                  fontWeight: 600
-                }}
-              >
-                {project.status.toUpperCase().replace('_', ' ')}
-              </Tag>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                <Tag
+                  color={getStatusColor(project.status)}
+                  style={{
+                    fontSize: 14,
+                    padding: '4px 12px',
+                    fontWeight: 600,
+                    margin: 0
+                  }}
+                >
+                  {project.status.toUpperCase().replace('_', ' ')}
+                </Tag>
+                <Button
+                  type="text"
+                  icon={<EditOutlined />}
+                  size="small"
+                  onClick={() => {
+                    setNewStatus(project.status)
+                    setStatusModalVisible(true)
+                  }}
+                />
+              </div>
             </div>
           </Col>
           <Col xs={24} sm={12} md={6}>
@@ -415,6 +456,26 @@ const ProjectDetails = () => {
           </Button>
         </div>
       </Card>
+
+      {/* Status Update Modal */}
+      <Modal
+        title="Update Project Status"
+        open={statusModalVisible}
+        onOk={handleStatusUpdate}
+        onCancel={() => setStatusModalVisible(false)}
+        confirmLoading={updatingStatus}
+      >
+        <div style={{ padding: '8px 0' }}>
+          <Text style={{ display: 'block', marginBottom: 8 }}>Select the new status for this project:</Text>
+          <Select
+            style={{ width: '100%' }}
+            value={newStatus}
+            onChange={setNewStatus}
+            options={statusOptions}
+            size="large"
+          />
+        </div>
+      </Modal>
     </PageContainer>
   )
 }

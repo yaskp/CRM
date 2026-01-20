@@ -158,7 +158,7 @@ export const PageContainer: React.FC<PageContainerProps> = ({
 
 interface InfoCardProps {
     title?: string
-    icon?: string
+    icon?: React.ReactNode
     children: React.ReactNode
     gradient?: keyof typeof theme.gradients
     style?: CSSProperties

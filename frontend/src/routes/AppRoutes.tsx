@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import Login from '../pages/auth/Login'
 import Register from '../pages/auth/Register'
 import Dashboard from '../pages/Dashboard'
+import Profile from '../pages/Profile'
 import Layout from '../components/layout/Layout'
 
 // Projects
@@ -45,6 +46,11 @@ import UnitList from '../pages/master/UnitList' // Import new page
 // Vendors
 import VendorList from '../pages/vendors/VendorList'
 import VendorForm from '../pages/vendors/VendorForm'
+
+// Clients
+import ClientList from '../pages/clients/ClientList'
+import ClientForm from '../pages/clients/ClientForm'
+import ClientDetails from '../pages/clients/ClientDetails'
 
 // Procurement
 import MaterialRequisitionList from '../pages/materialRequisitions/MaterialRequisitionList'
@@ -100,6 +106,7 @@ const AppRoutes = () => {
       >
         {/* Dashboard */}
         <Route index element={<Dashboard />} />
+        <Route path="profile" element={<Profile />} />
 
         {/* Sales & CRM */}
         <Route path="sales/leads" element={<LeadList />} />
@@ -111,6 +118,10 @@ const AppRoutes = () => {
         <Route path="sales/projects" element={<ProjectList />} />
         <Route path="sales/projects/new" element={<ProjectCreate />} />
         <Route path="sales/projects/:id" element={<ProjectDetails />} />
+        <Route path="sales/clients" element={<ClientList />} />
+        <Route path="sales/clients/new" element={<ClientForm />} />
+        <Route path="sales/clients/:id" element={<ClientDetails />} />
+        <Route path="sales/clients/:id/edit" element={<ClientForm />} />
 
         {/* Master Data */}
         <Route path="master/materials" element={<MaterialList />} />

@@ -12,6 +12,10 @@ export const createDPR = async (req: AuthRequest, res: Response, next: NextFunct
       report_date,
       site_location,
       panel_number,
+      building_id,
+      floor_id,
+      zone_id,
+      work_item_type_id,
       guide_wall_running_meter,
       steel_quantity_kg,
       concrete_quantity_cubic_meter,
@@ -31,6 +35,10 @@ export const createDPR = async (req: AuthRequest, res: Response, next: NextFunct
       report_date,
       site_location,
       panel_number,
+      building_id,
+      floor_id,
+      zone_id,
+      work_item_type_id,
       guide_wall_running_meter,
       steel_quantity_kg,
       concrete_quantity_cubic_meter,
@@ -97,6 +105,22 @@ export const getDPRs = async (req: AuthRequest, res: Response, next: NextFunctio
           association: 'creator',
           attributes: ['id', 'name', 'email'],
         },
+        {
+          association: 'workItemType',
+          attributes: ['id', 'name'],
+        },
+        {
+          association: 'building',
+          attributes: ['id', 'name'],
+        },
+        {
+          association: 'floor',
+          attributes: ['id', 'name'],
+        },
+        {
+          association: 'zone',
+          attributes: ['id', 'name'],
+        }
       ],
     })
 
@@ -132,6 +156,22 @@ export const getDPR = async (req: AuthRequest, res: Response, next: NextFunction
         {
           association: 'manpower',
         },
+        {
+          association: 'workItemType',
+          attributes: ['id', 'name'],
+        },
+        {
+          association: 'building',
+          attributes: ['id', 'name'],
+        },
+        {
+          association: 'floor',
+          attributes: ['id', 'name'],
+        },
+        {
+          association: 'zone',
+          attributes: ['id', 'name'],
+        }
       ],
     })
 
@@ -155,6 +195,10 @@ export const updateDPR = async (req: AuthRequest, res: Response, next: NextFunct
       report_date,
       site_location,
       panel_number,
+      building_id,
+      floor_id,
+      zone_id,
+      work_item_type_id,
       guide_wall_running_meter,
       steel_quantity_kg,
       concrete_quantity_cubic_meter,
@@ -175,6 +219,10 @@ export const updateDPR = async (req: AuthRequest, res: Response, next: NextFunct
       report_date,
       site_location,
       panel_number,
+      building_id,
+      floor_id,
+      zone_id,
+      work_item_type_id,
       guide_wall_running_meter,
       steel_quantity_kg,
       concrete_quantity_cubic_meter,
@@ -233,4 +281,3 @@ export const getDPRsByProject = async (req: AuthRequest, res: Response, next: Ne
     next(error)
   }
 }
-

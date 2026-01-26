@@ -12,6 +12,7 @@ interface MaterialRequisitionAttributes {
   priority: 'low' | 'medium' | 'high' | 'urgent'
   status: 'pending' | 'approved' | 'partially_issued' | 'issued' | 'rejected'
   approved_by?: number
+  boq_id?: number
   created_at?: Date
 }
 

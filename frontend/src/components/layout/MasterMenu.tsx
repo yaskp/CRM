@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 
 type MenuItem = Required<MenuProps>['items'][number]
 
@@ -42,8 +43,10 @@ const menuPermissions: Record<string, string[]> = {
   '/master/equipment': ['Admin', 'Operation Manager'],
   '/master/work-item-types': ['Admin', 'Operation Manager'],
   '/master/units': ['Admin', 'Operation Manager', 'Store Manager'],
+  '/master/branches': ['Admin'],
   '/master/users': ['Admin'],
   '/master/roles': ['Admin'],
+  '/master/annexures': ['Admin', 'Operation Manager'],
 
   // Sales & CRM
   '/sales/leads': ['Admin', 'Site Engineer', 'Operation Manager'],
@@ -67,6 +70,11 @@ const menuPermissions: Record<string, string[]> = {
   '/inventory/stn': ['Admin', 'Store Manager'],
   '/inventory/srn': ['Admin', 'Store Manager'],
   '/inventory/stock': ['Admin', 'Store Manager', 'Operation Manager', 'Site Engineer', 'Head/Accounts'],
+  '/inventory/dashboard': ['Admin', 'Store Manager', 'Operation Manager'],
+  '/inventory/daily-work-log': ['Admin', 'Store Manager', 'Site Engineer'],
+  '/inventory/consumption/new': ['Admin', 'Store Manager', 'Site Engineer'],
+  '/inventory/adjustment/new': ['Admin', 'Store Manager'],
+  '/reports/procurement-status': ['Admin', 'Operation Manager', 'Project Manager', 'Site Engineer'],
 
   // Finance
   '/finance/expenses': ['Admin', 'Site Engineer', 'Operation Manager', 'Head/Accounts'],
@@ -87,6 +95,7 @@ const MasterMenu = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
+  const { mode } = useTheme()
   const userRoles = user?.roles || []
 
   const handleMenuClick = ({ key }: { key: string }) => {
@@ -134,6 +143,16 @@ const MasterMenu = () => {
       key: '/master/units',
       icon: <NumberOutlined />,
       label: 'Unit Master',
+    },
+    {
+      key: '/master/branches',
+      icon: <BankOutlined />,
+      label: 'Billing Units',
+    },
+    {
+      key: '/master/annexures',
+      icon: <FileTextOutlined />,
+      label: 'Annexure Master',
     },
   ])
 
@@ -197,6 +216,10 @@ const MasterMenu = () => {
   // Inventory Management
   const inventoryChildren = filterMenuItems([
     {
+      key: '/inventory/dashboard',
+      label: 'Inventory Dashboard',
+    },
+    {
       key: '/inventory/grn',
       label: 'GRN (Good Receipt)',
     },
@@ -211,6 +234,10 @@ const MasterMenu = () => {
     {
       key: '/inventory/stock',
       label: 'Stock Report',
+    },
+    {
+      key: '/inventory/adjustment/new',
+      label: 'Stock Adjustment',
     },
   ])
 
@@ -229,7 +256,7 @@ const MasterMenu = () => {
     },
     {
       key: '/operations/dpr',
-      label: 'Daily Progress / Hajri',
+      label: 'Daily Progress Report',
     },
     {
       key: '/operations/bar-bending',
@@ -288,6 +315,10 @@ const MasterMenu = () => {
     {
       key: '/reports/project',
       label: 'Project Reports',
+    },
+    {
+      key: '/reports/procurement-status',
+      label: 'Procurement Status',
     },
   ])
 
@@ -393,7 +424,7 @@ const MasterMenu = () => {
 
   return (
     <Menu
-      theme="dark"
+      theme={mode}
       mode="inline"
       selectedKeys={getSelectedKeys()}
       openKeys={openKeys}

@@ -3,20 +3,24 @@
 }
 
 .logo {
-  height: 64px;
+  min-height: 64px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #1f2937;
   padding: 12px;
-  /* Premium dark gradient */
-  background: linear-gradient(180deg, #111827 0%, #1f2937 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: #ffffff;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.dark-mode .logo {
+  background: #111827;
+  border-bottom: 1px solid #374151;
 }
 
 .app-header {
-  background: #ffffff !important;
+  background: #ffffff;
   padding: 0 24px;
   display: flex;
   align-items: center;
@@ -26,6 +30,12 @@
   top: 0;
   z-index: 100;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.dark-mode .app-header {
+  background: #1f2937 !important;
+  border-bottom: 1px solid #374151;
+  color: #e5e7eb;
 }
 
 .app-content {
@@ -40,24 +50,42 @@
   transition: all 0.3s ease;
 }
 
-/* Sidebar override for cleaner look */
+/* Sidebar light theme override */
 .ant-layout-sider {
+  background: #ffffff;
+}
+
+.dark-mode .ant-layout-sider {
+  background: #111827 !important;
+  border-right: 1px solid #374151;
+}
+
+/* Menu Customization for Light Theme */
+.ant-menu-light {
+  background: #ffffff;
+  color: #4b5563;
+}
+
+.dark-mode .ant-menu-dark {
   background: #111827 !important;
 }
 
-.ant-menu-dark {
-  background: #111827 !important;
+/* Selected Item - Teal Background */
+.ant-menu-light .ant-menu-item-selected {
+  background-color: #e0f2f1;
+  color: #0f766e;
+  border-right: 3px solid #0d9488;
+  font-weight: 600;
 }
 
-.ant-menu-dark .ant-menu-item-selected {
-  background-color: #374151 !important;
-  border-radius: 6px;
-  margin: 0 8px;
-  width: calc(100% - 16px);
+/* Hover Effect */
+.ant-menu-light .ant-menu-item:hover,
+.ant-menu-light .ant-menu-submenu-title:hover {
+  color: #0d9488;
 }
 
-.ant-menu-dark .ant-menu-sub {
-  background: #1f2937 !important;
+.ant-menu-light .ant-menu-sub {
+  background: #fafafa;
 }
 
 @media (max-width: 768px) {
@@ -68,13 +96,5 @@
 
   .logo {
     padding: 8px;
-  }
-
-  .logo div:first-child {
-    font-size: 16px;
-  }
-
-  .logo div:last-child {
-    font-size: 10px;
   }
 }

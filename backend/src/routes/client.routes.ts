@@ -6,6 +6,10 @@ import {
     getClient,
     updateClient,
     deleteClient,
+    getClientGroups,
+    createClientGroup,
+    updateClientGroup,
+    deleteClientGroup,
     getClientProjects
 } from '../controllers/client.controller'
 
@@ -13,6 +17,12 @@ const router = Router()
 
 // All routes require authentication
 router.use(authenticate)
+
+// Client Group routes
+router.get('/groups', getClientGroups)
+router.post('/groups', createClientGroup)
+router.put('/groups/:id', updateClientGroup)
+router.delete('/groups/:id', deleteClientGroup)
 
 // Client routes
 router.post('/', createClient)

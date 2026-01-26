@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, DatePicker, InputNumber, Typography, Select } from 'antd'
+import { Form, Input, Button, Card, message, DatePicker, InputNumber, Typography, Select, Switch, Tooltip } from 'antd'
 import {
   ProjectOutlined,
   EnvironmentOutlined,
@@ -7,11 +7,13 @@ import {
   CalendarOutlined,
   FileTextOutlined,
   UserOutlined,
+  TeamOutlined
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { projectService } from '../../services/api/projects'
 import { leadService } from '../../services/api/leads'
 import { clientService } from '../../services/api/clients'
+import StateSelect from '../../components/common/StateSelect'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
   largeInputStyle,
@@ -31,14 +33,22 @@ const ProjectCreate = () => {
   const [loading, setLoading] = useState(false)
   const [leads, setLeads] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
+  const [clientGroups, setClientGroups] = useState<any[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined)
   const [form] = Form.useForm()
+  const isGstRegistered = Form.useWatch('is_gst_registered', form)
   const navigate = useNavigate()
   const location = useLocation()
 
   useEffect(() => {
     fetchLeads()
     fetchClients()
+    fetchClientGroups()
   }, [])
+
+  useEffect(() => {
+    fetchClients(selectedGroupId)
+  }, [selectedGroupId])
 
   useEffect(() => {
     if (location.state) {
@@ -65,13 +75,29 @@ const ProjectCreate = () => {
     }
   }
 
-  const fetchClients = async () => {
+  const fetchClients = async (groupId?: number) => {
     try {
-      const response = await clientService.getClients({ limit: 100 })
+      const params: any = { limit: 100 }
+      if (groupId) params.client_group_id = groupId
+      const response = await clientService.getClients(params)
       setClients(response.clients || [])
     } catch (error) {
       console.error('Failed to fetch clients:', error)
     }
+  }
+
+  const fetchClientGroups = async () => {
+    try {
+      const response = await clientService.getClientGroups()
+      setClientGroups(response.groups || [])
+    } catch (error) {
+      console.error('Failed to fetch client groups:', error)
+    }
+  }
+
+  const handleGroupChange = (groupId: number) => {
+    setSelectedGroupId(groupId)
+    form.setFieldsValue({ client_id: undefined })
   }
 
   const onLeadChange = (leadId: number) => {
@@ -122,6 +148,9 @@ const ProjectCreate = () => {
         layout="vertical"
         onFinish={onFinish}
         autoComplete="off"
+        initialValues={{
+          is_gst_registered: true
+        }}
       >
         {/* Three Column Layout */}
         <div style={threeColumnGridStyle}>
@@ -133,20 +162,33 @@ const ProjectCreate = () => {
               name="client_id"
               tooltip="Select the client for this project"
             >
-              <Select
-                placeholder="Select client"
-                size="large"
-                allowClear
-                showSearch
-                optionFilterProp="children"
-                style={largeInputStyle}
-              >
-                {clients.map(client => (
-                  <Select.Option key={client.id} value={client.id}>
-                    {client.company_name} ({client.client_code})
-                  </Select.Option>
-                ))}
-              </Select>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <Select
+                  placeholder="Filter by Group"
+                  style={{ width: '180px' }}
+                  allowClear
+                  onChange={handleGroupChange}
+                  value={selectedGroupId}
+                >
+                  {clientGroups.map(group => (
+                    <Select.Option key={group.id} value={group.id}>{group.group_name}</Select.Option>
+                  ))}
+                </Select>
+                <Select
+                  placeholder="Select client"
+                  size="large"
+                  allowClear
+                  showSearch
+                  optionFilterProp="children"
+                  style={{ ...largeInputStyle, flex: 1 }}
+                >
+                  {clients.map(client => (
+                    <Select.Option key={client.id} value={client.id}>
+                      {client.company_name} ({client.client_code})
+                    </Select.Option>
+                  ))}
+                </Select>
+              </div>
             </Form.Item>
 
             <Form.Item
@@ -209,10 +251,10 @@ const ProjectCreate = () => {
               label={<span style={getLabelStyle()}>State</span>}
               name="state"
             >
-              <Input
-                placeholder="Enter state"
-                size="large"
-                style={largeInputStyle}
+              <StateSelect
+                onChange={(val, code) => {
+                  form.setFieldsValue({ state: val })
+                }}
               />
             </Form.Item>
           </SectionCard>
@@ -231,18 +273,59 @@ const ProjectCreate = () => {
             </Form.Item>
 
             <Form.Item
-              label={<span style={getLabelStyle()}>Client GSTIN</span>}
-              name="client_gstin"
-              rules={[{
-                pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
-                message: 'Invalid GSTIN Format'
-              }]}
+              label={<span style={getLabelStyle()}>Is Client GST Registered?</span>}
+              name="is_gst_registered"
+              valuePropName="checked"
             >
-              <Input
-                prefix={<FileTextOutlined style={prefixIconStyle} />}
-                placeholder="27AABCU9603R1ZM"
-                size="large"
-                style={largeInputStyle}
+              <Switch
+                checkedChildren="Yes"
+                unCheckedChildren="No"
+                onChange={(checked) => {
+                  if (!checked) {
+                    form.setFieldsValue({ client_gstin: undefined })
+                  }
+                }}
+              />
+            </Form.Item>
+
+            {isGstRegistered && (
+              <Form.Item
+                label={<span style={getLabelStyle()}>Client GSTIN</span>}
+                name="client_gstin"
+                rules={[
+                  { required: true, message: 'GSTIN is required for registered clients' },
+                  {
+                    pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+                    message: 'Invalid GSTIN Format'
+                  }
+                ]}
+              >
+                <Input
+                  prefix={<FileTextOutlined style={prefixIconStyle} />}
+                  placeholder="27AABCU9603R1ZM"
+                  size="large"
+                  style={largeInputStyle}
+                  onChange={(e) => {
+                    const val = e.target.value.toUpperCase();
+                    if (val.length >= 2) {
+                      const code = val.substring(0, 2);
+                      form.setFieldsValue({ site_state_code: code });
+                    }
+                  }}
+                />
+              </Form.Item>
+            )}
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Site State Code</span>}
+              name="site_state_code"
+              rules={[{ required: true, message: 'Please select site state code' }]}
+              tooltip="State where the construction site is located (used for GST calculation)"
+            >
+              <StateSelect
+                onChange={(val, code) => {
+                  form.setFieldsValue({ site_state_code: code })
+                }}
               />
             </Form.Item>
 

@@ -148,7 +148,9 @@ const MaterialForm = () => {
                             rules={[{ required: true, message: 'Please select unit' }]}
                         >
                             <Select
-                                placeholder="Select unit"
+                                mode="multiple"
+                                maxTagCount="responsive"
+                                placeholder="Select units"
                                 showSearch
                                 size="large"
                                 style={largeInputStyle}

@@ -10,7 +10,8 @@ import {
     CheckCircleOutlined,
     CloseCircleOutlined,
     PhoneOutlined,
-    MailOutlined
+    MailOutlined,
+    EyeOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { vendorService } from '../../services/api/vendors'
@@ -149,6 +150,14 @@ const VendorList = () => {
             fixed: 'right' as const,
             render: (_: any, record: any) => (
                 <Space>
+                    <Button
+                        type="link"
+                        icon={<EyeOutlined />}
+                        onClick={() => navigate(`/master/vendors/${record.id}`)}
+                        style={{ padding: 0 }}
+                    >
+                        View
+                    </Button>
                     <Button
                         type="link"
                         icon={<EditOutlined />}

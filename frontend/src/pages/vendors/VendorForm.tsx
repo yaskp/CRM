@@ -3,6 +3,7 @@ import { Form, Input, Select, Button, Card, message, Switch, Typography, Modal }
 import { ShopOutlined, UserOutlined, PhoneOutlined, MailOutlined, EnvironmentOutlined, BankOutlined, SafetyOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { vendorService } from '../../services/api/vendors'
+import StateSelect from '../../components/common/StateSelect'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import { largeInputStyle, getLabelStyle, getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle, actionCardStyle, prefixIconStyle, twoColumnGridStyle } from '../../styles/styleUtils'
 
@@ -28,8 +29,16 @@ const VendorForm = () => {
         try {
             const response = await vendorService.getVendorById(Number(id))
             const vendorData = response.vendor
-            form.setFieldsValue(vendorData)
+            // Ensure state and city are correctly set (handling nulls)
+            form.setFieldsValue({
+                ...vendorData,
+                state: vendorData.state || undefined,
+                city: vendorData.city || undefined,
+                state_code: vendorData.state_code || undefined
+            })
             setGstApplicable(!!vendorData.gst_number)
+
+            // Force update for StateSelect if needed (though form.setFieldsValue should handle it)
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch vendor')
         }
@@ -200,11 +209,19 @@ const VendorForm = () => {
                             label={<span style={getLabelStyle()}>State</span>}
                             name="state"
                         >
-                            <Input
-                                placeholder="Enter state"
-                                size="large"
-                                style={largeInputStyle}
+                            <StateSelect
+                                onChange={(val, code) => {
+                                    form.setFieldsValue({ state: val, state_code: code })
+                                }}
                             />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>GST State Code</span>}
+                            name="state_code"
+                            rules={[{ required: true, message: 'Please select state code' }]}
+                        >
+                            <Input placeholder="08" size="large" style={largeInputStyle} disabled />
                         </Form.Item>
 
                         <Form.Item
@@ -252,6 +269,13 @@ const VendorForm = () => {
                                     size="large"
                                     style={{ textTransform: 'uppercase', ...largeInputStyle }}
                                     maxLength={15}
+                                    onChange={(e) => {
+                                        const val = e.target.value.toUpperCase();
+                                        if (val.length >= 2) {
+                                            const code = val.substring(0, 2);
+                                            form.setFieldsValue({ state_code: code });
+                                        }
+                                    }}
                                 />
                             </Form.Item>
                         )}

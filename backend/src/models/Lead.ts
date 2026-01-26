@@ -3,19 +3,23 @@ import { sequelize } from '../database/connection'
 
 interface LeadAttributes {
   id: number
+  client_id?: number | null
   project_id?: number | null
   name: string
   company_name?: string
   phone?: string
   email?: string
   address?: string
+  city?: string
+  state?: string
+  state_code?: string
   source?: string
   enquiry_date?: Date
   soil_report_url?: string
   layout_url?: string
   section_url?: string
   remarks?: string
-  status: 'new' | 'quoted' | 'follow_up' | 'converted' | 'lost'
+  status: 'new' | 'contacted' | 'quoted' | 'follow_up' | 'converted' | 'lost'
   created_at?: Date
 }
 
@@ -23,12 +27,16 @@ interface LeadCreationAttributes extends Optional<LeadAttributes, 'id' | 'create
 
 class Lead extends Model<LeadAttributes, LeadCreationAttributes> implements LeadAttributes {
   public id!: number
+  public client_id?: number | null
   public project_id?: number | null
   public name!: string
   public company_name?: string
   public phone?: string
   public email?: string
   public address?: string
+  public city?: string
+  public state?: string
+  public state_code?: string
   public source?: string
   public enquiry_date?: Date
   public soil_report_url?: string
@@ -38,6 +46,7 @@ class Lead extends Model<LeadAttributes, LeadCreationAttributes> implements Lead
   public status!: LeadAttributes['status']
   public readonly created_at!: Date
   public readonly project?: any
+  public readonly client?: any
 }
 
 Lead.init(
@@ -46,6 +55,14 @@ Lead.init(
       type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,
+    },
+    client_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'clients',
+        key: 'id',
+      },
     },
     project_id: {
       type: DataTypes.INTEGER,
@@ -57,7 +74,7 @@ Lead.init(
     },
     name: {
       type: DataTypes.STRING(255),
-      allowNull: true, // Allow null temporarily to avoid breaking existing rows if any, or strictly enforce if desired. User payload has it. Let's say false/required if strict, but migration added as nullable. Let's keep nullable in strict sense but logic will enforce. Actually, better make it look required in Model if logic requires it.
+      allowNull: true,
     },
     company_name: {
       type: DataTypes.STRING(255),
@@ -73,6 +90,18 @@ Lead.init(
     },
     address: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    city: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    state: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    state_code: {
+      type: DataTypes.STRING(2),
       allowNull: true,
     },
     source: {
@@ -100,7 +129,7 @@ Lead.init(
       allowNull: true,
     },
     status: {
-      type: DataTypes.ENUM('new', 'quoted', 'follow_up', 'converted', 'lost'),
+      type: DataTypes.ENUM('new', 'contacted', 'quoted', 'follow_up', 'converted', 'lost'),
       defaultValue: 'new',
     },
     created_at: {
@@ -116,4 +145,3 @@ Lead.init(
 )
 
 export default Lead
-

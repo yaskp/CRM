@@ -15,10 +15,11 @@ interface ExpenseAttributes {
   bill_type?: 'kaccha_bill' | 'pakka_bill' | 'petrol_bill' | 'ola_uber_screenshot' | 'not_required'
   status: 'draft' | 'pending_approval_1' | 'pending_approval_2' | 'pending_approval_3' | 'approved' | 'rejected'
   submitted_by: number
+  budget_head_id?: number
   created_at?: Date
 }
 
-interface ExpenseCreationAttributes extends Optional<ExpenseAttributes, 'id' | 'created_at'> {}
+interface ExpenseCreationAttributes extends Optional<ExpenseAttributes, 'id' | 'created_at'> { }
 
 class Expense extends Model<ExpenseAttributes, ExpenseCreationAttributes> implements ExpenseAttributes {
   public id!: number
@@ -34,6 +35,7 @@ class Expense extends Model<ExpenseAttributes, ExpenseCreationAttributes> implem
   public bill_type?: ExpenseAttributes['bill_type']
   public status!: ExpenseAttributes['status']
   public submitted_by!: number
+  public budget_head_id?: number
   public readonly created_at!: Date
 }
 
@@ -105,6 +107,14 @@ Expense.init(
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
     },
+    budget_head_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'budget_heads',
+        key: 'id'
+      }
+    }
   },
   {
     sequelize,

@@ -24,6 +24,20 @@ const { Search } = Input
 const { Option } = Select
 const { Text } = Typography
 
+
+interface ClientGroup {
+  id: number
+  group_name: string
+  group_type: string
+}
+
+interface Client {
+  id: number
+  company_name: string
+  client_code: string
+  group?: ClientGroup
+}
+
 interface Project {
   id: number
   project_code: string
@@ -31,7 +45,9 @@ interface Project {
   location?: string
   status: string
   created_at: string
+  client?: Client
 }
+
 
 const ProjectList = () => {
   const [projects, setProjects] = useState<Project[]>([])
@@ -99,30 +115,72 @@ const ProjectList = () => {
 
   const statusCounts = getStatusCounts()
 
+  const getGroupTypeEmoji = (type: string) => {
+    const emojis: Record<string, string> = {
+      corporate: '🏢',
+      sme: '🏭',
+      government: '🏛️',
+      individual: '👤',
+      retail: '🏪',
+    }
+    return emojis[type] || '🏢'
+  }
+
   const columns = [
     {
       title: 'Project Code',
       dataIndex: 'project_code',
       key: 'project_code',
       width: 150,
+      fixed: 'left' as const,
+      render: (text: string, record: Project) => (
+        <a onClick={(e) => {
+          e.stopPropagation()
+          navigate(`/sales/projects/${record.id}`)
+        }} style={{ fontWeight: 600 }}>
+          {text}
+        </a>
+      )
     },
     {
-      title: 'Name',
+      title: 'Project Name',
       dataIndex: 'name',
       key: 'name',
       ellipsis: true,
+      width: 200,
+      render: (text: string) => <Text strong>{text}</Text>
+    },
+    {
+      title: 'Client',
+      key: 'client',
+      width: 220,
+      render: (_: any, record: Project) => (
+        record.client ? (
+          <div>
+            <div style={{ fontWeight: 500 }}>{record.client.company_name}</div>
+            {record.client.group && (
+              <Tag style={{ marginTop: 4, fontSize: 11 }}>
+                {getGroupTypeEmoji(record.client.group.group_type)} {record.client.group.group_name}
+              </Tag>
+            )}
+          </div>
+        ) : (
+          <Text type="secondary" italic>No Client Linked</Text>
+        )
+      )
     },
     {
       title: 'Location',
       dataIndex: 'location',
       key: 'location',
+      width: 150,
       ellipsis: true,
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 150,
+      width: 120,
       render: (status: string) => (
         <Tag color={getStatusColor(status)} style={{ fontWeight: 500 }}>
           {status.toUpperCase().replace('_', ' ')}
@@ -133,13 +191,13 @@ const ProjectList = () => {
       title: 'Created At',
       dataIndex: 'created_at',
       key: 'created_at',
-      width: 130,
+      width: 120,
       render: (date: string) => new Date(date).toLocaleDateString('en-GB'),
     },
     {
       title: 'Actions',
       key: 'actions',
-      width: 100,
+      width: 120,
       fixed: 'right' as const,
       render: (_: any, record: Project) => (
         <Space>
@@ -151,9 +209,7 @@ const ProjectList = () => {
               navigate(`/sales/projects/${record.id}`)
             }}
             style={{ padding: 0 }}
-          >
-            View
-          </Button>
+          />
           <Button
             type="link"
             icon={<SafetyCertificateOutlined />}
@@ -164,9 +220,7 @@ const ProjectList = () => {
               })
             }}
             style={{ padding: 0 }}
-          >
-            Work Order
-          </Button>
+          />
         </Space>
       ),
     },

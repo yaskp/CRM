@@ -19,6 +19,9 @@ import { PageContainer, PageHeader } from '../../components/common/PremiumCompon
 import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
+import { useAuth } from '../../context/AuthContext'
+
+
 const { Search } = Input
 const { Option } = Select
 const { Text } = Typography
@@ -51,6 +54,8 @@ const QuotationList = () => {
   const [editingQuotation, setEditingQuotation] = useState<Quotation | null>(null)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [form] = Form.useForm()
+  const { user } = useAuth()
+  const isAdmin = user?.roles?.includes('Admin')
 
   const fetchQuotations = async () => {
     setLoading(true)
@@ -94,7 +99,8 @@ const QuotationList = () => {
     const colors: Record<string, string> = {
       draft: 'default',
       sent: 'blue',
-      accepted: 'green',
+      accepted_by_party: 'green',
+      approved: 'cyan',
       rejected: 'red',
       expired: 'orange',
     }
@@ -183,7 +189,7 @@ const QuotationList = () => {
       render: (status: string, record: Quotation) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Tag color={getStatusColor(status)} style={{ fontWeight: 500, marginRight: 0 }}>
-            {status.toUpperCase()}
+            {status === 'accepted_by_party' ? 'ACCEPTED BY PARTY' : status === 'approved' ? 'APPROVED (INT)' : status.toUpperCase()}
           </Tag>
           <Button
             type="text"
@@ -214,6 +220,17 @@ const QuotationList = () => {
             style={{ padding: 0 }}
           >
             View
+          </Button>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/sales/quotations/${record.id}/edit`)
+            }}
+            style={{ padding: 0 }}
+          >
+            Edit
           </Button>
           <Button
             type="link"
@@ -303,7 +320,7 @@ const QuotationList = () => {
           >
             <Statistic
               title={<Text style={{ fontSize: 14, color: theme.colors.neutral.gray600 }}>Accepted</Text>}
-              value={statusCounts['accepted'] || 0}
+              value={(statusCounts['accepted_by_party'] || 0) + (statusCounts['accepted'] || 0)}
               prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
               valueStyle={{ color: '#52c41a', fontWeight: 600 }}
             />
@@ -377,7 +394,8 @@ const QuotationList = () => {
             >
               <Option value="draft">📝 Draft</Option>
               <Option value="sent">📤 Sent</Option>
-              <Option value="accepted">✅ Accepted</Option>
+              <Option value="accepted_by_party">✅ Accepted by Party</Option>
+              <Option value="approved">🛡️ Approved (Internal)</Option>
               <Option value="rejected">❌ Rejected</Option>
               <Option value="expired">⏰ Expired</Option>
             </Select>
@@ -430,8 +448,9 @@ const QuotationList = () => {
             <Select size="large">
               <Option value="draft">📝 Draft</Option>
               <Option value="sent">📤 Sent</Option>
-              <Option value="accepted">✅ Accepted</Option>
+              <Option value="accepted_by_party">✅ Accepted by Party</Option>
               <Option value="rejected">❌ Rejected</Option>
+              {isAdmin && <Option value="approved">🛡️ Approved (Internal)</Option>}
               <Option value="expired">⏰ Expired</Option>
             </Select>
           </Form.Item>

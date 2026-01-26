@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Button, Card, DatePicker, Table, InputNumber, message, Space, Modal, Typography, Tag } from 'antd'
+import { Form, Input, Select, Button, Card, DatePicker, Table, InputNumber, message, Space, Modal, Typography, Tag, Divider } from 'antd'
 import {
     PlusOutlined,
     DeleteOutlined,
@@ -15,6 +15,7 @@ import { materialService } from '../../services/api/materials'
 import { projectService } from '../../services/api/projects'
 import { warehouseService } from '../../services/api/warehouses'
 import { unitService } from '../../services/api/units'
+import { projectHierarchyService } from '../../services/api/projectHierarchy'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
@@ -25,7 +26,8 @@ import {
     flexBetweenStyle,
     actionCardStyle,
     prefixIconStyle,
-    twoColumnGridStyle
+    twoColumnGridStyle,
+    threeColumnGridStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
@@ -62,8 +64,12 @@ const MaterialRequisitionForm = () => {
     const [units, setUnits] = useState<any[]>([])
     const [projects, setProjects] = useState<Project[]>([])
     const [warehouses, setWarehouses] = useState<Warehouse[]>([])
-    const [items, setItems] = useState<MaterialRequisitionItem[]>([])
+    const [items, setItems] = useState<any[]>([])
     const [showAddItem, setShowAddItem] = useState(false)
+    const [buildings, setBuildings] = useState<any[]>([])
+    const [floors, setFloors] = useState<any[]>([])
+    const [zones, setZones] = useState<any[]>([])
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
     const navigate = useNavigate()
     const { id } = useParams()
     const isEdit = !!id
@@ -128,6 +134,11 @@ const MaterialRequisitionForm = () => {
                 remarks: requisition.remarks,
             })
 
+            setSelectedProjectId(requisition.project_id)
+            if (requisition.project_id) {
+                projectHierarchyService.getBuildings(requisition.project_id).then(res => setBuildings(res.data || []))
+            }
+
             setItems(requisition.items || [])
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch requisition')
@@ -138,20 +149,25 @@ const MaterialRequisitionForm = () => {
         const material = materials.find(m => m.id === values.material_id)
         if (!material) return
 
-        const newItem: MaterialRequisitionItem = {
+        const newItem = {
             material_id: values.material_id,
             requested_quantity: values.requested_quantity,
             unit: values.unit,
             estimated_rate: values.estimated_rate,
             estimated_amount: values.estimated_rate ? values.requested_quantity * values.estimated_rate : undefined,
             specification: values.specification,
-            remarks: values.item_remarks, // Fixed: was values.remarks but form field is item_remarks
+            remarks: values.item_remarks,
             material: material,
+            building_id: values.building_id,
+            floor_id: values.floor_id,
+            zone_id: values.zone_id,
+            building_name: buildings.find(b => b.id === values.building_id)?.name,
+            floor_name: floors.find(f => f.id === values.floor_id)?.name,
+            zone_name: zones.find(z => z.id === values.zone_id)?.name,
         }
 
         setItems([...items, newItem])
         setShowAddItem(false)
-        // Reset only item fields
         modalForm.resetFields()
     }
 
@@ -182,6 +198,9 @@ const MaterialRequisitionForm = () => {
                     estimated_rate: item.estimated_rate,
                     specification: item.specification,
                     remarks: item.remarks,
+                    building_id: item.building_id,
+                    floor_id: item.floor_id,
+                    zone_id: item.zone_id,
                 })),
             }
 
@@ -223,19 +242,17 @@ const MaterialRequisitionForm = () => {
             render: (qty: number, record: any) => <Text strong>{qty} {record.unit}</Text>,
         },
         {
-            title: 'Est. Amount',
-            dataIndex: 'estimated_amount',
-            key: 'amount',
-            width: 150,
-            render: (amount: number) => amount ? (
-                <Text strong style={{ color: theme.colors.primary.main }}>₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-            ) : '-',
-        },
-        {
-            title: 'Spec/Remarks',
+            title: 'Location / Details',
             key: 'details',
             render: (_: any, record: any) => (
                 <div style={{ fontSize: '12px', color: theme.colors.neutral.gray600 }}>
+                    {(record.building_name || record.building_id) && (
+                        <Tag color="cyan" style={{ marginBottom: 4 }}>
+                            {record.building_name || `B-${record.building_id}`}
+                            {record.floor_name ? ` > ${record.floor_name}` : ''}
+                            {record.zone_name ? ` > ${record.zone_name}` : ''}
+                        </Tag>
+                    )}
                     {record.specification && <div>Spec: {record.specification}</div>}
                     {record.remarks && <div>Note: {record.remarks}</div>}
                 </div>
@@ -287,6 +304,13 @@ const MaterialRequisitionForm = () => {
                                 optionFilterProp="children"
                                 size="large"
                                 style={largeInputStyle}
+                                onChange={(val) => {
+                                    setSelectedProjectId(val);
+                                    form.setFieldsValue({ project_id: val });
+                                    projectHierarchyService.getBuildings(val).then(res => setBuildings(res.data || []));
+                                    setFloors([]);
+                                    setZones([]);
+                                }}
                             >
                                 {projects.map(project => (
                                     <Option key={project.id} value={project.id}>
@@ -372,21 +396,6 @@ const MaterialRequisitionForm = () => {
                             scroll={{ x: 900 }}
                             locale={{ emptyText: <div style={{ padding: '40px 0' }}><Text type="secondary">No materials added yet. Click 'Add Material' to start.</Text></div> }}
                             bordered
-                            summary={pageData => {
-                                let total = 0;
-                                pageData.forEach(({ estimated_amount }) => {
-                                    if (estimated_amount) total += estimated_amount;
-                                });
-
-                                return (
-                                    <Table.Summary.Row style={{ backgroundColor: theme.colors.neutral.gray50 }}>
-                                        <Table.Summary.Cell index={0} colSpan={3}><Text strong>Total Estimated Requisition Amount</Text></Table.Summary.Cell>
-                                        <Table.Summary.Cell index={1} colSpan={3}>
-                                            <Text strong style={{ fontSize: '16px', color: theme.colors.primary.main }}>₹{total.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
-                                        </Table.Summary.Cell>
-                                    </Table.Summary.Row>
-                                );
-                            }}
                         />
                     </SectionCard>
                 </div>
@@ -419,13 +428,12 @@ const MaterialRequisitionForm = () => {
                 </Card>
             </Form>
 
-            {/* Add Material Modal */}
             <Modal
                 title={<Title level={4}><PlusOutlined style={{ marginRight: '8px', color: theme.colors.primary.main }} /> Add Material to Requisition</Title>}
                 open={showAddItem}
                 onCancel={() => setShowAddItem(false)}
                 footer={null}
-                width={650}
+                width={700}
                 centered
             >
                 <Form form={modalForm} layout="vertical" onFinish={handleAddItem} style={{ marginTop: '16px' }}>
@@ -464,13 +472,7 @@ const MaterialRequisitionForm = () => {
                                 { type: 'number', min: 0.01, message: 'Quantity must be greater than 0' },
                             ]}
                         >
-                            <InputNumber
-                                style={{ width: '100%', ...largeInputStyle }}
-                                size="large"
-                                placeholder="0.00"
-                                min={0.01}
-                                step={0.01}
-                            />
+                            <InputNumber style={{ width: '100%', ...largeInputStyle }} size="large" min={0.01} step={0.01} />
                         </Form.Item>
 
                         <Form.Item
@@ -478,39 +480,52 @@ const MaterialRequisitionForm = () => {
                             name="unit"
                             rules={[{ required: true, message: 'Please select unit' }]}
                         >
-                            <Select
-                                placeholder="Select unit"
-                                showSearch
-                                optionFilterProp="children"
-                                size="large"
-                                style={largeInputStyle}
-                            >
+                            <Select placeholder="Select unit" showSearch size="large" style={largeInputStyle}>
                                 {units.map(unit => (
-                                    <Option key={unit.id} value={unit.code}>
-                                        {unit.name} ({unit.code})
-                                    </Option>
+                                    <Option key={unit.id} value={unit.code}>{unit.name} ({unit.code})</Option>
                                 ))}
                             </Select>
                         </Form.Item>
                     </div>
 
-                    <Form.Item label={<span style={getLabelStyle()}>Est. Rate (₹)</span>} name="estimated_rate">
-                        <InputNumber
-                            style={{ width: '100%', ...largeInputStyle }}
-                            size="large"
-                            placeholder="Market rate"
-                            min={0}
-                            step={0.01}
-                            prefix="₹"
-                        />
-                    </Form.Item>
+                    <Divider orientation="left" style={{ fontSize: 13, color: theme.colors.neutral.gray500 }}>Location (Optional)</Divider>
+                    <div style={threeColumnGridStyle}>
+                        <Form.Item label={<span style={getLabelStyle()}>Building/Tower</span>} name="building_id">
+                            <Select
+                                placeholder="Select Building"
+                                allowClear
+                                onChange={(val) => {
+                                    setFloors([]);
+                                    setZones([]);
+                                    modalForm.setFieldsValue({ floor_id: undefined, zone_id: undefined });
+                                    if (val) projectHierarchyService.getFloors(val).then(res => setFloors(res.data || []));
+                                }}
+                            >
+                                {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
+                            </Select>
+                        </Form.Item>
+                        <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
+                            <Select
+                                placeholder="Select Floor"
+                                allowClear
+                                onChange={(val) => {
+                                    setZones([]);
+                                    modalForm.setFieldsValue({ zone_id: undefined });
+                                    if (val) projectHierarchyService.getZones(val).then(res => setZones(res.data || []));
+                                }}
+                            >
+                                {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
+                            </Select>
+                        </Form.Item>
+                        <Form.Item label={<span style={getLabelStyle()}>Zone/Flat</span>} name="zone_id">
+                            <Select placeholder="Select Zone" allowClear>
+                                {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
+                            </Select>
+                        </Form.Item>
+                    </div>
 
-                    <Form.Item label={<span style={getLabelStyle()}>Specification</span>} name="specification">
+                    <Form.Item label={<span style={getLabelStyle()}>Specification / Note</span>} name="specification">
                         <TextArea rows={2} placeholder="Dimensions, grade, or specific details..." style={largeInputStyle} />
-                    </Form.Item>
-
-                    <Form.Item label={<span style={getLabelStyle()}>Item Note</span>} name="item_remarks">
-                        <TextArea rows={2} placeholder="Any additional notes for this item..." style={largeInputStyle} />
                     </Form.Item>
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '24px', gap: '12px' }}>

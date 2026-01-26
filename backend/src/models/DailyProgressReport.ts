@@ -7,6 +7,11 @@ interface DailyProgressReportAttributes {
   report_date: Date
   site_location?: string
   panel_number?: string
+  building_id?: number
+  floor_id?: number
+  zone_id?: number
+  work_item_type_id?: number
+  work_completion_percentage?: number
   guide_wall_running_meter?: number
   steel_quantity_kg?: number
   concrete_quantity_cubic_meter?: number
@@ -18,7 +23,7 @@ interface DailyProgressReportAttributes {
   created_at?: Date
 }
 
-interface DailyProgressReportCreationAttributes extends Optional<DailyProgressReportAttributes, 'id' | 'created_at'> {}
+interface DailyProgressReportCreationAttributes extends Optional<DailyProgressReportAttributes, 'id' | 'created_at'> { }
 
 class DailyProgressReport extends Model<DailyProgressReportAttributes, DailyProgressReportCreationAttributes> implements DailyProgressReportAttributes {
   public id!: number
@@ -26,6 +31,11 @@ class DailyProgressReport extends Model<DailyProgressReportAttributes, DailyProg
   public report_date!: Date
   public site_location?: string
   public panel_number?: string
+  public building_id?: number
+  public floor_id?: number
+  public zone_id?: number
+  public work_item_type_id?: number
+  public work_completion_percentage?: number
   public guide_wall_running_meter?: number
   public steel_quantity_kg?: number
   public concrete_quantity_cubic_meter?: number
@@ -63,6 +73,42 @@ DailyProgressReport.init(
     panel_number: {
       type: DataTypes.STRING(50),
       allowNull: true,
+    },
+    building_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'project_buildings',
+        key: 'id',
+      },
+    },
+    floor_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'project_floors',
+        key: 'id',
+      },
+    },
+    zone_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'project_zones',
+        key: 'id',
+      },
+    },
+    work_item_type_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'work_item_types',
+        key: 'id'
+      }
+    },
+    work_completion_percentage: {
+      type: DataTypes.DECIMAL(5, 2),
+      defaultValue: 0,
     },
     guide_wall_running_meter: {
       type: DataTypes.DECIMAL(10, 2),
@@ -120,4 +166,3 @@ DailyProgressReport.init(
 )
 
 export default DailyProgressReport
-

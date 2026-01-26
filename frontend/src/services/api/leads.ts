@@ -18,6 +18,8 @@ export const leadService = {
   },
 
   createLead: async (data: {
+    project_id?: number
+    client_id?: number
     name: string
     company_name?: string
     phone?: string

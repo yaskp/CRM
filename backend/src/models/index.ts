@@ -1,6 +1,7 @@
 // Import all models
 import User from './User'
 import Company from './Company'
+import CompanyBranch from './CompanyBranch'
 import Role from './Role'
 import Permission from './Permission'
 import Project from './Project'
@@ -8,6 +9,9 @@ import ProjectDetails from './ProjectDetails'
 import ProjectContact from './ProjectContact'
 import ProjectDocument from './ProjectDocument'
 import ProjectMilestone from './ProjectMilestone'
+import ProjectBuilding from './ProjectBuilding'
+import ProjectFloor from './ProjectFloor'
+import ProjectZone from './ProjectZone'
 import Lead from './Lead'
 import Quotation from './Quotation'
 import QuotationItem from './QuotationItem'
@@ -38,8 +42,26 @@ import PanelProgress from './PanelProgress'
 import Notification from './Notification'
 import UserRole from './UserRole'
 import RolePermission from './RolePermission'
+import Client from './Client'
+import ClientGroup from './ClientGroup'
+import ClientContact from './ClientContact'
+import Annexure from './Annexure'
+import WorkItemType from './WorkItemType'
+import ProjectBOQ from './ProjectBOQ'
+import ProjectBOQItem from './ProjectBOQItem'
+import InventoryLedger from './InventoryLedger'
+import State from './State'
+import BudgetHead from './BudgetHead'
+import ProjectBudget from './ProjectBudget'
+import WorkerCategory from './WorkerCategory'
 
 // Define associations
+InventoryLedger.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
+InventoryLedger.belongsTo(Warehouse, { foreignKey: 'warehouse_id', as: 'warehouse' })
+InventoryLedger.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+InventoryLedger.belongsTo(StoreTransaction, { foreignKey: 'transaction_id', as: 'transaction' })
+InventoryLedger.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+
 User.belongsTo(Company, { foreignKey: 'company_id', as: 'company' })
 Company.hasMany(User, { foreignKey: 'company_id', as: 'users' })
 
@@ -50,8 +72,37 @@ Company.hasMany(Project, { foreignKey: 'company_id', as: 'projects' })
 Lead.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 Project.hasMany(Lead, { foreignKey: 'project_id', as: 'leads' })
 
+Project.hasMany(ProjectBuilding, { foreignKey: 'project_id', as: 'buildings' })
+ProjectBuilding.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+ProjectBuilding.hasMany(ProjectFloor, { foreignKey: 'building_id', as: 'floors' })
+ProjectFloor.belongsTo(ProjectBuilding, { foreignKey: 'building_id', as: 'building' })
+ProjectFloor.hasMany(ProjectZone, { foreignKey: 'floor_id', as: 'zones' })
+ProjectZone.belongsTo(ProjectFloor, { foreignKey: 'floor_id', as: 'floor' })
+
+ProjectBuilding.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+ProjectZone.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+
+// Project BOQ
+Project.hasMany(ProjectBOQ, { foreignKey: 'project_id', as: 'boqs' })
+ProjectBOQ.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+ProjectBOQ.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
+ProjectBOQ.belongsTo(User, { foreignKey: 'approved_by', as: 'approver' })
+ProjectBOQ.hasMany(ProjectBOQItem, { foreignKey: 'boq_id', as: 'items' })
+ProjectBOQItem.belongsTo(ProjectBOQ, { foreignKey: 'boq_id', as: 'boq' })
+ProjectBOQItem.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
+ProjectBOQItem.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+ProjectBOQItem.belongsTo(ProjectBuilding, { foreignKey: 'building_id', as: 'building' })
+ProjectBOQItem.belongsTo(ProjectFloor, { foreignKey: 'floor_id', as: 'floor' })
+ProjectBOQItem.belongsTo(ProjectZone, { foreignKey: 'zone_id', as: 'zone' })
+
+Lead.belongsTo(Client, { foreignKey: 'client_id', as: 'client' })
+Client.hasMany(Lead, { foreignKey: 'client_id', as: 'leads' })
+
 Quotation.belongsTo(Lead, { foreignKey: 'lead_id', as: 'lead' })
+Quotation.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+Project.hasMany(Quotation, { foreignKey: 'project_id', as: 'quotations' })
 Quotation.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
+Quotation.belongsTo(Annexure, { foreignKey: 'annexure_id', as: 'annexure' })
 Lead.hasMany(Quotation, { foreignKey: 'lead_id', as: 'quotations' })
 
 QuotationItem.belongsTo(Quotation, { foreignKey: 'quotation_id', as: 'quotation' })
@@ -65,7 +116,9 @@ WorkOrder.hasMany(WorkOrderItem, { foreignKey: 'work_order_id', as: 'items' })
 
 Warehouse.belongsTo(Company, { foreignKey: 'company_id', as: 'company' })
 Warehouse.belongsTo(User, { foreignKey: 'warehouse_manager_id', as: 'manager' })
+Warehouse.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 Company.hasMany(Warehouse, { foreignKey: 'company_id', as: 'warehouses' })
+Project.hasMany(Warehouse, { foreignKey: 'project_id', as: 'siteWarehouses' })
 
 // Project Contacts
 Project.hasMany(ProjectContact, { foreignKey: 'project_id', as: 'contacts' })
@@ -104,6 +157,15 @@ StoreTransaction.belongsTo(User, { foreignKey: 'approved_by', as: 'approver' })
 StoreTransaction.hasMany(StoreTransactionItem, { foreignKey: 'transaction_id', as: 'items' })
 StoreTransactionItem.belongsTo(StoreTransaction, { foreignKey: 'transaction_id', as: 'transaction' })
 StoreTransactionItem.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
+StoreTransactionItem.belongsTo(PurchaseOrderItem, { foreignKey: 'po_item_id', as: 'poItem' })
+StoreTransactionItem.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+StoreTransaction.belongsTo(ProjectBuilding, { foreignKey: 'to_building_id', as: 'toBuilding' })
+StoreTransaction.belongsTo(ProjectFloor, { foreignKey: 'to_floor_id', as: 'toFloor' })
+StoreTransaction.belongsTo(ProjectZone, { foreignKey: 'to_zone_id', as: 'toZone' })
+StoreTransaction.belongsTo(PurchaseOrder, { foreignKey: 'purchase_order_id', as: 'purchase_order' })
+StoreTransaction.belongsTo(Vendor, { foreignKey: 'vendor_id', as: 'vendor' })
+StoreTransaction.belongsTo(Project, { foreignKey: 'from_project_id', as: 'source_project' })
+StoreTransaction.belongsTo(Project, { foreignKey: 'to_project_id', as: 'destination_project' })
 
 // Material Requisitions
 MaterialRequisition.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
@@ -113,12 +175,17 @@ MaterialRequisition.belongsTo(User, { foreignKey: 'approved_by', as: 'approver' 
 MaterialRequisition.hasMany(MaterialRequisitionItem, { foreignKey: 'requisition_id', as: 'items' })
 MaterialRequisitionItem.belongsTo(MaterialRequisition, { foreignKey: 'requisition_id', as: 'requisition' })
 MaterialRequisitionItem.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
+MaterialRequisitionItem.belongsTo(ProjectBOQItem, { foreignKey: 'boq_item_id', as: 'boqItem' })
 
 // DPR
 DailyProgressReport.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 DailyProgressReport.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
 DailyProgressReport.hasMany(ManpowerReport, { foreignKey: 'dpr_id', as: 'manpower' })
 ManpowerReport.belongsTo(DailyProgressReport, { foreignKey: 'dpr_id', as: 'dpr' })
+DailyProgressReport.belongsTo(ProjectBuilding, { foreignKey: 'building_id', as: 'building' })
+DailyProgressReport.belongsTo(ProjectFloor, { foreignKey: 'floor_id', as: 'floor' })
+DailyProgressReport.belongsTo(ProjectZone, { foreignKey: 'zone_id', as: 'zone' })
+DailyProgressReport.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
 
 // Bar Bending Schedule
 BarBendingSchedule.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
@@ -189,17 +256,50 @@ PurchaseOrder.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 PurchaseOrder.belongsTo(Vendor, { foreignKey: 'vendor_id', as: 'vendor' })
 PurchaseOrder.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
 PurchaseOrder.belongsTo(User, { foreignKey: 'approved_by', as: 'approver' })
+PurchaseOrder.belongsTo(Warehouse, { foreignKey: 'warehouse_id', as: 'warehouse' })
 PurchaseOrder.hasMany(PurchaseOrderItem, { foreignKey: 'po_id', as: 'items' })
 PurchaseOrderItem.belongsTo(PurchaseOrder, { foreignKey: 'po_id', as: 'purchaseOrder' })
 PurchaseOrderItem.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
+PurchaseOrderItem.belongsTo(ProjectBOQItem, { foreignKey: 'boq_item_id', as: 'boqItem' })
+PurchaseOrder.belongsTo(Annexure, { foreignKey: 'annexure_id', as: 'annexure' })
+Annexure.hasMany(PurchaseOrder, { foreignKey: 'annexure_id', as: 'purchaseOrders' })
 
 Project.hasMany(PurchaseOrder, { foreignKey: 'project_id', as: 'purchaseOrders' })
 Vendor.hasMany(PurchaseOrder, { foreignKey: 'vendor_id', as: 'purchaseOrders' })
 User.hasMany(PurchaseOrder, { foreignKey: 'created_by', as: 'createdPurchaseOrders' })
+Warehouse.hasMany(PurchaseOrder, { foreignKey: 'warehouse_id', as: 'purchaseOrders' })
+
+// Client Groups and Clients
+Client.belongsTo(ClientGroup, { foreignKey: 'client_group_id', as: 'group' })
+ClientGroup.hasMany(Client, { foreignKey: 'client_group_id', as: 'clients' })
+
+Client.hasMany(ClientContact, { foreignKey: 'client_id', as: 'contacts' })
+ClientContact.belongsTo(Client, { foreignKey: 'client_id', as: 'client' })
+
+Project.belongsTo(Client, { foreignKey: 'client_id', as: 'client' })
+Client.hasMany(Project, { foreignKey: 'client_id', as: 'projects' })
+
+
+// Budgeting
+BudgetHead.hasMany(BudgetHead, { foreignKey: 'parent_id', as: 'children' })
+BudgetHead.belongsTo(BudgetHead, { foreignKey: 'parent_id', as: 'parent' })
+
+Project.hasMany(ProjectBudget, { foreignKey: 'project_id', as: 'budgets' })
+ProjectBudget.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+
+BudgetHead.hasMany(ProjectBudget, { foreignKey: 'budget_head_id', as: 'projectBudgets' })
+ProjectBudget.belongsTo(BudgetHead, { foreignKey: 'budget_head_id', as: 'head' })
+
+Material.belongsTo(BudgetHead, { foreignKey: 'budget_head_id', as: 'budgetHead' })
+BudgetHead.hasMany(Material, { foreignKey: 'budget_head_id', as: 'materials' })
+
+Expense.belongsTo(BudgetHead, { foreignKey: 'budget_head_id', as: 'budgetHead' })
+BudgetHead.hasMany(Expense, { foreignKey: 'budget_head_id', as: 'expenses' })
 
 export {
   User,
   Company,
+  CompanyBranch,
   Role,
   Permission,
   Project,
@@ -236,5 +336,20 @@ export {
   PurchaseOrder,
   PurchaseOrderItem,
   QuotationItem,
+  Client,
+  ClientGroup,
+  ClientContact,
+  Annexure,
+  ProjectBuilding,
+  ProjectFloor,
+  ProjectZone,
+  WorkItemType,
+  ProjectBOQ,
+  ProjectBOQItem,
+  InventoryLedger,
+  State,
+  BudgetHead,
+  ProjectBudget,
+  WorkerCategory
 }
 

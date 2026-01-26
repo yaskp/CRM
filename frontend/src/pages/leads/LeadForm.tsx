@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Form, Input, Button, Card, message, DatePicker, Select, Typography } from 'antd'
 import {
   ContactsOutlined,
@@ -13,6 +13,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { leadService } from '../../services/api/leads'
 import { projectService } from '../../services/api/projects'
 import { clientService } from '../../services/api/clients'
+import StateSelect from '../../components/common/StateSelect'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
   largeInputStyle,
@@ -38,11 +39,17 @@ const LeadForm = () => {
   const [loading, setLoading] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
+  const [clientGroups, setClientGroups] = useState<any[]>([])
+  const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined)
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
+  const clientSearchTimeout = useRef<NodeJS.Timeout>()
+  const projectSearchTimeout = useRef<NodeJS.Timeout>()
+
   useEffect(() => {
+    fetchClientGroups()
     fetchProjects()
     fetchClients()
     if (id) {
@@ -50,32 +57,92 @@ const LeadForm = () => {
     }
   }, [id])
 
-  const fetchProjects = async () => {
+  const fetchClientGroups = async () => {
     try {
-      const response = await projectService.getProjects()
+      const response = await clientService.getClientGroups()
+      setClientGroups(response.groups || [])
+    } catch (error) {
+      console.error("Failed to fetch client groups", error)
+    }
+  }
+
+  const fetchProjects = async (search = '') => {
+    try {
+      const response = await projectService.getProjects({
+        search,
+        limit: 50
+      })
       setProjects(response.projects || [])
     } catch (error) {
       console.error('Failed to fetch projects:', error)
     }
   }
 
-  const fetchClients = async () => {
+  const fetchClients = async (search = '', groupId = selectedGroupId) => {
     try {
-      const response = await clientService.getClients({ limit: 100 })
+      const params: any = { limit: 50, search }
+      if (groupId) params.client_group_id = groupId
+
+      const response = await clientService.getClients(params)
       setClients(response.clients || [])
     } catch (error) {
       console.error('Failed to fetch clients:', error)
     }
   }
 
+  const handleClientSearch = (value: string) => {
+    if (clientSearchTimeout.current) clearTimeout(clientSearchTimeout.current)
+    clientSearchTimeout.current = setTimeout(() => {
+      fetchClients(value, selectedGroupId)
+    }, 500)
+  }
+
+  const handleProjectSearch = (value: string) => {
+    if (projectSearchTimeout.current) clearTimeout(projectSearchTimeout.current)
+    projectSearchTimeout.current = setTimeout(() => {
+      fetchProjects(value)
+    }, 500)
+  }
+
+  const handleGroupChange = (value: number) => {
+    setSelectedGroupId(value)
+    if (clientSearchTimeout.current) clearTimeout(clientSearchTimeout.current)
+    form.setFieldsValue({ client_id: undefined })
+    fetchClients('', value)
+  }
+
   const fetchLead = async () => {
     try {
       const response = await leadService.getLead(Number(id))
       const lead = response.lead
+
       form.setFieldsValue({
         ...lead,
         enquiry_date: lead.enquiry_date ? dayjs(lead.enquiry_date) : undefined,
       })
+
+      if (lead.client) {
+        if (lead.client.client_group_id) {
+          setSelectedGroupId(lead.client.client_group_id)
+          form.setFieldsValue({ client_group_id: lead.client.client_group_id })
+        }
+        setClients(prev => {
+          if (!prev.find(c => c.id === lead.client.id)) {
+            return [lead.client, ...prev]
+          }
+          return prev
+        })
+      }
+
+      if (lead.project) {
+        setProjects(prev => {
+          if (!prev.find(p => p.id === lead.project.id)) {
+            return [lead.project, ...prev]
+          }
+          return prev
+        })
+      }
+
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch lead')
     }
@@ -182,19 +249,60 @@ const LeadForm = () => {
                 style={largeInputStyle}
               />
             </Form.Item>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <Form.Item
+                label={<span style={getLabelStyle()}>City</span>}
+                name="city"
+              >
+                <Input placeholder="Enter city" size="large" style={largeInputStyle} />
+              </Form.Item>
+
+              <Form.Item
+                label={<span style={getLabelStyle()}>State</span>}
+                name="state"
+              >
+                <StateSelect
+                  onChange={(val, code) => {
+                    form.setFieldsValue({ state: val, state_code: code })
+                  }}
+                />
+              </Form.Item>
+              <Form.Item name="state_code" hidden />
+            </div>
           </SectionCard>
 
           {/* Column 2: Lead Details */}
           <SectionCard title="Lead Details" icon={<ProjectOutlined />}>
             <Form.Item
-              label={<span style={getLabelStyle()}>Client (Optional)</span>}
-              name="client_id"
-              tooltip="Select an existing client if this is an inquiry from a repeat customer. Leave blank for new inquiries - you can create the client later from Client Management."
+              label={<span style={getLabelStyle()}>Client Group (Optional)</span>}
+              name="client_group_id"
             >
               <Select
-                placeholder="Select existing client or leave blank for new inquiry"
+                placeholder="Select client group"
+                onChange={(value) => handleGroupChange(value)}
+                size="large"
+                style={largeInputStyle}
+                allowClear
+              >
+                {clientGroups.map(group => (
+                  <Option key={group.id} value={group.id}>
+                    {group.group_name}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Client (Optional)</span>}
+              name="client_id"
+              tooltip="Select an existing client. Type to search."
+            >
+              <Select
+                placeholder="Select existing client"
                 showSearch
-                optionFilterProp="children"
+                filterOption={false}
+                onSearch={handleClientSearch}
                 size="large"
                 style={largeInputStyle}
                 allowClear
@@ -210,12 +318,13 @@ const LeadForm = () => {
             <Form.Item
               label={<span style={getLabelStyle()}>Project</span>}
               name="project_id"
-              tooltip="Optional: Select an existing project if applicable. Leave blank for new project leads."
+              tooltip="Select project. Type to search."
             >
               <Select
                 placeholder="Select project (Optional)"
                 showSearch
-                optionFilterProp="children"
+                filterOption={false}
+                onSearch={handleProjectSearch}
                 size="large"
                 style={largeInputStyle}
                 allowClear
@@ -291,7 +400,8 @@ const LeadForm = () => {
               >
                 <Option value="new">🆕 New</Option>
                 <Option value="contacted">📞 Contacted</Option>
-                <Option value="qualified">✅ Qualified</Option>
+                <Option value="quoted">💰 Quoted</Option>
+                <Option value="follow_up">🔄 Follow Up</Option>
                 <Option value="converted">🎉 Converted</Option>
                 <Option value="lost">❌ Lost</Option>
               </Select>

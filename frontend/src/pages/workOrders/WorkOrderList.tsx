@@ -18,15 +18,24 @@ import { theme } from '../../styles/theme'
 const { Option } = Select
 const { Text } = Typography
 
+
 interface WorkOrder {
   id: number
   work_order_number: string
   project_id: number
+  project?: {
+    name: string
+    project_code: string
+    client?: {
+      company_name: string
+    }
+  }
   total_amount: number
   final_amount: number
   status: string
   created_at: string
 }
+
 
 const WorkOrderList = () => {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
@@ -80,7 +89,7 @@ const WorkOrderList = () => {
   const getStats = () => {
     const totalCount = workOrders.length
     const activeCount = workOrders.filter(w => w.status === 'active').length
-    const totalValue = workOrders.reduce((sum, w) => sum + (w.final_amount || 0), 0)
+    const totalValue = workOrders.reduce((sum, w) => sum + (Number(w.final_amount) || 0), 0)
     return { totalCount, activeCount, totalValue }
   }
 
@@ -97,12 +106,13 @@ const WorkOrderList = () => {
     return colors[status] || 'default'
   }
 
+
   const columns = [
     {
       title: 'Work Order #',
       dataIndex: 'work_order_number',
       key: 'work_order_number',
-      width: 180,
+      width: 150,
       render: (text: string, record: WorkOrder) => (
         <Text
           strong
@@ -114,9 +124,25 @@ const WorkOrderList = () => {
       ),
     },
     {
+      title: 'Project',
+      key: 'project',
+      width: 200,
+      render: (_: any, record: WorkOrder) => (
+        <div>
+          <div style={{ fontWeight: 500 }}>{record.project?.name || 'N/A'}</div>
+          {record.project?.client && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {record.project.client.company_name}
+            </Text>
+          )}
+        </div>
+      )
+    },
+    {
       title: 'Total Order Value',
       dataIndex: 'total_amount',
       key: 'total_amount',
+      width: 140,
       render: (amount: number) => (
         <Text strong>₹{amount?.toLocaleString('en-IN') || 0}</Text>
       ),
@@ -125,6 +151,7 @@ const WorkOrderList = () => {
       title: 'Final Amount (Incl Tax)',
       dataIndex: 'final_amount',
       key: 'final_amount',
+      width: 150,
       render: (amount: number) => (
         <Text strong style={{ color: theme.colors.success.main }}>₹{amount?.toLocaleString('en-IN') || 0}</Text>
       ),
@@ -133,7 +160,7 @@ const WorkOrderList = () => {
       title: 'Current Status',
       dataIndex: 'status',
       key: 'status',
-      width: 160,
+      width: 140,
       render: (status: string, record: WorkOrder) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Tag color={getStatusColor(status)} style={{ padding: '0 8px', borderRadius: '4px', marginRight: 0 }}>
@@ -157,14 +184,24 @@ const WorkOrderList = () => {
       width: 120,
       fixed: 'right' as const,
       render: (_: any, record: WorkOrder) => (
-        <Button
-          type="link"
-          icon={<EyeOutlined />}
-          onClick={() => navigate(`/operations/work-orders/${record.id}`)}
-          style={{ padding: 0 }}
-        >
-          View Details
-        </Button>
+        <Space>
+          <Button
+            type="link"
+            icon={<EyeOutlined />}
+            onClick={() => navigate(`/operations/work-orders/${record.id}`)}
+            style={{ padding: 0 }}
+          >
+            View
+          </Button>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => navigate(`/operations/work-orders/${record.id}/edit`)}
+            style={{ padding: 0 }}
+          >
+            Edit
+          </Button>
+        </Space>
       ),
     },
   ]
@@ -202,9 +239,10 @@ const WorkOrderList = () => {
           <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
             <Statistic
               title="Total Order Value"
-              value={stats.totalValue}
+              value={(stats.totalValue || 0).toFixed(2)}
               prefix="₹"
               valueStyle={{ color: '#52c41a' }}
+              formatter={(value) => `${Number(value).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
             />
           </Card>
         </Col>

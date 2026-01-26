@@ -9,6 +9,9 @@ interface QuotationItemAttributes {
     unit: string
     rate: number
     amount: number
+    item_type: string
+    work_item_type_id?: number
+    reference_id?: number
     created_at?: Date
 }
 
@@ -22,6 +25,9 @@ class QuotationItem extends Model<QuotationItemAttributes, QuotationItemCreation
     public unit!: string
     public rate!: number
     public amount!: number
+    public item_type!: string
+    public work_item_type_id?: number
+    public reference_id?: number
     public readonly created_at!: Date
 }
 
@@ -41,8 +47,25 @@ QuotationItem.init(
             },
             onDelete: 'CASCADE',
         },
+        item_type: {
+            type: DataTypes.STRING(50),
+            allowNull: false,
+            defaultValue: 'material',
+        },
+        work_item_type_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'work_item_types',
+                key: 'id',
+            },
+        },
+        reference_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+        },
         description: {
-            type: DataTypes.STRING(255),
+            type: DataTypes.TEXT,
             allowNull: false,
         },
         quantity: {

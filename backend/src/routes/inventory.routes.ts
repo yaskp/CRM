@@ -7,5 +7,6 @@ const router = Router()
 router.use(authenticate)
 
 router.get('/', inventoryController.getInventory)
+router.get('/statement', inventoryController.getStockStatement)
 
 export default router

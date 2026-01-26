@@ -6,7 +6,7 @@ import { Op } from 'sequelize'
 
 export const createWarehouse = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { name, code, type, address, company_id, is_common, warehouse_manager_id } = req.body
+    const { name, code, type, address, company_id, is_common, warehouse_manager_id, project_id, city, state, state_code, pincode, gstin } = req.body
 
     if (!name || !code) {
       throw createError('Warehouse name and code are required', 400)
@@ -16,10 +16,16 @@ export const createWarehouse = async (req: AuthRequest, res: Response, next: Nex
       name,
       code,
       type: type || 'central',
-      address: address || req.body.location,
+      address,
       company_id: company_id || req.user!.company_id,
       is_common: is_common || false,
       warehouse_manager_id,
+      project_id,
+      city,
+      state,
+      state_code,
+      pincode,
+      gstin
     })
 
     res.status(201).json({
@@ -53,6 +59,10 @@ export const getWarehouses = async (req: AuthRequest, res: Response, next: NextF
           association: 'manager',
           attributes: ['id', 'name', 'email'],
         },
+        {
+          association: 'project',
+          attributes: ['id', 'name'],
+        },
       ],
       order: [['name', 'ASC']],
     })
@@ -80,6 +90,10 @@ export const getWarehouse = async (req: AuthRequest, res: Response, next: NextFu
           association: 'manager',
           attributes: ['id', 'name', 'email'],
         },
+        {
+          association: 'project',
+          attributes: ['id', 'name'],
+        },
       ],
     })
 
@@ -99,7 +113,7 @@ export const getWarehouse = async (req: AuthRequest, res: Response, next: NextFu
 export const updateWarehouse = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params
-    const { name, type, address, is_common, warehouse_manager_id } = req.body
+    const { name, type, address, is_common, warehouse_manager_id, project_id, city, state, state_code, pincode, gstin } = req.body
 
     const warehouse = await Warehouse.findByPk(id)
     if (!warehouse) {
@@ -109,9 +123,15 @@ export const updateWarehouse = async (req: AuthRequest, res: Response, next: Nex
     await warehouse.update({
       name,
       type,
-      address: address || req.body.location,
+      address,
       is_common,
       warehouse_manager_id,
+      project_id,
+      city,
+      state,
+      state_code,
+      pincode,
+      gstin
     })
 
     res.json({

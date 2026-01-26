@@ -4,14 +4,27 @@ import '../models/index' // Import all models to ensure associations are loaded
 import StoreTransaction from '../models/StoreTransaction'
 import StoreTransactionItem from '../models/StoreTransactionItem'
 import Inventory from '../models/Inventory'
+import InventoryLedger from '../models/InventoryLedger'
 import Warehouse from '../models/Warehouse'
 import Project from '../models/Project'
 import User from '../models/User'
 import Material from '../models/Material'
-import { generateTransactionNumber } from '../utils/storeTransactionCodeGenerator'
+import PurchaseOrderItem from '../models/PurchaseOrderItem'
+import PurchaseOrder from '../models/PurchaseOrder'
+import Vendor from '../models/Vendor'
+import WorkerCategory from '../models/WorkerCategory'
+import { numberingService } from '../utils/numberingService'
 import { createError } from '../middleware/errorHandler'
-import { Op } from 'sequelize'
 import { sequelize } from '../database/connection'
+
+export const getWorkerCategories = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const categories = await WorkerCategory.findAll({ order: [['name', 'ASC']] })
+    res.json({ success: true, categories })
+  } catch (error) {
+    next(error)
+  }
+}
 
 export const createGRN = async (req: AuthRequest, res: Response, next: NextFunction) => {
   const transaction = await sequelize.transaction()
@@ -26,7 +39,21 @@ export const createGRN = async (req: AuthRequest, res: Response, next: NextFunct
       received_from_type,
       received_from_id,
       reference_number,
-      po_id
+      po_id,
+      truck_number,
+      driver_name,
+      driver_phone,
+      challan_number,
+      supplier_invoice_number,
+      lorry_receipt_number,
+      eway_bill_number,
+      cgst_amount,
+      sgst_amount,
+      igst_amount,
+      challan_image,
+      invoice_image,
+      goods_image,
+      receiver_image
     } = req.body
 
     // Determine Destination
@@ -37,20 +64,38 @@ export const createGRN = async (req: AuthRequest, res: Response, next: NextFunct
       throw createError('Destination and items are required', 400)
     }
 
-    const transaction_number = await generateTransactionNumber('GRN')
+    const temp_number = numberingService.generateTempNumber('GRN')
 
     const grnData: any = {
-      transaction_number,
+      temp_number,
+      transaction_number: temp_number,
       transaction_type: 'GRN',
       destination_type: finalDestType,
       transaction_date,
-      status: 'draft',
+      status: req.body.status || 'draft',
       remarks,
       created_by: req.user!.id,
-      received_from_type,
-      received_from_id,
+      source_type: received_from_type,
+      vendor_id: received_from_type === 'vendor' ? received_from_id : null,
+      from_project_id: received_from_type === 'project' ? received_from_id : null,
       reference_number,
-      po_id: po_id || null
+      purchase_order_id: po_id || null,
+      truck_number,
+      driver_name,
+      driver_phone,
+      challan_number,
+      supplier_invoice_number,
+      lorry_receipt_number,
+      eway_bill_number,
+      cgst_amount: cgst_amount || 0,
+      sgst_amount: sgst_amount || 0,
+      igst_amount: igst_amount || 0,
+      inspector_name: req.body.inspector_name,
+      inspection_date: req.body.inspection_date,
+      challan_image,
+      invoice_image,
+      goods_image,
+      receiver_image
     }
 
     if (finalDestType === 'project') {
@@ -61,6 +106,11 @@ export const createGRN = async (req: AuthRequest, res: Response, next: NextFunct
       grnData.warehouse_id = finalDestId
     }
 
+    // If marking as complete, generate final number
+    if (grnData.status === 'pending') {
+      grnData.transaction_number = await numberingService.generateTransactionNumber('GRN', transaction)
+    }
+
     const grn = await StoreTransaction.create(grnData, { transaction })
 
     // Create transaction items
@@ -69,7 +119,17 @@ export const createGRN = async (req: AuthRequest, res: Response, next: NextFunct
         transaction_id: grn.id,
         material_id: item.material_id,
         quantity: item.quantity,
+        ordered_quantity: item.ordered_quantity || 0,
+        accepted_quantity: item.accepted_quantity || item.quantity,
+        rejected_quantity: item.rejected_quantity || 0,
+        excess_quantity: item.excess_quantity || 0,
+        shortage_quantity: item.shortage_quantity || 0,
+        po_item_id: item.po_item_id,
+        item_status: item.item_status || 'Good',
+        variance_type: item.variance_type || 'exact',
+        rejection_reason: item.rejection_reason,
         unit_price: item.unit_price,
+        unit: item.unit,
         batch_number: item.batch_number,
         expiry_date: item.expiry_date,
       })),
@@ -120,11 +180,12 @@ export const createSTN = async (req: AuthRequest, res: Response, next: NextFunct
       throw createError('Source, Destination, and items are required', 400)
     }
 
-    const transaction_number = await generateTransactionNumber('STN')
+    const temp_number = numberingService.generateTempNumber('STN')
 
     // Construct Payload
     const stnData: any = {
-      transaction_number,
+      temp_number,
+      transaction_number: temp_number,
       transaction_type: 'STN',
       source_type: finalFromType,
       destination_type: finalToType,
@@ -204,10 +265,11 @@ export const createSRN = async (req: AuthRequest, res: Response, next: NextFunct
       throw createError('Source, Destination, and items are required', 400)
     }
 
-    const transaction_number = await generateTransactionNumber('SRN')
+    const temp_number = numberingService.generateTempNumber('SRN')
 
     const srnData: any = {
-      transaction_number,
+      temp_number,
+      transaction_number: temp_number,
       transaction_type: 'SRN',
       source_type: finalSourceType,
       destination_type: finalDestType,
@@ -277,6 +339,105 @@ export const createSRN = async (req: AuthRequest, res: Response, next: NextFunct
   }
 }
 
+export const createConsumption = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const transaction = await sequelize.transaction()
+  try {
+    const {
+      warehouse_id,
+      project_id,
+      to_building_id,
+      to_floor_id,
+      to_zone_id,
+      transaction_date,
+      items,
+      remarks,
+      manpower_data,
+      weather_condition,
+      temperature,
+      work_hours,
+      progress_photos,
+    } = req.body
+
+    if (!warehouse_id || !items || items.length === 0) {
+      throw createError('Source warehouse and items are required', 400)
+    }
+
+    const temp_number = numberingService.generateTempNumber('CON')
+
+    const consumptionData: any = {
+      temp_number,
+      transaction_number: temp_number,
+      transaction_type: 'CONSUMPTION',
+      source_type: 'warehouse',
+      destination_type: 'project',
+      warehouse_id,
+      project_id,
+      to_building_id,
+      to_floor_id,
+      to_zone_id,
+      transaction_date,
+      status: 'draft',
+      remarks,
+      manpower_data,
+      weather_condition,
+      temperature,
+      work_hours,
+      progress_photos,
+      created_by: req.user!.id,
+    }
+
+    const consumption = await StoreTransaction.create(consumptionData, { transaction })
+
+    // Auto-save NEW worker categories from manpower_data
+    if (manpower_data) {
+      try {
+        const workers = typeof manpower_data === 'string' ? JSON.parse(manpower_data) : manpower_data
+        if (Array.isArray(workers)) {
+          for (const w of workers) {
+            if (w.worker_type) {
+              await WorkerCategory.findOrCreate({
+                where: { name: w.worker_type },
+                transaction
+              })
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to auto-save worker categories', e)
+      }
+    }
+
+    const transactionItems = await StoreTransactionItem.bulkCreate(
+      items.map((item: any) => ({
+        transaction_id: consumption.id,
+        material_id: item.material_id,
+        quantity: item.quantity,
+        wastage_quantity: item.wastage_quantity || 0,
+        issued_quantity: item.issued_quantity || 0,
+        returned_quantity: item.returned_quantity || 0,
+        work_done_quantity: item.work_done_quantity || 0,
+        work_item_type_id: item.work_item_type_id,
+        unit: item.unit
+      })),
+      { transaction }
+    )
+
+    await transaction.commit()
+
+    res.status(201).json({
+      success: true,
+      message: 'Consumption recorded successfully',
+      consumption: {
+        ...consumption.toJSON(),
+        items: transactionItems,
+      },
+    })
+  } catch (error) {
+    if (transaction) await transaction.rollback()
+    next(error)
+  }
+}
+
 export const getTransactions = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { type, status, warehouse_id, page = 1, limit = 10 } = req.query
@@ -315,6 +476,30 @@ export const getTransactions = async (req: AuthRequest, res: Response, next: Nex
           model: User,
           as: 'creator',
           attributes: ['id', 'name', 'email'],
+          required: false,
+        },
+        {
+          model: PurchaseOrder,
+          as: 'purchase_order',
+          attributes: ['id', 'po_number', 'temp_number'],
+          required: false,
+        },
+        {
+          model: Vendor,
+          as: 'vendor',
+          attributes: ['id', 'name'],
+          required: false,
+        },
+        {
+          model: Project,
+          as: 'source_project',
+          attributes: ['id', 'name', 'project_code'],
+          required: false,
+        },
+        {
+          model: Project,
+          as: 'destination_project',
+          attributes: ['id', 'name', 'project_code'],
           required: false,
         },
       ],
@@ -366,6 +551,33 @@ export const getTransaction = async (req: AuthRequest, res: Response, next: Next
           required: false,
         },
         {
+          model: PurchaseOrder,
+          as: 'purchase_order',
+          attributes: ['id', 'po_number', 'temp_number'],
+          required: false,
+        },
+        {
+          model: Vendor,
+          as: 'vendor',
+          attributes: ['id', 'name'],
+          required: false,
+        },
+        {
+          model: Project,
+          as: 'source_project',
+          attributes: ['id', 'name', 'project_code'],
+          required: false,
+        },
+        {
+          model: Project,
+          as: 'destination_project',
+          attributes: ['id', 'name', 'project_code'],
+          required: false,
+        },
+        { association: 'toBuilding' },
+        { association: 'toFloor' },
+        { association: 'toZone' },
+        {
           model: StoreTransactionItem,
           as: 'items',
           required: false,
@@ -373,9 +585,12 @@ export const getTransaction = async (req: AuthRequest, res: Response, next: Next
             {
               model: Material,
               as: 'material',
-              attributes: ['id', 'name', 'material_code', 'unit'],
+              attributes: ['id', 'name', 'material_code', 'unit', 'standard_rate', 'uom'],
               required: false,
             },
+            {
+              association: 'workItemType',
+            }
           ],
         },
       ],
@@ -394,17 +609,55 @@ export const getTransaction = async (req: AuthRequest, res: Response, next: Next
   }
 }
 
-export const approveTransaction = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  const transaction = await sequelize.transaction()
+export const downloadDPRPDF = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params
+    const transaction = await StoreTransaction.findByPk(Number(id), {
+      include: [
+        { model: Project, as: 'project' },
+        { association: 'toBuilding' },
+        { association: 'toFloor' },
+        { association: 'toZone' },
+        { model: User, as: 'creator' },
+        {
+          model: StoreTransactionItem,
+          as: 'items',
+          include: [
+            { model: Material, as: 'material' },
+            { association: 'workItemType' }
+          ]
+        }
+      ]
+    })
 
+    if (!transaction) {
+      throw createError('Report not found', 404)
+    }
+
+    const mode = req.query.mode === 'inline' ? 'inline' : 'attachment'
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `${mode}; filename=DPR-${transaction.transaction_number}.pdf`)
+
+    const { generateDPRPDF } = await import('../utils/pdfGenerator')
+    generateDPRPDF(transaction, res)
+
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const approveTransaction = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const transaction = await sequelize.transaction()
+  let finalNumber = '';
+  let updateData: any = {};
+  try {
+    const { id } = req.params
     const storeTransaction = await StoreTransaction.findByPk(Number(id), {
       include: [
         {
           model: StoreTransactionItem,
           as: 'items',
-          required: false,
+          include: [{ model: Material, as: 'material' }]
         },
       ],
       transaction,
@@ -414,157 +667,337 @@ export const approveTransaction = async (req: AuthRequest, res: Response, next: 
       throw createError('Transaction not found', 404)
     }
 
-    if (storeTransaction.status !== 'draft') {
+    if (storeTransaction.status !== 'draft' && storeTransaction.status !== 'pending') {
       throw createError('Transaction already processed', 400)
     }
 
-    // Get items if not loaded
-    const items = (storeTransaction as any).items || await StoreTransactionItem.findAll({
-      where: { transaction_id: storeTransaction.id },
-      transaction,
-    })
+    const items = (storeTransaction as any).items || []
 
-    // Update inventory based on transaction type
-    if (storeTransaction.transaction_type === 'GRN') {
-      // Increase inventory for GRN
+    // 1. Assign permanent sequential number if it's still a TMP number
+    finalNumber = storeTransaction.transaction_number
+    if (finalNumber.startsWith('TMP-')) {
+      finalNumber = await numberingService.generateTransactionNumber(storeTransaction.transaction_type, transaction)
+    }
 
-      // Case 1: Receipt at Warehouse (Standard)
-      if (storeTransaction.warehouse_id) {
-        for (const item of items) {
-          const existingInventory = await Inventory.findOne({
-            where: {
-              warehouse_id: storeTransaction.warehouse_id,
-              material_id: item.material_id,
-            },
-            transaction,
-          })
+    // 2. Process items and record Ledger
+    for (const item of items) {
+      const mat = item.material;
+      let matUnit = mat?.unit || 'UNIT';
+      if (Array.isArray(matUnit)) {
+        matUnit = matUnit[0] || 'UNIT';
+      }
 
-          if (existingInventory) {
-            await existingInventory.update({
-              quantity: sequelize.literal(`quantity + ${item.quantity}`),
-            }, { transaction })
-          } else {
-            await Inventory.create({
-              warehouse_id: storeTransaction.warehouse_id,
-              material_id: item.material_id,
-              quantity: item.quantity,
-              reserved_quantity: 0
-            }, { transaction })
+      // --- GRN LOGIC ---
+      if (storeTransaction.transaction_type === 'GRN') {
+        let targetWarehouseId = storeTransaction.warehouse_id;
+
+        // Fallback: If Direct-to-Site (project_id set but no warehouse_id), find the Site Warehouse
+        if (!targetWarehouseId && (storeTransaction.to_project_id || storeTransaction.project_id)) {
+          const pId = storeTransaction.to_project_id || storeTransaction.project_id;
+          const siteWh = await Warehouse.findOne({
+            where: { project_id: pId, type: 'site' },
+            transaction
+          });
+          if (siteWh) targetWarehouseId = siteWh.id;
+        }
+
+        if (targetWarehouseId) {
+          // Increase Inventory
+          const [inv] = await Inventory.findOrCreate({
+            where: { warehouse_id: targetWarehouseId, material_id: item.material_id },
+            defaults: { warehouse_id: targetWarehouseId, material_id: item.material_id, quantity: 0, reserved_quantity: 0 },
+            transaction
+          });
+
+          const newQty = Number(inv.quantity) + Number(item.quantity);
+          await inv.update({ quantity: newQty }, { transaction });
+
+          // Record Ledger
+          await InventoryLedger.create({
+            material_id: item.material_id,
+            warehouse_id: targetWarehouseId!,
+            transaction_type: 'GRN',
+            transaction_id: storeTransaction.id,
+            transaction_number: finalNumber,
+            transaction_date: storeTransaction.transaction_date,
+            quantity_in: item.quantity,
+            quantity_out: 0,
+            balance_quantity: newQty,
+            unit: item.unit || matUnit,
+            batch_number: item.batch_number,
+            expiry_date: item.expiry_date,
+            rate: item.unit_price,
+            value: Number(item.quantity) * Number(item.unit_price || 0),
+            project_id: storeTransaction.project_id || undefined,
+          }, { transaction });
+
+          // 🆕 Update PurchaseOrderItem received_quantity
+          if (item.po_item_id) {
+            const poItem = await PurchaseOrderItem.findByPk(item.po_item_id, { transaction });
+            if (poItem) {
+              const currentReceived = Number(poItem.received_quantity) || 0;
+              await poItem.update({
+                received_quantity: currentReceived + Number(item.quantity)
+              }, { transaction });
+            }
           }
         }
       }
-      // Case 2: Receipt at Project Site (Direct Delivery)
-      else if (storeTransaction.to_project_id) {
-        // Project inventory is calculated dynamically (Virtual), so no physical 'Inventory' record update needed here.
-        // However, tracking this transaction as 'approved' is sufficient for the calculation logic.
-      }
-      else {
-        throw createError('GRN must have a valid target warehouse or project', 400);
-      }
-    } else if (storeTransaction.transaction_type === 'STN') {
-      // Decrease from source, increase in destination
-      for (const item of items) {
-        // Decrease from source warehouse ID ONLY if it exists (Warehouse Source)
-        if (storeTransaction.warehouse_id) {
-          const sourceInventory = await Inventory.findOne({
-            where: {
-              warehouse_id: storeTransaction.warehouse_id,
-              material_id: item.material_id,
-            },
-            transaction,
-          })
-
-          if (sourceInventory) {
-            await sourceInventory.update({
-              quantity: sequelize.literal(`quantity - ${item.quantity}`),
-            }, { transaction })
-          }
+      // --- STN LOGIC ---
+      else if (storeTransaction.transaction_type === 'STN') {
+        // A. Source OUT
+        let sourceWhId = storeTransaction.warehouse_id;
+        if (!sourceWhId && storeTransaction.from_project_id) {
+          const siteWh = await Warehouse.findOne({ where: { project_id: storeTransaction.from_project_id, type: 'site' }, transaction });
+          if (siteWh) sourceWhId = siteWh.id;
         }
 
-        // Increase in destination warehouse if defined
-        if (storeTransaction.to_warehouse_id) {
-          const destInventory = await Inventory.findOne({
-            where: {
-              warehouse_id: storeTransaction.to_warehouse_id,
-              material_id: item.material_id,
-            },
-            transaction,
-          })
+        if (sourceWhId) {
+          const [invSource] = await Inventory.findOrCreate({
+            where: { warehouse_id: sourceWhId, material_id: item.material_id },
+            defaults: { warehouse_id: sourceWhId, material_id: item.material_id, quantity: 0, reserved_quantity: 0 },
+            transaction
+          });
+          const currQty = Number(invSource.quantity);
+          const newQty = currQty - Number(item.quantity);
 
-          if (destInventory) {
-            await destInventory.update({
-              quantity: sequelize.literal(`quantity + ${item.quantity}`),
-            }, { transaction })
-          } else {
-            await Inventory.create({
-              warehouse_id: storeTransaction.to_warehouse_id,
-              material_id: item.material_id,
-              quantity: item.quantity,
-              reserved_quantity: 0
-            }, { transaction })
-          }
+          await invSource.update({ quantity: newQty }, { transaction });
+
+          await InventoryLedger.create({
+            material_id: item.material_id,
+            warehouse_id: sourceWhId,
+            transaction_type: 'STN_OUT',
+            transaction_id: storeTransaction.id,
+            transaction_number: finalNumber,
+            transaction_date: storeTransaction.transaction_date,
+            quantity_in: 0,
+            quantity_out: item.quantity,
+            balance_quantity: newQty,
+            unit: item.unit || matUnit,
+            batch_number: item.batch_number
+          }, { transaction });
+        }
+
+        // B. Destination IN
+        let destWhId = storeTransaction.to_warehouse_id;
+        if (!destWhId && storeTransaction.to_project_id) {
+          const siteWh = await Warehouse.findOne({ where: { project_id: storeTransaction.to_project_id, type: 'site' }, transaction });
+          if (siteWh) destWhId = siteWh.id;
+        }
+
+        if (destWhId) {
+          const [inv] = await Inventory.findOrCreate({
+            where: { warehouse_id: destWhId, material_id: item.material_id },
+            defaults: { warehouse_id: destWhId, material_id: item.material_id, quantity: 0, reserved_quantity: 0 },
+            transaction
+          });
+
+          const newQty = Number(inv.quantity) + Number(item.quantity);
+          await inv.update({ quantity: newQty }, { transaction });
+
+          await InventoryLedger.create({
+            material_id: item.material_id,
+            warehouse_id: destWhId,
+            transaction_type: 'STN_IN',
+            transaction_id: storeTransaction.id,
+            transaction_number: finalNumber,
+            transaction_date: storeTransaction.transaction_date,
+            quantity_in: item.quantity,
+            quantity_out: 0,
+            balance_quantity: newQty,
+            unit: item.unit || matUnit,
+            batch_number: item.batch_number
+          }, { transaction });
         }
       }
-    } else if (storeTransaction.transaction_type === 'SRN') {
-      // SRN Logic: Handles both Site Returns (Project -> Warehouse) and Purchase Returns (Warehouse -> Vendor)
-      for (const item of items) {
-        // 1. Decrease from Source Warehouse (e.g. Purchase Return: Warehouse -> Vendor)
-        if (storeTransaction.warehouse_id) {
-          const sourceInventory = await Inventory.findOne({
-            where: {
-              warehouse_id: storeTransaction.warehouse_id,
-              material_id: item.material_id,
-            },
-            transaction,
-          })
-
-          if (sourceInventory) {
-            await sourceInventory.update({
-              quantity: sequelize.literal(`quantity - ${item.quantity}`),
-            }, { transaction })
-          }
+      // --- SRN LOGIC ---
+      else if (storeTransaction.transaction_type === 'SRN') {
+        // A. Source OUT
+        let sourceWhId = storeTransaction.warehouse_id;
+        if (!sourceWhId && storeTransaction.from_project_id) {
+          const siteWh = await Warehouse.findOne({ where: { project_id: storeTransaction.from_project_id, type: 'site' }, transaction });
+          if (siteWh) sourceWhId = siteWh.id;
         }
 
-        // 2. Increase in Destination Warehouse (e.g. Site Return: Project -> Warehouse)
-        if (storeTransaction.to_warehouse_id) {
-          const destInventory = await Inventory.findOne({
-            where: {
-              warehouse_id: storeTransaction.to_warehouse_id,
-              material_id: item.material_id,
-            },
-            transaction,
-          })
+        if (sourceWhId) {
+          const [inv] = await Inventory.findOrCreate({
+            where: { warehouse_id: sourceWhId, material_id: item.material_id },
+            defaults: { warehouse_id: sourceWhId, material_id: item.material_id, quantity: 0, reserved_quantity: 0 },
+            transaction
+          });
+          const currentQty = Number(inv.quantity);
+          const newQty = currentQty - Number(item.quantity);
 
-          if (destInventory) {
-            await destInventory.update({
-              quantity: sequelize.literal(`quantity + ${item.quantity}`),
-            }, { transaction })
-          } else {
-            await Inventory.create({
-              warehouse_id: storeTransaction.to_warehouse_id,
-              material_id: item.material_id,
-              quantity: item.quantity,
-              reserved_quantity: 0
-            }, { transaction })
+          await inv.update({ quantity: newQty }, { transaction });
+
+          await InventoryLedger.create({
+            material_id: item.material_id,
+            warehouse_id: sourceWhId,
+            transaction_type: 'SRN_OUT',
+            transaction_id: storeTransaction.id,
+            transaction_number: finalNumber,
+            transaction_date: storeTransaction.transaction_date,
+            quantity_in: 0,
+            quantity_out: item.quantity,
+            balance_quantity: newQty,
+            unit: item.unit || matUnit,
+            batch_number: item.batch_number
+          }, { transaction });
+        }
+
+        // B. Destination IN
+        let destWhId = storeTransaction.to_warehouse_id;
+        if (!destWhId && storeTransaction.to_project_id) {
+          const siteWh = await Warehouse.findOne({ where: { project_id: storeTransaction.to_project_id, type: 'site' }, transaction });
+          if (siteWh) destWhId = siteWh.id;
+        }
+
+        if (destWhId) {
+          const [inv] = await Inventory.findOrCreate({
+            where: { warehouse_id: destWhId, material_id: item.material_id },
+            defaults: { warehouse_id: destWhId, material_id: item.material_id, quantity: 0, reserved_quantity: 0 },
+            transaction
+          });
+
+          const newQty = Number(inv.quantity) + Number(item.quantity);
+          await inv.update({ quantity: newQty }, { transaction });
+
+          await InventoryLedger.create({
+            material_id: item.material_id,
+            warehouse_id: destWhId,
+            transaction_type: 'SRN_IN',
+            transaction_id: storeTransaction.id,
+            transaction_number: finalNumber,
+            transaction_date: storeTransaction.transaction_date,
+            quantity_in: item.quantity,
+            quantity_out: 0,
+            balance_quantity: newQty,
+            unit: item.unit || matUnit,
+            batch_number: item.batch_number
+          }, { transaction });
+        }
+      }
+      // --- CONSUMPTION LOGIC ---
+      else if (storeTransaction.transaction_type === 'CONSUMPTION') {
+        let locWhId = storeTransaction.warehouse_id;
+        if (!locWhId && storeTransaction.project_id) {
+          const siteWh = await Warehouse.findOne({ where: { project_id: storeTransaction.project_id, type: 'site' }, transaction });
+          if (siteWh) locWhId = siteWh.id;
+        }
+
+        if (locWhId) {
+          const [inv] = await Inventory.findOrCreate({
+            where: { warehouse_id: locWhId, material_id: item.material_id },
+            defaults: { warehouse_id: locWhId, material_id: item.material_id, quantity: 0, reserved_quantity: 0 },
+            transaction
+          });
+          const currQty = Number(inv.quantity);
+          const totalOut = Number(item.quantity) + Number((item as any).wastage_quantity || 0);
+          const newQty = currQty - totalOut;
+
+          await inv.update({ quantity: newQty }, { transaction });
+
+          await InventoryLedger.create({
+            material_id: item.material_id,
+            warehouse_id: locWhId,
+            transaction_type: 'CONSUMPTION',
+            transaction_id: storeTransaction.id,
+            transaction_number: finalNumber,
+            transaction_date: storeTransaction.transaction_date,
+            quantity_in: 0,
+            quantity_out: totalOut,
+            balance_quantity: newQty,
+            unit: item.unit || matUnit,
+            project_id: storeTransaction.project_id || storeTransaction.to_project_id,
+            building_id: storeTransaction.to_building_id,
+            floor_id: storeTransaction.to_floor_id,
+            zone_id: storeTransaction.to_zone_id,
+            work_item_type_id: (item as any).work_item_type_id,
+            wastage_quantity: Number((item as any).wastage_quantity || 0),
+            remarks: storeTransaction.remarks
+          }, { transaction });
+
+          // AUTO-UPDATE BOQ PROGRESS (NEW FEATURE)
+          // If work_done_quantity is provided, update the BOQ item's progress
+          const workDone = Number((item as any).work_done_quantity || 0);
+          const workItemTypeId = (item as any).work_item_type_id;
+
+          if (workDone > 0 && workItemTypeId && storeTransaction.project_id) {
+            // Find the matching BOQ item for this location and work type
+            const ProjectBOQItem = (await import('../models/ProjectBOQItem.js')).default;
+            const boqItem = await ProjectBOQItem.findOne({
+              where: {
+                material_id: item.material_id,
+                work_item_type_id: workItemTypeId,
+                ...(storeTransaction.to_building_id && { building_id: storeTransaction.to_building_id }),
+                ...(storeTransaction.to_floor_id && { floor_id: storeTransaction.to_floor_id }),
+                ...(storeTransaction.to_zone_id && { zone_id: storeTransaction.to_zone_id })
+              } as any,
+              include: [{
+                association: 'boq',
+                where: { project_id: storeTransaction.project_id, is_active: true }
+              }],
+              transaction
+            });
+
+            if (boqItem) {
+              // Increment both consumed quantity and completed work
+              await boqItem.increment({
+                consumed_quantity: Number(item.quantity),
+                total_completed_work: workDone
+              }, { transaction });
+            }
           }
         }
       }
     }
 
-    await storeTransaction.update({
+    // 3. Update transaction status
+    const updateData: any = {
       status: 'approved',
       approved_by: req.user!.id,
-    }, { transaction })
+    }
+
+    if (storeTransaction.transaction_number !== finalNumber) {
+      updateData.transaction_number = finalNumber
+    }
+
+    await storeTransaction.update(updateData, { transaction })
 
     await transaction.commit()
 
     res.json({
       success: true,
-      message: 'Transaction approved successfully',
-      transaction: storeTransaction,
+      message: `${storeTransaction.transaction_type} approved successfully`,
+      transaction: {
+        ...storeTransaction.toJSON(),
+        transaction_number: finalNumber
+      }
     })
-  } catch (error) {
+  } catch (error: any) {
     if (transaction) await transaction.rollback()
+
+    console.error('--- APPROVAL ERROR START ---');
+    console.error('Error Name:', error.name);
+    console.error('Error Message:', error.message);
+
+    if (error.errors) {
+      error.errors.forEach((e: any) => {
+        console.error(`Field: ${e.path}, Message: ${e.message}, Value: ${e.value}, Type: ${e.type}`);
+      });
+    }
+
+    if (error.parent) {
+      console.error('Parent Error (DB):', error.parent.message);
+    }
+
+    console.error('Context:', {
+      transactionId: req.params.id,
+      finalNumber,
+      updateData
+    });
+    console.error('--- APPROVAL ERROR END ---');
+
     next(error)
   }
 }

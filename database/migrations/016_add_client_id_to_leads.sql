@@ -1,0 +1,2 @@
+ALTER TABLE leads ADD COLUMN client_id INT NULL;
+ALTER TABLE leads ADD CONSTRAINT fk_leads_client FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL;

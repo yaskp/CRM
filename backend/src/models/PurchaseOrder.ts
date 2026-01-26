@@ -16,6 +16,17 @@ interface PurchaseOrderAttributes {
     shipping_address?: string
     payment_terms?: string
     notes?: string
+    warehouse_id?: number
+    gst_type?: 'intra_state' | 'inter_state'
+    cgst_amount: number
+    sgst_amount: number
+    igst_amount: number
+    company_state_code?: string
+    vendor_state_code?: string
+    delivery_type: 'direct_to_site' | 'central_warehouse' | 'mixed'
+    annexure_id?: number
+    boq_id?: number
+    billing_unit_id?: number
     created_at?: Date
     updated_at?: Date
 }
@@ -37,6 +48,16 @@ class PurchaseOrder extends Model<PurchaseOrderAttributes, PurchaseOrderCreation
     public shipping_address?: string
     public payment_terms?: string
     public notes?: string
+    public warehouse_id?: number
+    public gst_type?: 'intra_state' | 'inter_state'
+    public cgst_amount!: number
+    public sgst_amount!: number
+    public igst_amount!: number
+    public company_state_code?: string
+    public vendor_state_code?: string
+    public delivery_type!: 'direct_to_site' | 'central_warehouse' | 'mixed'
+    public annexure_id?: number
+    public boq_id?: number
     public readonly created_at!: Date
     public readonly updated_at!: Date
 }
@@ -94,6 +115,66 @@ PurchaseOrder.init(
         notes: {
             type: DataTypes.TEXT,
             allowNull: true,
+        },
+        warehouse_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'warehouses',
+                key: 'id',
+            },
+        },
+        gst_type: {
+            type: DataTypes.ENUM('intra_state', 'inter_state'),
+            allowNull: true,
+        },
+        cgst_amount: {
+            type: DataTypes.DECIMAL(15, 2),
+            defaultValue: 0,
+        },
+        sgst_amount: {
+            type: DataTypes.DECIMAL(15, 2),
+            defaultValue: 0,
+        },
+        igst_amount: {
+            type: DataTypes.DECIMAL(15, 2),
+            defaultValue: 0,
+        },
+        company_state_code: {
+            type: DataTypes.STRING(2),
+            allowNull: true,
+        },
+        vendor_state_code: {
+            type: DataTypes.STRING(2),
+            allowNull: true,
+        },
+        delivery_type: {
+            type: DataTypes.ENUM('direct_to_site', 'central_warehouse', 'mixed'),
+            defaultValue: 'central_warehouse',
+        },
+        annexure_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'annexures',
+                key: 'id',
+            },
+        },
+        billing_unit_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'company_branches',
+                key: 'id',
+            }
+        },
+        boq_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'project_boqs',
+                key: 'id',
+            },
         },
         status: {
             type: DataTypes.ENUM('draft', 'pending_approval', 'approved', 'rejected'),

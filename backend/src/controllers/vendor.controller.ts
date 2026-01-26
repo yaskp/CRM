@@ -4,6 +4,7 @@ import Vendor from '../models/Vendor'
 import ProjectVendor from '../models/ProjectVendor'
 import { createError } from '../middleware/errorHandler'
 import { AuthRequest } from '../middleware/auth.middleware'
+import { getStateCodeFromGST, getStateNameFromCode } from '../utils/gstCalculator'
 
 // Get all vendors
 export const getVendors = async (req: Request, res: Response, next: NextFunction) => {
@@ -33,9 +34,17 @@ export const getVendors = async (req: Request, res: Response, next: NextFunction
             order: [['name', 'ASC']],
         })
 
+        const vendorsWithState = vendors.map(v => {
+            const val = v.toJSON() as any
+            if (!val.state && val.state_code) {
+                val.state = getStateNameFromCode(val.state_code)
+            }
+            return val
+        })
+
         res.json({
             success: true,
-            vendors,
+            vendors: vendorsWithState,
         })
     } catch (error) {
         next(error)
@@ -60,9 +69,14 @@ export const getVendor = async (req: Request, res: Response, next: NextFunction)
             throw createError('Vendor not found', 404)
         }
 
+        const vendorData = vendor.toJSON() as any
+        if (!vendorData.state && vendorData.state_code) {
+            vendorData.state = getStateNameFromCode(vendorData.state_code)
+        }
+
         res.json({
             success: true,
-            vendor,
+            vendor: vendorData,
         })
     } catch (error) {
         next(error)
@@ -79,14 +93,30 @@ export const createVendor = async (req: AuthRequest, res: Response, next: NextFu
             phone,
             email,
             address,
+            city,
+            state,
+            pincode,
             gst_number,
             pan_number,
+            bank_name,
+            account_number,
+            ifsc_code,
+            branch,
             bank_details,
+            state_code,
         } = req.body
 
         if (!name || !vendor_type) {
             throw createError('Name and vendor type are required', 400)
         }
+
+        // Auto-extract state code from GST if not provided
+        let finalStateCode = state_code
+        if (!finalStateCode && gst_number) {
+            finalStateCode = getStateCodeFromGST(gst_number)
+        }
+
+        const derivedStateName = state || getStateNameFromCode(finalStateCode || '')
 
         const vendor = await Vendor.create({
             name,
@@ -95,8 +125,16 @@ export const createVendor = async (req: AuthRequest, res: Response, next: NextFu
             phone,
             email,
             address,
+            city,
+            state: derivedStateName,
+            pincode,
+            state_code: finalStateCode,
             gst_number,
             pan_number,
+            bank_name,
+            account_number,
+            ifsc_code,
+            branch,
             bank_details,
             is_active: true,
         })
@@ -122,9 +160,17 @@ export const updateVendor = async (req: Request, res: Response, next: NextFuncti
             phone,
             email,
             address,
+            city,
+            state,
+            pincode,
             gst_number,
             pan_number,
+            bank_name,
+            account_number,
+            ifsc_code,
+            branch,
             bank_details,
+            state_code,
             is_active,
         } = req.body
 
@@ -134,6 +180,14 @@ export const updateVendor = async (req: Request, res: Response, next: NextFuncti
             throw createError('Vendor not found', 404)
         }
 
+        // Auto-extract state code from GST if not provided
+        let finalStateCode = state_code
+        if (!finalStateCode && gst_number) {
+            finalStateCode = getStateCodeFromGST(gst_number)
+        }
+
+        const derivedStateName = state || getStateNameFromCode(finalStateCode || '')
+
         await vendor.update({
             name,
             vendor_type,
@@ -141,8 +195,16 @@ export const updateVendor = async (req: Request, res: Response, next: NextFuncti
             phone,
             email,
             address,
+            city,
+            state: derivedStateName,
+            pincode,
+            state_code: finalStateCode,
             gst_number,
             pan_number,
+            bank_name,
+            account_number,
+            ifsc_code,
+            branch,
             bank_details,
             is_active,
         })

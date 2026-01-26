@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Table, Card, Button, Tag, Space, Input, Select, DatePicker, message, Popconfirm, Row, Col, Statistic, Typography } from 'antd'
+import { Table, Card, Button, Tag, Space, Input, Select, message, Popconfirm, Row, Col, Statistic, Typography } from 'antd'
 import {
   PlusOutlined,
   EyeOutlined,
@@ -111,12 +111,14 @@ const GRNList = () => {
       width: 160,
       render: (status: string) => {
         const colorMap: Record<string, string> = {
-          draft: 'processing',
+          draft: 'default',
+          pending: 'processing',
           approved: 'success',
           rejected: 'error',
         }
         const labelMap: Record<string, string> = {
-          draft: 'PENDING APPROVAL',
+          draft: 'DRAFT',
+          pending: 'PENDING APPROVAL',
           approved: 'APPROVED',
           rejected: 'REJECTED',
         }
@@ -147,7 +149,7 @@ const GRNList = () => {
           >
             View
           </Button>
-          {record.status === 'draft' && (
+          {(record.status === 'draft' || record.status === 'pending') && (
             <>
               <Popconfirm
                 title="Approve this receipt?"
@@ -236,7 +238,8 @@ const GRNList = () => {
               onChange={(value) => fetchTransactions({ status: value })}
               suffixIcon={<FilterOutlined style={prefixIconStyle} />}
             >
-              <Select.Option value="draft">⏳ Draft/Pending</Select.Option>
+              <Select.Option value="draft">📁 Draft</Select.Option>
+              <Select.Option value="pending">⏳ Pending Approval</Select.Option>
               <Select.Option value="approved">✅ Approved</Select.Option>
               <Select.Option value="rejected">❌ Rejected</Select.Option>
             </Select>

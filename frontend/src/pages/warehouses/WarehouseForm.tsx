@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Switch, Typography } from 'antd'
-import { HomeOutlined, NumberOutlined, EnvironmentOutlined, GlobalOutlined, BankOutlined, ShopOutlined } from '@ant-design/icons'
+import { Form, Input, Button, Card, message, Switch, Typography, Select } from 'antd'
+import { HomeOutlined, NumberOutlined, EnvironmentOutlined, GlobalOutlined, BankOutlined, ShopOutlined, ProjectOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { warehouseService } from '../../services/api/warehouses'
+import { projectService } from '../../services/api/projects'
+import StateSelect from '../../components/common/StateSelect'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import { largeInputStyle, getLabelStyle, getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle, actionCardStyle, prefixIconStyle, twoColumnGridStyle } from '../../styles/styleUtils'
 
@@ -11,22 +13,33 @@ const { Text } = Typography
 const WarehouseForm = () => {
   const [loading, setLoading] = useState(false)
   const [form] = Form.useForm()
+  const [projects, setProjects] = useState<any[]>([])
+  const warehouseType = Form.useWatch('type', form)
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
 
   useEffect(() => {
+    fetchProjects()
     if (id) {
       fetchWarehouse()
     }
   }, [id])
+
+  const fetchProjects = async () => {
+    try {
+      const response = await projectService.getProjects({ limit: 1000 })
+      setProjects(response.projects || [])
+    } catch (error) {
+      console.error('Failed to fetch projects', error)
+    }
+  }
 
   const fetchWarehouse = async () => {
     try {
       const response = await warehouseService.getWarehouse(Number(id))
       const warehouse = response.warehouse
       form.setFieldsValue({
-        ...warehouse,
-        is_site: warehouse.type === 'site'
+        ...warehouse
       })
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch warehouse')
@@ -36,12 +49,7 @@ const WarehouseForm = () => {
   const onFinish = async (values: any) => {
     setLoading(true)
     try {
-      // Map is_site (boolean) to type (string)
-      const payload = {
-        ...values,
-        type: values.is_site ? 'site' : 'central',
-      }
-      delete payload.is_site
+      const payload = { ...values }
 
       if (id) {
         await warehouseService.updateWarehouse(Number(id), payload)
@@ -108,24 +116,63 @@ const WarehouseForm = () => {
             />
           </Form.Item>
 
+          <div style={twoColumnGridStyle}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>City</span>}
+              name="city"
+            >
+              <Input placeholder="e.g. Jaipur" size="large" style={largeInputStyle} />
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>State</span>}
+              name="state"
+            >
+              <StateSelect
+                onChange={(val: string, code?: string) => {
+                  form.setFieldsValue({ state: val, state_code: code })
+                }}
+              />
+            </Form.Item>
+          </div>
 
           <div style={twoColumnGridStyle}>
             <Form.Item
-              label={<span style={getLabelStyle()}>Warehouse Type</span>}
-              name="is_site"
-              valuePropName="checked"
-              initialValue={false}
+              label={<span style={getLabelStyle()}>State Code (GST Prefix)</span>}
+              name="state_code"
+              rules={[{ len: 2, message: 'Must be 2 digits (e.g., 08)' }]}
             >
-              <Switch
-                checkedChildren={<><ShopOutlined /> Site Warehouse</>}
-                unCheckedChildren={<><BankOutlined /> Central Warehouse</>}
-              />
+              <Input placeholder="e.g. 08" size="large" style={largeInputStyle} disabled />
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>GSTIN (Location Specific)</span>}
+              name="gstin"
+            >
+              <Input placeholder="Enter GSTIN for this site" size="large" style={largeInputStyle} />
+            </Form.Item>
+          </div>
+
+          <div style={twoColumnGridStyle}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Warehouse Category</span>}
+              name="type"
+              initialValue="central"
+              rules={[{ required: true, message: 'Please select warehouse category' }]}
+            >
+              <Select size="large" style={largeInputStyle}>
+                <Select.Option value="central">🏢 Central Store (Base/HO)</Select.Option>
+                <Select.Option value="site">🏗️ Site Store (Main Site)</Select.Option>
+                <Select.Option value="regional">📍 Regional / Satellite Store</Select.Option>
+                <Select.Option value="fabrication">⚙️ Fabrication / Yard</Select.Option>
+              </Select>
             </Form.Item>
 
             <Form.Item
               label={<span style={getLabelStyle()}>Common Warehouse (VHPT & VHSHREE)</span>}
               name="is_common"
               valuePropName="checked"
+              initialValue={false}
             >
               <Switch
                 checkedChildren={<><GlobalOutlined /> Common</>}
@@ -134,8 +181,38 @@ const WarehouseForm = () => {
             </Form.Item>
           </div>
 
-          <InfoCard title="🏢 Warehouse Type">
-            Enable "Common Warehouse" if this warehouse is shared between VHPT and VHSHREE companies. Otherwise, it will be company-specific.
+          {(warehouseType === 'site' || warehouseType === 'regional') && (
+            <Form.Item
+              label={<span style={getLabelStyle()}>Associated Project</span>}
+              name="project_id"
+              rules={[{ required: warehouseType === 'site', message: 'Project link is mandatory for Site Stores' }]}
+              tooltip={warehouseType === 'regional' ? "Optional: Link to a project if ready, or keep blank for general regional storage" : "Required: Site stores must be linked to a project"}
+            >
+              <Select
+                showSearch
+                placeholder="Select project"
+                size="large"
+                style={largeInputStyle}
+                optionFilterProp="children"
+                allowClear
+              >
+                {projects.map(p => (
+                  <Select.Option key={p.id} value={p.id}>
+                    <ProjectOutlined style={{ marginRight: 8, color: '#1890ff' }} />
+                    {p.name} ({p.project_code || 'No Code'})
+                  </Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          )}
+
+          <InfoCard title="🏢 Storage Tiers Overview">
+            <ul style={{ paddingLeft: 20, margin: 0 }}>
+              <li><b>Central Store:</b> Main company warehouse for bulk storage.</li>
+              <li><b>Site Store:</b> Located <u>at the project site</u>. Mandatory project link.</li>
+              <li><b>Regional / Satellite:</b> Buffer store <u>near projects</u>. Useful when project is in pipeline.</li>
+              <li><b>Fabrication Yard:</b> Processing yard for rebar/steel serving multiple units.</li>
+            </ul>
           </InfoCard>
         </SectionCard>
 

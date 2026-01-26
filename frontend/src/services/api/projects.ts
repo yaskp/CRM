@@ -49,5 +49,10 @@ export const projectService = {
     const response = await api.put(`/projects/${id}/status`, { status })
     return response.data
   },
+
+  createProjectFromQuotation: async (quotationId: number | string, data?: any) => {
+    const response = await api.post(`/projects/from-quotation/${quotationId}`, data)
+    return response.data
+  },
 }
 

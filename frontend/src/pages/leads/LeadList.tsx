@@ -9,7 +9,8 @@ import {
   MailOutlined,
   UserAddOutlined,
   ProjectOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  EditOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { leadService } from '../../services/api/leads'
@@ -189,6 +190,17 @@ const LeadList = () => {
             style={{ padding: 0 }}
           >
             View
+          </Button>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={(e) => {
+              e.stopPropagation()
+              navigate(`/sales/leads/${record.id}/edit`)
+            }}
+            style={{ padding: 0 }}
+          >
+            Edit
           </Button>
           <Button
             type="link"

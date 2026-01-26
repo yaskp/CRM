@@ -1,0 +1,1 @@
+ALTER TABLE materials MODIFY COLUMN unit TEXT;

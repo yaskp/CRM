@@ -181,6 +181,9 @@ export const createRequisition = async (req: AuthRequest, res: Response, next: N
             requested_quantity: item.requested_quantity,
             unit: item.unit || 'nos',
             issued_quantity: 0,
+            building_id: item.building_id,
+            floor_id: item.floor_id,
+            zone_id: item.zone_id,
         }))
 
         await MaterialRequisitionItem.bulkCreate(requisitionItems)
@@ -247,6 +250,9 @@ export const updateRequisition = async (req: Request, res: Response, next: NextF
                 requested_quantity: item.requested_quantity,
                 unit: item.unit || 'nos',
                 issued_quantity: 0,
+                building_id: item.building_id,
+                floor_id: item.floor_id,
+                zone_id: item.zone_id,
             }))
 
             await MaterialRequisitionItem.bulkCreate(requisitionItems)

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography } from 'antd'
+import { Form, Input, Button, Card, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography, App } from 'antd'
 import {
   SaveOutlined,
   PlusOutlined,
@@ -42,11 +42,13 @@ const { Text } = Typography
 interface STNFormItem extends STNItem {
   id?: number
   material_name?: string
+  tempKey: string
 }
 
 const STNForm = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { message } = App.useApp()
   const [loading, setLoading] = useState(false)
 
   // Master data
@@ -58,7 +60,7 @@ const STNForm = () => {
   const [stockMap, setStockMap] = useState<Record<number, number>>({})
   const [stockLoading, setStockLoading] = useState(false)
 
-  const { control, handleSubmit, formState: { errors }, setValue, watch } = useForm<STNFormData>({
+  const { control, handleSubmit, setValue, watch } = useForm<STNFormData>({
     resolver: zodResolver(stnSchema),
     defaultValues: {
       transaction_date: dayjs().format('YYYY-MM-DD'),
@@ -91,24 +93,47 @@ const STNForm = () => {
   const fetchSourceStock = async (type: string, id: number) => {
     setStockLoading(true)
     try {
-      // API supports either warehouse_id or project_id
       const params = type === 'project' ? { project_id: id } : { warehouse_id: id }
       const response = await inventoryService.getInventory({ ...params, limit: 1000 })
 
       const map: Record<number, number> = {}
       response.inventory?.forEach((inv: any) => {
-        // Ensure we only map positive stock
         if (Number(inv.quantity) > 0) {
           map[inv.material_id] = Number(inv.quantity)
         }
       })
       setStockMap(map)
+      return response.inventory || []
     } catch (error) {
       console.error('Failed to fetch stock', error)
       message.warning('Could not verify stock levels')
+      return []
     } finally {
       setStockLoading(false)
     }
+  }
+
+  const loadSourceItems = async () => {
+    if (!fromId) {
+      message.warning('Please select a source first')
+      return
+    }
+    const invItems = await fetchSourceStock(fromType, fromId)
+    if (invItems.length === 0) {
+      message.info('No stock found at selected source')
+      return
+    }
+
+    const newItems = invItems.map((inv: any) => ({
+      material_id: inv.material_id,
+      material_name: inv.material?.name,
+      quantity: Number(inv.quantity),
+      unit: inv.material?.unit,
+      tempKey: `inv-${inv.id}`
+    }))
+    setItems(newItems)
+    setValue('items', newItems)
+    message.success(`Loaded ${newItems.length} items from source`)
   }
 
   const fetchMetadata = async () => {
@@ -144,6 +169,7 @@ const STNForm = () => {
         material_name: item.material?.name,
         quantity: Number(item.quantity),
         batch_number: item.batch_number,
+        tempKey: item.id.toString()
       })) || [])
       setValue('items', stn.items || [])
 
@@ -155,23 +181,32 @@ const STNForm = () => {
   }
 
   const addItem = () => {
-    const newItem = { material_id: 0, quantity: 0 }
+    const newItem: STNFormItem = {
+      material_id: 0,
+      quantity: 0,
+      tempKey: `new-${Date.now()}-${Math.random()}`
+    }
     setItems([...items, newItem])
   }
 
-  const removeItem = (index: number) => {
-    const newItems = items.filter((_, i) => i !== index)
+  const removeItem = (tempKey: string) => {
+    const newItems = items.filter((item) => item.tempKey !== tempKey)
     setItems(newItems)
     setValue('items', newItems)
   }
 
-  const updateItem = (index: number, field: keyof STNFormItem, value: any) => {
-    const newItems = [...items]
-    newItems[index] = { ...newItems[index], [field]: value }
-    if (field === 'material_id') {
-      const material = materials.find(m => m.id === value)
-      newItems[index].material_name = material?.name
-    }
+  const updateItem = (tempKey: string, field: keyof STNFormItem, value: any) => {
+    const newItems = items.map(item => {
+      if (item.tempKey === tempKey) {
+        const newItem = { ...item, [field]: value }
+        if (field === 'material_id') {
+          const material = materials.find(m => m.id === value)
+          newItem.material_name = material?.name
+        }
+        return newItem
+      }
+      return item
+    })
     setItems(newItems)
     setValue('items', newItems)
   }
@@ -195,16 +230,16 @@ const STNForm = () => {
 
     // Stock Validation for Warehouse source
     if (fromType === 'warehouse' && Object.keys(stockMap).length > 0) {
-      const errors: string[] = []
+      const errorsList: string[] = []
       items.forEach(item => {
         const available = stockMap[item.material_id] || 0
         if (item.quantity > available) {
-          errors.push(`Insufficient stock for ${item.material_name || 'Item'}. Available: ${available}`)
+          errorsList.push(`Insufficient stock for ${item.material_name || 'Item'}. Available: ${available}`)
         }
       })
 
-      if (errors.length > 0) {
-        message.error(errors[0])
+      if (errorsList.length > 0) {
+        message.error(errorsList[0])
         return
       }
     }
@@ -235,7 +270,7 @@ const STNForm = () => {
       title: 'Material / Product',
       key: 'material',
       width: '40%',
-      render: (_: any, record: STNFormItem, index: number) => {
+      render: (_: any, record: STNFormItem) => {
         const available = stockMap[record.material_id]
 
         let stockDisplay = null
@@ -264,12 +299,12 @@ const STNForm = () => {
               style={{ width: '100%' }}
               placeholder="Select Material"
               value={record.material_id || undefined}
-              onChange={(value) => updateItem(index, 'material_id', value)}
+              onChange={(value) => updateItem(record.tempKey, 'material_id', value)}
               showSearch
               optionFilterProp="children"
               size="large"
               loading={stockLoading}
-              dropdownRender={(menu) => (
+              popupRender={(menu) => (
                 <>
                   {menu}
                   {fromId && Object.keys(stockMap).length === 0 && !stockLoading && (
@@ -310,15 +345,15 @@ const STNForm = () => {
     {
       title: 'Quantity',
       key: 'quantity',
-      render: (_: any, record: STNFormItem, index: number) => (
+      render: (_: any, record: STNFormItem) => (
         <InputNumber
           style={{ width: '100%' }}
           placeholder="Transfer Qty"
           value={record.quantity}
           min={0}
           step={0.01}
-          status={fromType === 'warehouse' && (stockMap[record.material_id] || 0) < record.quantity ? 'error' : ''}
-          onChange={(value) => updateItem(index, 'quantity', value || 0)}
+          status={(stockMap[record.material_id] || 0) < record.quantity ? 'warning' : ''}
+          onChange={(value) => updateItem(record.tempKey, 'quantity', value || 0)}
           size="large"
         />
       ),
@@ -327,11 +362,11 @@ const STNForm = () => {
       title: 'Batch Code',
       key: 'batch_number',
       width: '30%',
-      render: (_: any, record: STNFormItem, index: number) => (
+      render: (_: any, record: STNFormItem) => (
         <Input
           placeholder="Batch # (Optional)"
           value={record.batch_number}
-          onChange={(e) => updateItem(index, 'batch_number', e.target.value)}
+          onChange={(e) => updateItem(record.tempKey, 'batch_number', e.target.value)}
           size="large"
           prefix={<BarcodeOutlined style={prefixIconStyle} />}
         />
@@ -341,12 +376,12 @@ const STNForm = () => {
       title: '',
       key: 'actions',
       width: 50,
-      render: (_: any, record: STNFormItem, index: number) => (
+      render: (_: any, record: STNFormItem) => (
         <Button
           type="link"
           danger
           icon={<DeleteOutlined />}
-          onClick={() => removeItem(index)}
+          onClick={() => removeItem(record.tempKey)}
           style={{ padding: 0 }}
         />
       ),
@@ -502,16 +537,27 @@ const STNForm = () => {
             icon={<SyncOutlined />}
             extra={
               !id && (
-                <Button type="dashed" icon={<PlusOutlined />} onClick={addItem} style={{ borderRadius: '6px' }}>
-                  Add Item Row
-                </Button>
+                <Space>
+                  <Button
+                    type="primary"
+                    ghost
+                    icon={<SyncOutlined />}
+                    onClick={loadSourceItems}
+                    disabled={!fromId}
+                  >
+                    Load All Available Stock
+                  </Button>
+                  <Button type="dashed" icon={<PlusOutlined />} onClick={addItem} style={{ borderRadius: '6px' }}>
+                    Add Item Row
+                  </Button>
+                </Space>
               )
             }
           >
             <Table
               columns={itemColumns}
               dataSource={items}
-              rowKey={(_, index) => (index || 0).toString()}
+              rowKey="tempKey"
               pagination={false}
               bordered
               scroll={{ x: 800 }}

@@ -8,10 +8,14 @@ interface MaterialRequisitionItemAttributes {
   requested_quantity: number
   issued_quantity: number
   unit: string
+  boq_item_id?: number
+  building_id?: number
+  floor_id?: number
+  zone_id?: number
   created_at?: Date
 }
 
-interface MaterialRequisitionItemCreationAttributes extends Optional<MaterialRequisitionItemAttributes, 'id' | 'created_at'> {}
+interface MaterialRequisitionItemCreationAttributes extends Optional<MaterialRequisitionItemAttributes, 'id' | 'created_at'> { }
 
 class MaterialRequisitionItem extends Model<MaterialRequisitionItemAttributes, MaterialRequisitionItemCreationAttributes> implements MaterialRequisitionItemAttributes {
   public id!: number
@@ -20,6 +24,10 @@ class MaterialRequisitionItem extends Model<MaterialRequisitionItemAttributes, M
   public requested_quantity!: number
   public issued_quantity!: number
   public unit!: string
+  public boq_item_id?: number
+  public building_id?: number
+  public floor_id?: number
+  public zone_id?: number
   public readonly created_at!: Date
 }
 
@@ -58,6 +66,38 @@ MaterialRequisitionItem.init(
     unit: {
       type: DataTypes.STRING(20),
       allowNull: false,
+    },
+    boq_item_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'project_boq_items',
+        key: 'id',
+      },
+    },
+    building_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'project_buildings',
+        key: 'id',
+      },
+    },
+    floor_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'project_floors',
+        key: 'id',
+      },
+    },
+    zone_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'project_zones',
+        key: 'id',
+      },
     },
     created_at: {
       type: DataTypes.DATE,

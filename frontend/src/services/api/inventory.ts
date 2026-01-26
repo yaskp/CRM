@@ -1,4 +1,4 @@
-import api from './auth'
+import api from './axios'
 
 export interface InventoryItem {
     id: number
@@ -24,8 +24,12 @@ export interface GetInventoryParams {
 }
 
 export const inventoryService = {
-    getInventory: async (params: GetInventoryParams) => {
+    getInventory: async (params?: GetInventoryParams) => {
         const response = await api.get('/inventory', { params })
         return response.data
     },
+    getStockStatement: async (params: { warehouse_id?: number, project_id?: number, search?: string }) => {
+        const response = await api.get('/inventory/statement', { params })
+        return response.data
+    }
 }

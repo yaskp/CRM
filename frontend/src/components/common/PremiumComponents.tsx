@@ -1,5 +1,6 @@
 import React, { CSSProperties } from 'react'
-import { Card as AntCard, Typography } from 'antd'
+import { Card as AntCard, Typography, Button } from 'antd'
+import { ArrowLeftOutlined } from '@ant-design/icons'
 import { theme } from '../../styles/theme'
 
 const { Title } = Typography
@@ -9,6 +10,7 @@ interface PageHeaderProps {
     subtitle?: string
     icon?: React.ReactNode
     extra?: React.ReactNode
+    onBack?: () => void
     gradient?: keyof typeof theme.gradients
     style?: CSSProperties
 }
@@ -18,6 +20,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     subtitle,
     icon,
     extra,
+    onBack,
     gradient = 'primary',
     style,
 }) => {
@@ -50,6 +53,19 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                         gap: theme.spacing.md,
                     }}
                 >
+                    {onBack && (
+                        <Button
+                            type="text"
+                            icon={<ArrowLeftOutlined style={{ color: 'white' }} />}
+                            onClick={onBack}
+                            style={{
+                                padding: 0,
+                                marginRight: theme.spacing.sm,
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                        />
+                    )}
                     {icon}
                     {title}
                 </Title>
@@ -138,7 +154,7 @@ interface PageContainerProps {
 
 export const PageContainer: React.FC<PageContainerProps> = ({
     children,
-    maxWidth = 1400,
+    maxWidth = 1150,
     style,
 }) => {
     return (

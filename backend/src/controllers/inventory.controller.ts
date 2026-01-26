@@ -129,7 +129,7 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
             ]
         })
 
-        res.json({
+        return res.json({
             success: true,
             inventory: rows,
             pagination: {
@@ -139,6 +139,109 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                 pages: Math.ceil(count / Number(limit))
             }
         })
+    } catch (error) {
+        return next(error)
+    }
+}
+
+export const getStockStatement = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { warehouse_id, project_id, search } = req.query
+        const wId = warehouse_id ? Number(warehouse_id) : null
+        const pId = project_id ? Number(project_id) : null
+
+        if (!wId && !pId) {
+            return res.json({ success: true, statement: [] })
+        }
+
+        // Logic to calculate various quantities for the statement
+        // 1. PO Quantity (Total ordered for this destination)
+        // 2. Received Quantity (GRN items accepted)
+        // 3. Used Quantity (Consumption)
+        // 4. Transfer In/Out (STN)
+        // 5. Balance (Current Stock)
+
+        const query = `
+            SELECT 
+                m.id as material_id,
+                m.name as material_name,
+                m.material_code,
+                m.unit,
+                m.category,
+                -- PO Quantity (Total Ordered)
+                COALESCE((
+                    SELECT SUM(poi.quantity) 
+                    FROM purchase_order_items poi 
+                    JOIN purchase_orders po ON po.id = poi.po_id 
+                    WHERE poi.material_id = m.id 
+                    AND po.status != 'rejected'
+                    AND (:wId IS NULL OR po.warehouse_id = :wId)
+                    AND (:pId IS NULL OR po.project_id = :pId)
+                ), 0) as po_qty,
+                -- Received Quantity (GRN Approved)
+                COALESCE((
+                    SELECT SUM(ti.accepted_quantity) 
+                    FROM store_transaction_items ti 
+                    JOIN store_transactions t ON t.id = ti.transaction_id 
+                    WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'GRN'
+                    AND (:wId IS NULL OR t.warehouse_id = :wId)
+                    AND (:pId IS NULL OR t.to_project_id = :pId)
+                ), 0) as received_qty,
+                -- Used Quantity (Consumption Approved)
+                COALESCE((
+                    SELECT SUM(ti.quantity) 
+                    FROM store_transaction_items ti 
+                    JOIN store_transactions t ON t.id = ti.transaction_id 
+                    WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'CONSUMPTION'
+                    AND (:wId IS NULL OR t.warehouse_id = :wId)
+                    AND (:pId IS NULL OR t.project_id = :pId)
+                ), 0) as used_qty,
+                -- Transfer Out (STN Outward)
+                COALESCE((
+                    SELECT SUM(ti.quantity) 
+                    FROM store_transaction_items ti 
+                    JOIN store_transactions t ON t.id = ti.transaction_id 
+                    WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'STN'
+                    AND (:wId IS NULL OR t.warehouse_id = :wId)
+                    AND (:pId IS NULL OR t.from_project_id = :pId)
+                ), 0) as transfer_out,
+                -- Transfer In (STN Inward)
+                COALESCE((
+                    SELECT SUM(ti.quantity) 
+                    FROM store_transaction_items ti 
+                    JOIN store_transactions t ON t.id = ti.transaction_id 
+                    WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'STN'
+                    AND (:wId IS NULL OR t.to_warehouse_id = :wId)
+                    AND (:pId IS NULL OR t.to_project_id = :pId)
+                ), 0) as transfer_in
+            FROM materials m
+            WHERE 1=1
+            ${search ? `AND (m.name LIKE :searchPattern OR m.material_code LIKE :searchPattern)` : ''}
+            HAVING po_qty > 0 OR received_qty > 0 OR used_qty > 0 OR transfer_out > 0 OR transfer_in > 0
+            ORDER BY m.name ASC
+        `
+
+        const results = await sequelize.query(query, {
+            replacements: {
+                wId,
+                pId,
+                searchPattern: search ? `%${search}%` : ''
+            },
+            type: QueryTypes.SELECT
+        })
+
+        // Final calculation for balance
+        const statement = results.map((row: any) => ({
+            ...row,
+            po_qty: Number(row.po_qty),
+            received_qty: Number(row.received_qty),
+            used_qty: Number(row.used_qty),
+            transfer_out: Number(row.transfer_out),
+            transfer_in: Number(row.transfer_in),
+            balance_qty: Number(row.received_qty) + Number(row.transfer_in) - Number(row.used_qty) - Number(row.transfer_out)
+        }))
+
+        return res.json({ success: true, statement })
     } catch (error) {
         next(error)
     }

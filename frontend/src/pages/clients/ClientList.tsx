@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Input, Select, Tag, Space, message, Popconfirm } from 'antd'
+import { Table, Button, Input, Select, Tag, Space, message, Popconfirm, Avatar, Tooltip, Badge } from 'antd'
 import {
     PlusOutlined,
     SearchOutlined,
@@ -7,6 +7,10 @@ import {
     DeleteOutlined,
     EyeOutlined,
     TeamOutlined,
+    UserOutlined,
+    PhoneOutlined,
+    MailOutlined,
+    ApartmentOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { clientService } from '../../services/api/clients'
@@ -15,6 +19,21 @@ import { getPrimaryButtonStyle, getSecondaryButtonStyle } from '../../styles/sty
 import type { ColumnsType } from 'antd/es/table'
 
 const { Option } = Select
+
+interface ClientContact {
+    id: number
+    contact_name: string
+    designation?: string
+    email?: string
+    phone?: string
+    is_primary?: boolean
+}
+
+interface ClientGroup {
+    id: number
+    group_name: string
+    group_type: string
+}
 
 interface Client {
     id: number
@@ -28,6 +47,8 @@ interface Client {
     client_type: string
     status: string
     created_at: string
+    group?: ClientGroup
+    contacts?: ClientContact[]
 }
 
 const ClientList = () => {
@@ -97,45 +118,139 @@ const ClientList = () => {
         return colors[type] || 'default'
     }
 
+    const getGroupTypeEmoji = (type: string) => {
+        const emojis: Record<string, string> = {
+            corporate: '🏢',
+            sme: '🏭',
+            government: '🏛️',
+            individual: '👤',
+            retail: '🏪',
+        }
+        return emojis[type] || '🏢'
+    }
+
+    const renderContacts = (contacts: ClientContact[] | undefined) => {
+        if (!contacts || contacts.length === 0) {
+            return <span style={{ color: '#999' }}>No contacts</span>
+        }
+
+        const primaryContact = contacts.find(c => c.is_primary) || contacts[0]
+        const otherContacts = contacts.filter(c => c.id !== primaryContact.id)
+
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Tooltip
+                    title={
+                        <div>
+                            <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                                {primaryContact.contact_name}
+                                {primaryContact.is_primary && ' (Primary)'}
+                            </div>
+                            {primaryContact.designation && (
+                                <div style={{ fontSize: 12, opacity: 0.9 }}>
+                                    {primaryContact.designation}
+                                </div>
+                            )}
+                            {primaryContact.email && (
+                                <div style={{ fontSize: 12, marginTop: 4 }}>
+                                    <MailOutlined /> {primaryContact.email}
+                                </div>
+                            )}
+                            {primaryContact.phone && (
+                                <div style={{ fontSize: 12 }}>
+                                    <PhoneOutlined /> {primaryContact.phone}
+                                </div>
+                            )}
+                        </div>
+                    }
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Avatar size="small" icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }} />
+                        <span style={{ fontWeight: 500 }}>{primaryContact.contact_name}</span>
+                    </div>
+                </Tooltip>
+
+                {otherContacts.length > 0 && (
+                    <Tooltip
+                        title={
+                            <div>
+                                {otherContacts.map((contact, idx) => (
+                                    <div key={idx} style={{ marginBottom: 8 }}>
+                                        <div style={{ fontWeight: 600 }}>{contact.contact_name}</div>
+                                        {contact.designation && (
+                                            <div style={{ fontSize: 12, opacity: 0.9 }}>
+                                                {contact.designation}
+                                            </div>
+                                        )}
+                                        {contact.email && (
+                                            <div style={{ fontSize: 12 }}>
+                                                <MailOutlined /> {contact.email}
+                                            </div>
+                                        )}
+                                        {contact.phone && (
+                                            <div style={{ fontSize: 12 }}>
+                                                <PhoneOutlined /> {contact.phone}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        }
+                    >
+                        <Badge count={otherContacts.length} style={{ backgroundColor: '#52c41a' }}>
+                            <Avatar size="small" icon={<TeamOutlined />} style={{ backgroundColor: '#52c41a' }} />
+                        </Badge>
+                    </Tooltip>
+                )}
+            </div>
+        )
+    }
+
     const columns: ColumnsType<Client> = [
         {
             title: 'Client Code',
             dataIndex: 'client_code',
             key: 'client_code',
-            width: 150,
+            width: 130,
+            fixed: 'left' as const,
             render: (code: string, record: Client) => (
                 <Button
                     type="link"
                     onClick={() => navigate(`/sales/clients/${record.id}`)}
-                    style={{ padding: 0, fontWeight: 600 }}
+                    style={{ padding: 0, fontWeight: 600, fontSize: 14 }}
                 >
                     {code}
                 </Button>
             ),
         },
         {
-            title: 'Company Name',
+            title: 'Company / Site Name',
             dataIndex: 'company_name',
             key: 'company_name',
             width: 250,
+            render: (name: string, record: Client) => (
+                <div>
+                    <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{name}</div>
+                    {record.group && (
+                        <Tag
+                            color="blue"
+                            style={{
+                                fontSize: 11,
+                                padding: '2px 8px',
+                                borderRadius: 4,
+                            }}
+                        >
+                            {getGroupTypeEmoji(record.group.group_type)} {record.group.group_name}
+                        </Tag>
+                    )}
+                </div>
+            ),
         },
         {
-            title: 'Contact Person',
-            dataIndex: 'contact_person',
-            key: 'contact_person',
-            width: 180,
-        },
-        {
-            title: 'Email',
-            dataIndex: 'email',
-            key: 'email',
-            width: 200,
-        },
-        {
-            title: 'Phone',
-            dataIndex: 'phone',
-            key: 'phone',
-            width: 150,
+            title: 'Contact Persons',
+            key: 'contacts',
+            width: 280,
+            render: (_: any, record: Client) => renderContacts(record.contacts),
         },
         {
             title: 'Location',
@@ -218,15 +333,25 @@ const ClientList = () => {
                 subtitle="Manage your clients and customer relationships"
                 icon={<TeamOutlined />}
                 extra={
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => navigate('/sales/clients/new')}
-                        size="large"
-                        style={getPrimaryButtonStyle()}
-                    >
-                        Add New Client
-                    </Button>
+                    <Space>
+                        <Button
+                            icon={<ApartmentOutlined />}
+                            onClick={() => navigate('/sales/client-groups')}
+                            size="large"
+                            style={getSecondaryButtonStyle()}
+                        >
+                            Manage Groups
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => navigate('/sales/clients/new')}
+                            size="large"
+                            style={getPrimaryButtonStyle()}
+                        >
+                            Add New Client
+                        </Button>
+                    </Space>
                 }
             />
 

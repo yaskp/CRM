@@ -16,20 +16,7 @@ export const quotationService = {
     return response.data
   },
 
-  createQuotation: async (data: {
-    lead_id: number
-    version?: number
-    valid_till?: string
-    items: Array<{
-      description: string
-      quantity: number
-      unit: string
-      rate: number
-    }>
-    discount_percentage?: number
-    payment_terms?: string
-    remarks?: string
-  }) => {
+  createQuotation: async (data: any) => {
     const response = await api.post('/quotations', data)
     return response.data
   },
@@ -44,8 +31,8 @@ export const quotationService = {
     return response.data
   },
 
-  generatePDF: async (id: number) => {
-    const response = await api.post(`/quotations/${id}/generate-pdf`, {}, {
+  downloadPDF: async (id: number) => {
+    const response = await api.get(`/quotations/${id}/pdf`, {
       responseType: 'blob',
     })
     return response.data

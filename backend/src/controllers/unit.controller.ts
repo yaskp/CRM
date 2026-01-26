@@ -12,7 +12,7 @@ export const getAllUnits = async (_req: AuthRequest, res: Response, next: NextFu
         })
         res.json({
             success: true,
-            data: units
+            units: units
         })
     } catch (error) {
         next(error)

@@ -4,9 +4,9 @@ export const theme = {
     // Color Palette
     colors: {
         primary: {
-            main: '#667eea',
-            dark: '#764ba2',
-            light: '#a8b5ff',
+            main: '#0d9488', // Teal 600
+            dark: '#0f766e', // Teal 700
+            light: '#99f6e4', // Teal 200
         },
         secondary: {
             main: '#f093fb',
@@ -46,7 +46,7 @@ export const theme = {
 
     // Gradients
     gradients: {
-        primary: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        primary: 'linear-gradient(135deg, #0d9488 0%, #115e59 100%)',
         secondary: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
         success: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
         info: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',

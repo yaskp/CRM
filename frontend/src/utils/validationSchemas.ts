@@ -23,10 +23,20 @@ export const panSchema = z.string().refine(
 // Store Transaction Schemas
 export const grnItemSchema = z.object({
   material_id: z.number().min(1, 'Material is required'),
-  quantity: z.number().positive('Quantity must be positive'),
+  quantity: z.number().nonnegative('Quantity cannot be negative'),
+  ordered_quantity: z.number().nonnegative().optional(),
+  accepted_quantity: z.number().nonnegative().optional(),
+  rejected_quantity: z.number().nonnegative().optional(),
+  excess_quantity: z.number().nonnegative().optional(),
+  shortage_quantity: z.number().nonnegative().optional(),
+  po_item_id: z.number().optional().nullable(),
+  item_status: z.string().optional(),
+  variance_type: z.enum(['exact', 'excess', 'shortage', 'defective']).optional(),
+  rejection_reason: z.string().optional(),
   unit_price: z.number().nonnegative('Unit price cannot be negative').optional(),
   batch_number: z.string().optional(),
   expiry_date: z.string().optional(),
+  unit: z.string().optional(),
 })
 
 export const grnSchema = z.object({
@@ -38,9 +48,35 @@ export const grnSchema = z.object({
   received_from_type: z.enum(['vendor', 'project']).default('vendor'),
   received_from_id: z.number().optional(), // Can be vendor_id or project_id
   reference_number: z.string().optional(), // DC or Invoice Num
+
+  challan_number: z.string().optional(),
+  supplier_invoice_number: z.string().optional(),
+  lorry_receipt_number: z.string().optional(),
+  eway_bill_number: z.string().optional(),
+
   po_id: z.number().optional().nullable(),
   items: z.array(grnItemSchema).min(1, 'At least one item is required'),
   remarks: z.string().optional(),
+
+  // Logistics
+  truck_number: z.string().optional(),
+  driver_name: z.string().optional(),
+  driver_phone: z.string().optional(),
+
+  // Inspection
+  inspector_name: z.string().optional(),
+  inspection_date: z.string().optional(),
+
+  // GST Summary
+  cgst_amount: z.number().nonnegative().optional(),
+  sgst_amount: z.number().nonnegative().optional(),
+  igst_amount: z.number().nonnegative().optional(),
+
+  challan_image: z.string().optional(),
+  invoice_image: z.string().optional(),
+  goods_image: z.string().optional(),
+  receiver_image: z.string().optional(),
+  status: z.enum(['draft', 'pending', 'approved', 'rejected']).optional(),
 })
 
 export const stnSchema = z.object({
@@ -85,6 +121,10 @@ export const dprSchema = z.object({
   report_date: z.string().min(1, 'Report date is required'),
   site_location: z.string().optional(),
   panel_number: z.string().optional(),
+  building_id: z.number().optional(),
+  floor_id: z.number().optional(),
+  zone_id: z.number().optional(),
+  work_item_type_id: z.number().optional(),
   guide_wall_running_meter: z.number().nonnegative().optional(),
   steel_quantity_kg: z.number().nonnegative().optional(),
   concrete_quantity_cubic_meter: z.number().nonnegative().optional(),
@@ -239,6 +279,20 @@ export const workOrderSchema = z.object({
   discount_percentage: z.number().min(0).max(100).default(0),
   payment_terms: z.string().optional(),
   remarks: z.string().optional(),
+})
+
+// Warehouse Schema
+export const warehouseSchema = z.object({
+  name: z.string().min(1, 'Warehouse name is required'),
+  code: z.string().min(1, 'Warehouse code is required'),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  state_code: z.string().length(2, 'State code must be 2 characters (e.g. 08 for RJ)').optional(),
+  gstin: gstSchema,
+  is_common: z.boolean().default(false),
+  project_id: z.number().optional(),
+  type: z.enum(['central', 'site']).default('central'),
 })
 
 // Project Schema

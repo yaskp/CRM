@@ -6,6 +6,7 @@ interface WorkItemTypeAttributes {
     id: number
     name: string
     code?: string
+    uom?: string
     description?: string
     is_active: boolean
     created_at?: Date
@@ -17,6 +18,7 @@ class WorkItemType extends Model<WorkItemTypeAttributes, WorkItemTypeCreationAtt
     public id!: number
     public name!: string
     public code?: string
+    public uom?: string
     public description?: string
     public is_active!: boolean
     public readonly created_at!: Date
@@ -36,6 +38,10 @@ WorkItemType.init(
         },
         code: {
             type: DataTypes.STRING(50),
+            allowNull: true,
+        },
+        uom: {
+            type: DataTypes.STRING(20),
             allowNull: true,
         },
         description: {

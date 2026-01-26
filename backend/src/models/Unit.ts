@@ -10,9 +10,10 @@ interface UnitAttributes {
     conversion_factor?: number
     is_active: boolean
     created_at?: Date
+    updated_at?: Date
 }
 
-interface UnitCreationAttributes extends Optional<UnitAttributes, 'id' | 'created_at' | 'is_active' | 'base_unit_id' | 'conversion_factor'> { }
+interface UnitCreationAttributes extends Optional<UnitAttributes, 'id' | 'created_at' | 'updated_at' | 'is_active' | 'base_unit_id' | 'conversion_factor'> { }
 
 class Unit extends Model<UnitAttributes, UnitCreationAttributes> implements UnitAttributes {
     public id!: number
@@ -22,6 +23,7 @@ class Unit extends Model<UnitAttributes, UnitCreationAttributes> implements Unit
     public conversion_factor!: number
     public is_active!: boolean
     public readonly created_at!: Date
+    public readonly updated_at!: Date
 }
 
 Unit.init(
@@ -32,7 +34,7 @@ Unit.init(
             primaryKey: true,
         },
         name: {
-            type: DataTypes.STRING(50),
+            type: DataTypes.STRING(100),
             allowNull: false,
         },
         code: {
@@ -53,6 +55,10 @@ Unit.init(
             defaultValue: true,
         },
         created_at: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW,
+        },
+        updated_at: {
             type: DataTypes.DATE,
             defaultValue: DataTypes.NOW,
         },

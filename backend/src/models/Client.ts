@@ -4,6 +4,7 @@ import { sequelize } from '../database/connection'
 interface ClientAttributes {
     id: number
     client_code: string
+    client_group_id?: number
     company_name: string
     contact_person?: string
     email?: string
@@ -13,6 +14,7 @@ interface ClientAttributes {
     state?: string
     pincode?: string
     gstin?: string
+    is_gst_registered?: boolean
     pan?: string
     payment_terms?: string
     credit_limit?: number
@@ -27,6 +29,7 @@ interface ClientCreationAttributes extends Optional<ClientAttributes, 'id' | 'cr
 class Client extends Model<ClientAttributes, ClientCreationAttributes> implements ClientAttributes {
     public id!: number
     public client_code!: string
+    public client_group_id?: number
     public company_name!: string
     public contact_person?: string
     public email?: string
@@ -36,6 +39,7 @@ class Client extends Model<ClientAttributes, ClientCreationAttributes> implement
     public state?: string
     public pincode?: string
     public gstin?: string
+    public is_gst_registered?: boolean
     public pan?: string
     public payment_terms?: string
     public credit_limit?: number
@@ -56,6 +60,14 @@ Client.init(
             type: DataTypes.STRING(50),
             allowNull: false,
             unique: true,
+        },
+        client_group_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'client_groups',
+                key: 'id',
+            },
         },
         company_name: {
             type: DataTypes.STRING(255),
@@ -92,6 +104,10 @@ Client.init(
         gstin: {
             type: DataTypes.STRING(20),
             allowNull: true,
+        },
+        is_gst_registered: {
+            type: DataTypes.BOOLEAN,
+            defaultValue: true,
         },
         pan: {
             type: DataTypes.STRING(10),

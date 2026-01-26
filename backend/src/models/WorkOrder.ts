@@ -11,6 +11,10 @@ interface WorkOrderAttributes {
   discount_percentage?: number
   final_amount: number
   payment_terms?: string
+  client_scope?: string
+  contractor_scope?: string
+  terms_conditions?: string
+  remarks?: string
   status: 'draft' | 'approved' | 'active' | 'completed'
   created_at?: Date
 }
@@ -79,6 +83,22 @@ WorkOrder.init(
     },
     payment_terms: {
       type: DataTypes.STRING(200),
+      allowNull: true,
+    },
+    client_scope: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    contractor_scope: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    terms_conditions: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    remarks: {
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     status: {

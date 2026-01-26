@@ -34,6 +34,12 @@ export interface CreateGRNRequest {
   transaction_date: string
   items: GRNItem[]
   remarks?: string
+  truck_number?: string
+  driver_name?: string
+  driver_phone?: string
+  cgst_amount?: number
+  sgst_amount?: number
+  igst_amount?: number
 }
 
 export interface CreateSTNRequest {
@@ -82,6 +88,12 @@ export const storeTransactionService = {
     return response.data
   },
 
+  // CONSUMPTION
+  createConsumption: async (data: any) => {
+    const response = await api.post('/store/consumption', data)
+    return response.data
+  },
+
   // Get all transactions
   getTransactions: async (params?: {
     type?: 'GRN' | 'STN' | 'SRN' | 'CONSUMPTION'
@@ -110,6 +122,10 @@ export const storeTransactionService = {
   // Reject transaction
   rejectTransaction: async (id: number, remarks?: string) => {
     const response = await api.put(`/store/${id}/reject`, { remarks })
+    return response.data
+  },
+  getWorkerCategories: async () => {
+    const response = await api.get('/store/worker-categories')
     return response.data
   },
 }

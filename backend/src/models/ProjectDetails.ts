@@ -6,15 +6,6 @@ interface ProjectDetailsAttributes {
     id: number
     project_id: number
 
-    // Client Information
-    client_name: string
-    client_contact_person?: string
-    client_email?: string
-    client_phone?: string
-    client_address?: string
-    client_gst_number?: string
-    client_pan_number?: string
-
     // Site Details
     site_address?: string
     site_area?: number
@@ -65,14 +56,6 @@ class ProjectDetails extends Model<ProjectDetailsAttributes, ProjectDetailsCreat
     implements ProjectDetailsAttributes {
     public id!: number
     public project_id!: number
-
-    public client_name!: string
-    public client_contact_person?: string
-    public client_email?: string
-    public client_phone?: string
-    public client_address?: string
-    public client_gst_number?: string
-    public client_pan_number?: string
 
     public site_address?: string
     public site_area?: number
@@ -127,39 +110,6 @@ ProjectDetails.init(
                 key: 'id',
             },
             onDelete: 'CASCADE',
-        },
-
-        // Client Information
-        client_name: {
-            type: DataTypes.STRING(200),
-            allowNull: false,
-        },
-        client_contact_person: {
-            type: DataTypes.STRING(100),
-            allowNull: true,
-        },
-        client_email: {
-            type: DataTypes.STRING(100),
-            allowNull: true,
-            validate: {
-                isEmail: true,
-            },
-        },
-        client_phone: {
-            type: DataTypes.STRING(20),
-            allowNull: true,
-        },
-        client_address: {
-            type: DataTypes.TEXT,
-            allowNull: true,
-        },
-        client_gst_number: {
-            type: DataTypes.STRING(15),
-            allowNull: true,
-        },
-        client_pan_number: {
-            type: DataTypes.STRING(10),
-            allowNull: true,
         },
 
         // Site Details
@@ -304,7 +254,6 @@ ProjectDetails.init(
         updatedAt: 'updated_at',
         indexes: [
             { fields: ['project_id'] },
-            { fields: ['client_name'] },
             { fields: ['start_date'] },
             { fields: ['expected_end_date'] },
         ],

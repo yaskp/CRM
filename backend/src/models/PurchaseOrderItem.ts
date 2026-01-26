@@ -12,6 +12,8 @@ interface PurchaseOrderItemAttributes {
     tax_percentage: number
     tax_amount: number
     total_amount: number
+    received_quantity: number
+    boq_item_id?: number
     created_at?: Date
     updated_at?: Date
 }
@@ -29,6 +31,8 @@ class PurchaseOrderItem extends Model<PurchaseOrderItemAttributes, PurchaseOrder
     public tax_percentage!: number
     public tax_amount!: number
     public total_amount!: number
+    public received_quantity!: number
+    public boq_item_id?: number
     public readonly created_at!: Date
     public readonly updated_at!: Date
 }
@@ -90,6 +94,19 @@ PurchaseOrderItem.init(
             type: DataTypes.DECIMAL(15, 2),
             allowNull: false,
             defaultValue: 0,
+        },
+        received_quantity: {
+            type: DataTypes.DECIMAL(10, 2),
+            allowNull: false,
+            defaultValue: 0,
+        },
+        boq_item_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'project_boq_items',
+                key: 'id',
+            },
         },
         created_at: {
             type: DataTypes.DATE,

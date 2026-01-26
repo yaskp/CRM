@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Input, Modal, Form, message, Popconfirm, Tag, Tooltip } from 'antd'
+import { Card, Table, Button, Input, Modal, Form, message, Popconfirm, Tag, Tooltip, Select } from 'antd'
 import {
     PlusOutlined,
     EditOutlined,
@@ -9,6 +9,7 @@ import {
     ContainerOutlined
 } from '@ant-design/icons'
 import { workItemTypeService } from '../../services/api/workItemTypes'
+import { unitService } from '../../services/api/units'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
 import { theme } from '../../styles/theme'
 
@@ -17,6 +18,7 @@ const { TextArea } = Input
 const WorkItemTypeList = () => {
     const [loading, setLoading] = useState(false)
     const [types, setTypes] = useState<any[]>([])
+    const [units, setUnits] = useState<any[]>([])
     const [isModalVisible, setIsModalVisible] = useState(false)
     const [editingType, setEditingType] = useState<any>(null)
     const [searchText, setSearchText] = useState('')
@@ -24,7 +26,18 @@ const WorkItemTypeList = () => {
 
     useEffect(() => {
         fetchTypes()
+        fetchUnits()
     }, [])
+
+    const fetchUnits = async () => {
+        try {
+            const response = await unitService.getUnits()
+            // Assuming simplified response or standard response
+            setUnits(response.units || response.data || [])
+        } catch (error) {
+            console.error("Failed to fetch units", error)
+        }
+    }
 
     const fetchTypes = async () => {
         setLoading(true)
@@ -83,6 +96,11 @@ const WorkItemTypeList = () => {
             dataIndex: 'code',
             key: 'code',
             render: (text: string) => text ? <Tag>{text}</Tag> : '-'
+        },
+        {
+            title: 'UOM',
+            dataIndex: 'uom',
+            key: 'uom',
         },
         {
             title: 'Description',
@@ -171,6 +189,19 @@ const WorkItemTypeList = () => {
                         label="Code (Optional)"
                     >
                         <Input placeholder="e.g. GW" />
+                    </Form.Item>
+                    <Form.Item
+                        name="uom"
+                        label="UOM"
+                        rules={[{ required: true, message: 'Please select UOM' }]}
+                    >
+                        <Select placeholder="Select UOM" showSearch optionFilterProp="children">
+                            {units.map((unit: any) => (
+                                <Select.Option key={unit.id} value={unit.code}>
+                                    {unit.name} ({unit.code})
+                                </Select.Option>
+                            ))}
+                        </Select>
                     </Form.Item>
                     <Form.Item
                         name="description"

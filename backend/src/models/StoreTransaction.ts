@@ -19,14 +19,40 @@ interface StoreTransactionAttributes {
   // Vendor Return fields
   vendor_id?: number
   purchase_order_id?: number
+  temp_number?: string
+  cgst_amount: number
+  sgst_amount: number
+  igst_amount: number
 
   project_id?: number // Legacy/Generic project ref
+  to_building_id?: number
+  to_floor_id?: number
+  to_zone_id?: number
 
   transaction_date: Date
-  status: 'draft' | 'approved' | 'rejected'
+  status: 'draft' | 'pending' | 'approved' | 'rejected'
   remarks?: string
   created_by: number
   approved_by?: number
+  truck_number?: string
+  driver_name?: string
+  driver_phone?: string
+  quality_check_status?: 'pending' | 'passed' | 'failed' | 'partial'
+  inspector_name?: string
+  inspection_date?: Date
+  challan_number?: string
+  supplier_invoice_number?: string
+  lorry_receipt_number?: string
+  eway_bill_number?: string
+  challan_image?: string
+  invoice_image?: string
+  goods_image?: string
+  receiver_image?: string
+  manpower_data?: string
+  weather_condition?: string
+  temperature?: number
+  work_hours?: string
+  progress_photos?: string
   created_at?: Date
 }
 
@@ -47,13 +73,39 @@ class StoreTransaction extends Model<StoreTransactionAttributes, StoreTransactio
   public to_project_id?: number
   public vendor_id?: number
   public purchase_order_id?: number
+  public temp_number?: string
+  public cgst_amount!: number
+  public sgst_amount!: number
+  public igst_amount!: number
   public project_id?: number
+  public to_building_id?: number
+  public to_floor_id?: number
+  public to_zone_id?: number
 
   public transaction_date!: Date
   public status!: StoreTransactionAttributes['status']
   public remarks?: string
   public created_by!: number
   public approved_by?: number
+  public truck_number?: string
+  public driver_name?: string
+  public driver_phone?: string
+  public quality_check_status?: 'pending' | 'passed' | 'failed' | 'partial'
+  public inspector_name?: string
+  public inspection_date?: Date
+  public challan_number?: string
+  public supplier_invoice_number?: string
+  public lorry_receipt_number?: string
+  public eway_bill_number?: string
+  public challan_image?: string
+  public invoice_image?: string
+  public goods_image?: string
+  public receiver_image?: string
+  public manpower_data?: string
+  public weather_condition?: string
+  public temperature?: number
+  public work_hours?: string
+  public progress_photos?: string
   public readonly created_at!: Date
 }
 
@@ -139,12 +191,52 @@ StoreTransaction.init(
         key: 'id',
       },
     },
+    to_building_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'project_buildings',
+        key: 'id',
+      },
+    },
+    to_floor_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'project_floors',
+        key: 'id',
+      },
+    },
+    to_zone_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'project_zones',
+        key: 'id',
+      },
+    },
+    temp_number: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    cgst_amount: {
+      type: DataTypes.DECIMAL(15, 2),
+      defaultValue: 0,
+    },
+    sgst_amount: {
+      type: DataTypes.DECIMAL(15, 2),
+      defaultValue: 0,
+    },
+    igst_amount: {
+      type: DataTypes.DECIMAL(15, 2),
+      defaultValue: 0,
+    },
     transaction_date: {
       type: DataTypes.DATEONLY,
       allowNull: false,
     },
     status: {
-      type: DataTypes.ENUM('draft', 'approved', 'rejected'),
+      type: DataTypes.ENUM('draft', 'pending', 'approved', 'rejected'),
       defaultValue: 'draft',
     },
     remarks: {
@@ -166,6 +258,82 @@ StoreTransaction.init(
         model: 'users',
         key: 'id',
       },
+    },
+    truck_number: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    driver_name: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    driver_phone: {
+      type: DataTypes.STRING(20),
+      allowNull: true,
+    },
+    quality_check_status: {
+      type: DataTypes.ENUM('pending', 'passed', 'failed', 'partial'),
+      defaultValue: 'pending',
+    },
+    inspector_name: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    inspection_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    challan_number: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    supplier_invoice_number: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    lorry_receipt_number: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    eway_bill_number: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    challan_image: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    invoice_image: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    goods_image: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    receiver_image: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    manpower_data: {
+      type: DataTypes.JSON,
+      allowNull: true,
+    },
+    weather_condition: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    temperature: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
+    work_hours: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    progress_photos: {
+      type: DataTypes.JSON,
+      allowNull: true,
     },
     created_at: {
       type: DataTypes.DATE,

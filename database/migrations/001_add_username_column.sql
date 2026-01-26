@@ -14,7 +14,7 @@ WHERE TABLE_SCHEMA = 'crm_construction'
 
 -- Add username column if it doesn't exist
 ALTER TABLE users 
-ADD COLUMN IF NOT EXISTS username VARCHAR(50) UNIQUE AFTER employee_id;
+ADD COLUMN username VARCHAR(50) UNIQUE AFTER employee_id;
 
 -- Make email optional
 ALTER TABLE users 

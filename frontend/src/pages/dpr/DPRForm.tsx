@@ -1,24 +1,30 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, Table, Typography } from 'antd'
+import { Form, Input, Button, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography, Upload, Card, Tag, Divider, Alert, Statistic, message as antdMessage } from 'antd'
 import {
   SaveOutlined,
   PlusOutlined,
   DeleteOutlined,
-  DashboardOutlined,
-  EnvironmentOutlined,
-  ExperimentOutlined,
-  BarChartOutlined,
+  AuditOutlined,
+  HomeOutlined,
+  BlockOutlined,
+  FileTextOutlined,
+  InfoCircleOutlined,
+  ProjectOutlined,
+  CameraOutlined,
   CloudOutlined,
   TeamOutlined,
-  InfoCircleOutlined,
-  FileTextOutlined
+  CheckCircleOutlined,
+  WarningOutlined,
+  DashboardOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
-import { dprService } from '../../services/api/dpr'
+import { storeTransactionService } from '../../services/api/storeTransactions'
+import { materialService } from '../../services/api/materials'
+import { warehouseService } from '../../services/api/warehouses'
 import { projectService } from '../../services/api/projects'
-import { dprSchema, DPRFormData } from '../../utils/validationSchemas'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm, Controller } from 'react-hook-form'
+import { projectHierarchyService } from '../../services/api/projectHierarchy'
+import { inventoryService } from '../../services/api/inventory'
+import { workItemTypeService } from '../../services/api/workItemTypes'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
@@ -28,446 +34,606 @@ import {
   getLabelStyle,
   flexBetweenStyle,
   actionCardStyle,
-  prefixIconStyle
+  threeColumnGridStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
+import type { UploadFile } from 'antd/es/upload/interface'
 
 const { TextArea } = Input
 const { Option } = Select
-const { Text } = Typography
+const { Text, Title } = Typography
 
-interface ManpowerEntry {
-  id?: number
-  worker_type: 'steel_worker' | 'concrete_worker' | 'department_worker' | 'electrician' | 'welder'
+interface MaterialItem {
+  material_id?: number
+  material_name?: string
+  issued_quantity: number
+  quantity: number
+  returned_quantity: number
+  wastage: number
+  work_done_quantity: number
+  unit?: string
+}
+
+interface ManpowerItem {
+  worker_type: string
   count: number
-  hajri: '1' | '1.5' | '2'
+  hajri: number
 }
 
 const DPRForm = () => {
   const { id } = useParams()
-  const navigate = useNavigate()
+  const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
+  const [materials, setMaterials] = useState<any[]>([])
+  const [warehouses, setWarehouses] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
-  const [manpower, setManpower] = useState<ManpowerEntry[]>([])
+  const [buildings, setBuildings] = useState<any[]>([])
+  const [floors, setFloors] = useState<any[]>([])
+  const [zones, setZones] = useState<any[]>([])
+  const [workItemTypes, setWorkItemTypes] = useState<any[]>([])
+  const [items, setItems] = useState<MaterialItem[]>([])
+  const [manpower, setManpower] = useState<ManpowerItem[]>([])
+  const [stockMap, setStockMap] = useState<Record<number, number>>({})
+  const [photoList, setPhotoList] = useState<UploadFile[]>([])
+  const [selectedWorkType, setSelectedWorkType] = useState<any>(null)
 
-  const { control, handleSubmit, formState: { errors }, setValue } = useForm<DPRFormData>({
-    resolver: zodResolver(dprSchema),
-    defaultValues: {
-      report_date: dayjs().format('YYYY-MM-DD'),
-    },
-  })
+  const navigate = useNavigate()
 
   useEffect(() => {
-    fetchProjects()
-    if (id) {
-      fetchDPR()
-    }
-  }, [id])
+    fetchMetadata()
+  }, [])
 
-  const fetchProjects = async () => {
+  const fetchMetadata = async () => {
     try {
-      const response = await projectService.getProjects()
-      setProjects(response.projects || [])
+      const [matRes, whRes, projRes, witRes] = await Promise.all([
+        materialService.getMaterials(),
+        warehouseService.getWarehouses(),
+        projectService.getProjects(),
+        workItemTypeService.getWorkItemTypes()
+      ])
+      setMaterials(matRes.materials || [])
+      setWarehouses(whRes.warehouses || [])
+      setProjects(projRes.projects || [])
+      setWorkItemTypes(witRes.data || [])
     } catch (error) {
-      message.error('Failed to fetch projects')
+      antdMessage.error('Failed to load metadata')
     }
   }
 
-  const fetchDPR = async () => {
-    setLoading(true)
+  const handleProjectChange = async (projectId: number) => {
     try {
-      const response = await dprService.getDPR(Number(id))
-      const dpr = response.dpr
-
-      Object.keys(dpr).forEach((key) => {
-        if (key !== 'manpower' && dpr[key] !== null && dpr[key] !== undefined) {
-          setValue(key as any, dpr[key])
-        }
-      })
-
-      if (dpr.manpower && Array.isArray(dpr.manpower)) {
-        setManpower(dpr.manpower)
-        setValue('manpower', dpr.manpower)
-      }
-    } catch (error: any) {
-      message.error(error.response?.data?.message || 'Failed to fetch DPR')
-    } finally {
-      setLoading(false)
+      const res = await projectHierarchyService.getBuildings(projectId)
+      setBuildings(res.data || [])
+      setFloors([])
+      setZones([])
+      form.setFieldsValue({ building_id: undefined, floor_id: undefined, zone_id: undefined })
+    } catch (e) {
+      console.error(e)
     }
+  }
+
+  const handleBuildingChange = async (buildingId: number) => {
+    try {
+      const res = await projectHierarchyService.getFloors(buildingId)
+      setFloors(res.data || [])
+      setZones([])
+      form.setFieldsValue({ floor_id: undefined, zone_id: undefined })
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const handleFloorChange = async (floorId: number) => {
+    try {
+      const res = await projectHierarchyService.getZones(floorId)
+      setZones(res.data || [])
+      form.setFieldsValue({ zone_id: undefined })
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const fetchStock = async (warehouseId: number) => {
+    try {
+      const res = await inventoryService.getInventory({ warehouse_id: warehouseId, limit: 1000 })
+      const map: Record<number, number> = {}
+      res.inventory?.forEach((inv: any) => {
+        map[inv.material_id] = Number(inv.quantity)
+      })
+      setStockMap(map)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const handleWorkTypeChange = (workTypeId: number) => {
+    const workType = workItemTypes.find(w => w.id === workTypeId)
+    setSelectedWorkType(workType)
+  }
+
+  const addItem = () => {
+    setItems([...items, {
+      material_id: undefined,
+      issued_quantity: 0,
+      quantity: 0,
+      returned_quantity: 0,
+      wastage: 0,
+      work_done_quantity: 0
+    }])
+  }
+
+  const removeItem = (index: number) => {
+    setItems(items.filter((_, i) => i !== index))
+  }
+
+  const updateItem = (index: number, field: string, value: any) => {
+    const newItems = [...items]
+    newItems[index] = { ...newItems[index], [field]: value }
+
+    if (field === 'issued_quantity' || field === 'returned_quantity' || field === 'wastage') {
+      const item = newItems[index]
+      const consumed = (item.issued_quantity || 0) - (item.returned_quantity || 0) - (item.wastage || 0)
+      newItems[index].quantity = Math.max(0, consumed)
+    }
+
+    if (field === 'material_id') {
+      const material = materials.find(m => m.id === value)
+      newItems[index].material_name = material?.name
+      newItems[index].unit = material?.uom
+    }
+
+    setItems(newItems)
   }
 
   const addManpower = () => {
-    const newEntry: ManpowerEntry = {
-      worker_type: 'steel_worker',
-      count: 0,
-      hajri: '1',
-    }
-    const updated = [...manpower, newEntry]
-    setManpower(updated)
-    setValue('manpower', updated)
+    setManpower([...manpower, { worker_type: '', count: 0, hajri: 0 }])
   }
 
   const removeManpower = (index: number) => {
-    const updated = manpower.filter((_, i) => i !== index)
-    setManpower(updated)
-    setValue('manpower', updated)
+    setManpower(manpower.filter((_, i) => i !== index))
   }
 
-  const updateManpower = (index: number, field: keyof ManpowerEntry, value: any) => {
-    const updated = [...manpower]
-    updated[index] = { ...updated[index], [field]: value }
-    setManpower(updated)
-    setValue('manpower', updated)
+  const updateManpower = (index: number, field: string, value: any) => {
+    const newManpower = [...manpower]
+    newManpower[index] = { ...newManpower[index], [field]: value }
+    setManpower(newManpower)
   }
 
-  const onSubmit = async (data: DPRFormData) => {
+  const calculateSummary = () => {
+    const totalMaterialCost = items.reduce((sum, item) => {
+      const material = materials.find(m => m.id === item.material_id)
+      return sum + ((material?.rate || 0) * (item.quantity || 0))
+    }, 0)
+
+    const totalLabor = manpower.reduce((sum, mp) => sum + (mp.hajri || 0), 0)
+    const totalWorkDone = items.reduce((sum, item) => sum + (item.work_done_quantity || 0), 0)
+
+    const efficiency = items.length > 0 ? items.map(item => {
+      const material = materials.find(m => m.id === item.material_id)
+      if (!material?.standard_rate || !item.work_done_quantity) return 100
+      const actualRate = item.quantity / item.work_done_quantity
+      return (material.standard_rate / actualRate) * 100
+    }).reduce((a, b) => a + b, 0) / items.length : 100
+
+    return {
+      totalMaterialCost,
+      totalLabor,
+      totalCost: totalMaterialCost + totalLabor,
+      totalWorkDone,
+      efficiency: Math.round(efficiency)
+    }
+  }
+
+  const onFinish = async (values: any) => {
+    if (items.length === 0) {
+      antdMessage.error('Please add at least one progress/material item')
+      return
+    }
+
     setLoading(true)
     try {
       const payload = {
-        ...data,
-        manpower: manpower.length > 0 ? manpower : undefined,
+        transaction_type: 'CONSUMPTION',
+        transaction_date: values.transaction_date.format('YYYY-MM-DD'),
+        warehouse_id: values.warehouse_id,
+        project_id: values.project_id,
+        to_building_id: values.building_id,
+        to_floor_id: values.floor_id,
+        to_zone_id: values.zone_id,
+        weather_condition: values.weather_condition,
+        temperature: values.temperature,
+        work_hours: values.work_hours,
+        remarks: values.remarks,
+        manpower_data: JSON.stringify(manpower),
+        progress_photos: JSON.stringify(photoList.map(f => f.url || f.response?.url)),
+        items: items.map(it => ({
+          material_id: it.material_id,
+          issued_quantity: it.issued_quantity,
+          quantity: it.quantity,
+          returned_quantity: it.returned_quantity,
+          wastage_quantity: it.wastage,
+          work_done_quantity: it.work_done_quantity,
+          work_item_type_id: values.work_item_type_id,
+          unit: it.unit
+        }))
       }
 
-      if (id) {
-        await dprService.updateDPR(Number(id), payload)
-        message.success('DPR updated successfully!')
-      } else {
-        await dprService.createDPR(payload)
-        message.success('DPR created successfully!')
-      }
+      await storeTransactionService.createConsumption(payload)
+      antdMessage.success('Daily Progress Report submitted successfully!')
       navigate('/operations/dpr')
     } catch (error: any) {
-      message.error(error.response?.data?.message || 'Failed to save DPR')
+      antdMessage.error(error.response?.data?.message || 'Failed to save DPR')
     } finally {
       setLoading(false)
     }
   }
+
+  const summary = calculateSummary()
+
+  const materialColumns = [
+    {
+      title: 'Activity/Material',
+      dataIndex: 'material_id',
+      width: '30%',
+      render: (val: any, _: any, index: number) => (
+        <Select
+          placeholder="Select item"
+          style={{ width: '100%' }}
+          showSearch
+          optionFilterProp="children"
+          value={val}
+          onChange={v => updateItem(index, 'material_id', v)}
+          size="small"
+        >
+          {materials.map(m => (
+            <Option key={m.id} value={m.id}>{m.name}</Option>
+          ))}
+        </Select>
+      )
+    },
+    {
+      title: 'Consumption',
+      dataIndex: 'quantity',
+      width: '20%',
+      render: (val: any, record: any, index: number) => (
+        <Space.Compact style={{ width: '100%' }}>
+          <InputNumber
+            min={0}
+            style={{ width: '70%' }}
+            value={val}
+            onChange={v => updateItem(index, 'quantity', v)}
+            placeholder="Qty"
+            size="small"
+          />
+          <Input
+            style={{ width: '30%' }}
+            value={record.unit || ''}
+            disabled
+            size="small"
+          />
+        </Space.Compact>
+      )
+    },
+    {
+      title: 'Work Achievement',
+      dataIndex: 'work_done_quantity',
+      width: '30%',
+      render: (val: any, record: any, index: number) => (
+        <Space.Compact style={{ width: '100%' }}>
+          <InputNumber
+            min={0}
+            style={{ width: '70%' }}
+            value={val}
+            onChange={v => updateItem(index, 'work_done_quantity', v)}
+            placeholder="Work"
+            size="small"
+          />
+          <Input
+            style={{ width: '30%' }}
+            value={selectedWorkType?.uom || 'm'}
+            disabled
+            size="small"
+          />
+        </Space.Compact>
+      )
+    },
+    {
+      title: 'Wastage',
+      dataIndex: 'wastage',
+      width: '15%',
+      render: (val: any, _: any, index: number) => (
+        <InputNumber
+          min={0}
+          style={{ width: '100%' }}
+          value={val}
+          onChange={v => updateItem(index, 'wastage', v)}
+          placeholder="0"
+          size="small"
+        />
+      )
+    },
+    {
+      title: '',
+      width: '5%',
+      render: (_: any, __: any, index: number) => (
+        <Button danger icon={<DeleteOutlined />} onClick={() => removeItem(index)} type="link" size="small" />
+      )
+    }
+  ]
 
   const manpowerColumns = [
     {
       title: 'Worker Type',
-      key: 'worker_type',
-      width: '40%',
-      render: (_: any, record: ManpowerEntry, index: number) => (
+      dataIndex: 'worker_type',
+      render: (val: any, _: any, index: number) => (
         <Select
+          placeholder="Type"
           style={{ width: '100%' }}
-          value={record.worker_type}
-          onChange={(value) => updateManpower(index, 'worker_type', value)}
-          size="large"
+          value={val}
+          onChange={v => updateManpower(index, 'worker_type', v)}
+          size="small"
         >
-          <Option value="steel_worker">Steel Worker</Option>
-          <Option value="concrete_worker">Concrete Worker</Option>
-          <Option value="department_worker">Department Worker</Option>
-          <Option value="electrician">Electrician</Option>
-          <Option value="welder">Welder</Option>
+          <Option value="Steel Worker">Steel Worker</Option>
+          <Option value="Concrete Worker">Concrete Worker</Option>
+          <Option value="Department Worker">Department Worker</Option>
+          <Option value="Electrician">Electrician</Option>
+          <Option value="Welder">Welder</Option>
+          <Option value="Helper">General Helper</Option>
         </Select>
-      ),
+      )
     },
     {
-      title: 'Head Count',
-      key: 'count',
-      width: '25%',
-      render: (_: any, record: ManpowerEntry, index: number) => (
+      title: 'Count',
+      dataIndex: 'count',
+      width: '30%',
+      render: (val: any, _: any, index: number) => (
         <InputNumber
-          style={{ width: '100%' }}
-          value={record.count}
           min={0}
-          onChange={(value) => updateManpower(index, 'count', value || 0)}
-          size="large"
-          placeholder="0"
+          style={{ width: '100%' }}
+          value={val}
+          onChange={v => updateManpower(index, 'count', v)}
+          size="small"
         />
-      ),
+      )
     },
     {
-      title: 'Hajri (Shift)',
-      key: 'hajri',
-      width: '25%',
-      render: (_: any, record: ManpowerEntry, index: number) => (
+      title: 'Shift',
+      dataIndex: 'hajri',
+      width: '30%',
+      render: (val: any, _: any, index: number) => (
         <Select
           style={{ width: '100%' }}
-          value={record.hajri}
-          onChange={(value) => updateManpower(index, 'hajri', value)}
-          size="large"
+          value={val}
+          onChange={v => updateManpower(index, 'hajri', v)}
+          size="small"
         >
-          <Option value="1">1 (Full Day)</Option>
-          <Option value="1.5">1.5 (OT)</Option>
-          <Option value="2">2 (Double)</Option>
+          <Option value={1}>1</Option>
+          <Option value={1.5}>1.5</Option>
+          <Option value={2}>2</Option>
         </Select>
-      ),
+      )
     },
     {
       title: '',
-      key: 'actions',
-      width: 50,
+      width: '10%',
       render: (_: any, __: any, index: number) => (
-        <Button
-          type="link"
-          danger
-          icon={<DeleteOutlined />}
-          onClick={() => removeManpower(index)}
-          style={{ padding: 0 }}
-        />
-      ),
-    },
+        <Button danger icon={<DeleteOutlined />} onClick={() => removeManpower(index)} type="link" size="small" />
+      )
+    }
   ]
 
   return (
-    <PageContainer maxWidth={1100}>
+    <PageContainer maxWidth={900}>
       <PageHeader
-        title={id ? 'Edit Progress Report' : 'New Daily Progress Report'}
-        subtitle={id ? `Updating DPR Entry #${id}` : 'Record today\'s site metrics, manpower consumption, and progress details'}
+        title={id ? "Edit Daily Progress Report" : "Daily Progress Report (DPR)"}
+        subtitle="Record today's site achievements, material usage, and manpower logs"
         icon={<DashboardOutlined />}
       />
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <Row gutter={24}>
-          <Col xs={24} lg={12}>
-            <SectionCard title="Basic Site Details" icon={<EnvironmentOutlined />}>
-              <Form.Item
-                label={<span style={getLabelStyle()}>Project Selection</span>}
-                validateStatus={errors.project_id ? 'error' : ''}
-                help={errors.project_id?.message}
-                required
+      <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ transaction_date: dayjs() }}>
+        {/* Section 1: Basic Info */}
+        <SectionCard title="Basic Site Details" icon={<ProjectOutlined />}>
+          <div style={threeColumnGridStyle}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Reporting Date</span>}
+              name="transaction_date"
+              rules={[{ required: true }]}
+            >
+              <DatePicker style={{ width: '100%' }} size="large" format="DD-MMM-YYYY" />
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Project Selection</span>}
+              name="project_id"
+              rules={[{ required: true }]}
+            >
+              <Select placeholder="Select project" onChange={handleProjectChange} size="large">
+                {projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
+              </Select>
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Work Item Type</span>}
+              name="work_item_type_id"
+              rules={[{ required: true }]}
+            >
+              <Select
+                placeholder="Select work type"
+                showSearch
+                optionFilterProp="children"
+                size="large"
+                onChange={handleWorkTypeChange}
               >
-                <Controller
-                  name="project_id"
-                  control={control}
-                  render={({ field }) => (
-                    <Select
-                      {...field}
-                      placeholder="Which project is this for?"
-                      showSearch
-                      optionFilterProp="children"
-                      size="large"
-                      style={largeInputStyle}
-                    >
-                      {projects.map((project) => (
-                        <Option key={project.id} value={project.id}>
-                          {project.name} ({project.project_code})
-                        </Option>
-                      ))}
-                    </Select>
-                  )}
-                />
-              </Form.Item>
+                {workItemTypes.map(wit => <Option key={wit.id} value={wit.id}>{wit.name}</Option>)}
+              </Select>
+            </Form.Item>
+          </div>
 
-              <Form.Item
-                label={<span style={getLabelStyle()}>Reporting Date</span>}
-                validateStatus={errors.report_date ? 'error' : ''}
-                help={errors.report_date?.message}
-                required
-              >
-                <Controller
-                  name="report_date"
-                  control={control}
-                  render={({ field }) => (
-                    <DatePicker
-                      {...field}
-                      style={{ width: '100%', ...largeInputStyle }}
-                      format="DD-MMM-YYYY"
-                      size="large"
-                      value={field.value ? dayjs(field.value) : null}
-                      onChange={(date) => field.onChange(date ? date.format('YYYY-MM-DD') : '')}
-                    />
-                  )}
-                />
-              </Form.Item>
+          <div style={threeColumnGridStyle}>
+            <Form.Item label={<span style={getLabelStyle()}>Building</span>} name="building_id">
+              <Select placeholder="Select building" allowClear onChange={handleBuildingChange} size="large">
+                {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
+              </Select>
+            </Form.Item>
 
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item label={<span style={getLabelStyle()}>Site Location</span>}>
-                    <Controller
-                      name="site_location"
-                      control={control}
-                      render={({ field }) => (
-                        <Input {...field} placeholder="Specific area/site" style={largeInputStyle} size="large" />
-                      )}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item label={<span style={getLabelStyle()}>Panel Selection</span>}>
-                    <Controller
-                      name="panel_number"
-                      control={control}
-                      render={({ field }) => (
-                        <Input {...field} placeholder="Panel ID" style={largeInputStyle} size="large" />
-                      )}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
-            </SectionCard>
-          </Col>
+            <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
+              <Select placeholder="Select floor" allowClear onChange={handleFloorChange} size="large">
+                {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
+              </Select>
+            </Form.Item>
 
-          <Col xs={24} lg={12}>
-            <SectionCard title="Progress Metrics" icon={<BarChartOutlined />}>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item label={<span style={getLabelStyle()}>Guide Wall (m)</span>}>
-                    <Controller
-                      name="guide_wall_running_meter"
-                      control={control}
-                      render={({ field }) => (
-                        <InputNumber
-                          {...field}
-                          style={{ width: '100%', ...largeInputStyle }}
-                          placeholder="0.00"
-                          min={0}
-                          step={0.01}
-                          size="large"
-                        />
-                      )}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item label={<span style={getLabelStyle()}>Steel Usage (kg)</span>}>
-                    <Controller
-                      name="steel_quantity_kg"
-                      control={control}
-                      render={({ field }) => (
-                        <InputNumber
-                          {...field}
-                          style={{ width: '100%', ...largeInputStyle }}
-                          placeholder="0.00"
-                          min={0}
-                          step={0.01}
-                          size="large"
-                        />
-                      )}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
+            <Form.Item label={<span style={getLabelStyle()}>Zone</span>} name="zone_id">
+              <Select placeholder="Select zone" allowClear size="large">
+                {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
+              </Select>
+            </Form.Item>
+          </div>
 
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item label={<span style={getLabelStyle()}>Concrete (m³)</span>}>
-                    <Controller
-                      name="concrete_quantity_cubic_meter"
-                      control={control}
-                      render={({ field }) => (
-                        <InputNumber
-                          {...field}
-                          style={{ width: '100%', ...largeInputStyle }}
-                          placeholder="0.00"
-                          min={0}
-                          step={0.01}
-                          size="large"
-                        />
-                      )}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item label={<span style={getLabelStyle()}>Polymer Bags</span>}>
-                    <Controller
-                      name="polymer_consumption_bags"
-                      control={control}
-                      render={({ field }) => (
-                        <InputNumber
-                          {...field}
-                          style={{ width: '100%', ...largeInputStyle }}
-                          placeholder="0"
-                          min={0}
-                          size="large"
-                        />
-                      )}
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
-
-              <Form.Item label={<span style={getLabelStyle()}>Diesel Consumption (Liters)</span>}>
-                <Controller
-                  name="diesel_consumption_liters"
-                  control={control}
-                  render={({ field }) => (
-                    <InputNumber
-                      {...field}
-                      style={{ width: '100%', ...largeInputStyle }}
-                      placeholder="0.00"
-                      min={0}
-                      step={0.01}
-                      size="large"
-                      prefix={<ExperimentOutlined style={{ color: theme.colors.neutral.gray400 }} />}
-                    />
-                  )}
-                />
-              </Form.Item>
-            </SectionCard>
-          </Col>
-        </Row>
-
-        <div style={{ marginTop: theme.spacing.lg }}>
-          <SectionCard
-            title="Manpower Consumption"
-            icon={<TeamOutlined />}
-            extra={
-              <Button type="dashed" icon={<PlusOutlined />} onClick={addManpower} style={{ borderRadius: '6px' }}>
-                Add Worker Type
-              </Button>
-            }
+          <Form.Item
+            label={<span style={getLabelStyle()}>Site Store (for material adjustment)</span>}
+            name="warehouse_id"
+            rules={[{ required: true }]}
           >
-            <Table
-              columns={manpowerColumns}
-              dataSource={manpower}
-              rowKey={(_, index) => (index || 0).toString()}
-              pagination={false}
-              bordered
-              scroll={{ x: 800 }}
-              locale={{ emptyText: <div style={{ padding: '20px' }}><Text type="secondary">No manpower reported for today. Click "Add Worker Type" to record consumption.</Text></div> }}
-            />
-          </SectionCard>
-        </div>
+            <Select
+              placeholder="Select store"
+              size="large"
+              onChange={fetchStock}
+            >
+              {warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)}
+            </Select>
+          </Form.Item>
+        </SectionCard>
 
-        <Row gutter={24} style={{ marginTop: theme.spacing.lg }}>
-          <Col xs={24} lg={12}>
-            <SectionCard title="Site Conditions" icon={<CloudOutlined />}>
-              <Form.Item label={<span style={getLabelStyle()}>Weather Conditions</span>}>
-                <Controller
-                  name="weather_conditions"
-                  control={control}
-                  render={({ field }) => (
-                    <Input {...field} placeholder="e.g., Sunny, Light Rain, High Heat" style={largeInputStyle} size="large" prefix={<CloudOutlined style={prefixIconStyle} />} />
-                  )}
-                />
+        {/* Section 2: Progress & Achievement */}
+        <SectionCard
+          title="Progress & Achievement Metrics"
+          icon={<BlockOutlined />}
+          extra={<Button type="dashed" icon={<PlusOutlined />} onClick={addItem}>Add Activity</Button>}
+        >
+          <InfoCard title="💡 Flexible Reporting">
+            Add individual work activities and materials consumed. The system will auto-calculate your progress.
+          </InfoCard>
+          <Table
+            dataSource={items}
+            columns={materialColumns}
+            pagination={false}
+            rowKey={(_, i) => i?.toString() || '0'}
+            size="small"
+            bordered
+            style={{ marginTop: 16 }}
+            locale={{ emptyText: 'No activities added. Click "Add Activity" to log progress.' }}
+          />
+        </SectionCard>
+
+        {/* Section 3: Summaries (Optional for Single Column) */}
+        <Card
+          style={{
+            background: 'linear-gradient(135deg, #134e4a 0%, #0d9488 100%)',
+            color: 'white',
+            marginBottom: 24,
+            borderRadius: 12
+          }}
+        >
+          <Row gutter={24}>
+            <Col span={8}>
+              <Statistic
+                title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Total Work Today</span>}
+                value={summary.totalWorkDone}
+                suffix={selectedWorkType?.uom || 'm'}
+                valueStyle={{ color: 'white', fontWeight: 'bold' }}
+              />
+            </Col>
+            <Col span={8}>
+              <Statistic
+                title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Daily Material Efficiency</span>}
+                value={summary.efficiency}
+                suffix="%"
+                valueStyle={{ color: summary.efficiency >= 90 ? '#52c41a' : '#faad14' }}
+                prefix={<DashboardOutlined />}
+              />
+            </Col>
+            <Col span={8}>
+              <Statistic
+                title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Manpower Count</span>}
+                value={manpower.reduce((s, m) => s + (m.count || 0), 0)}
+                prefix={<TeamOutlined />}
+                valueStyle={{ color: 'white' }}
+              />
+            </Col>
+          </Row>
+        </Card>
+
+        {/* Section 4: Manpower */}
+        <SectionCard
+          title="Manpower Deployment"
+          icon={<TeamOutlined />}
+          extra={<Button type="dashed" icon={<PlusOutlined />} onClick={addManpower}>Add Worker</Button>}
+        >
+          <Table
+            dataSource={manpower}
+            columns={manpowerColumns}
+            pagination={false}
+            rowKey={(_, i) => i?.toString() || '0'}
+            size="small"
+            bordered
+          />
+        </SectionCard>
+
+        {/* Section 5: Site Conditions */}
+        <SectionCard title="Site Conditions & Activity Photos" icon={<CloudOutlined />}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label={<span style={getLabelStyle()}>Weather</span>} name="weather_condition">
+                <Select placeholder="Select weather" size="large">
+                  <Option value="Clear">☀️ Clear/Sunny</Option>
+                  <Option value="Cloudy">☁️ Cloudy</Option>
+                  <Option value="Rainy">🌧️ Rainy</Option>
+                  <Option value="Windy">💨 Windy</Option>
+                  <Option value="Hot">🔥 Very Hot</Option>
+                </Select>
               </Form.Item>
-
-              <InfoCard title="💡 Reporting Rule">
-                Daily reports should ideally be submitted by 6:00 PM on the reporting day or early next morning.
-              </InfoCard>
-            </SectionCard>
-          </Col>
-
-          <Col xs={24} lg={12}>
-            <SectionCard title="Observatons & Remarks" icon={<FileTextOutlined />}>
-              <Form.Item label={<span style={getLabelStyle()}>Site Remarks</span>}>
-                <Controller
-                  name="remarks"
-                  control={control}
-                  render={({ field }) => (
-                    <TextArea {...field} rows={4} placeholder="Major events, breakdowns, delays or milestones achieved today..." style={largeInputStyle} />
-                  )}
-                />
+            </Col>
+            <Col span={12}>
+              <Form.Item label={<span style={getLabelStyle()}>Work Hours</span>} name="work_hours">
+                <Input placeholder="e.g., 8:00 AM - 6:00 PM" size="large" />
               </Form.Item>
-            </SectionCard>
-          </Col>
-        </Row>
+            </Col>
+          </Row>
 
+          <Form.Item label={<span style={getLabelStyle()}>Progress Photos</span>}>
+            <Upload
+              listType="picture-card"
+              fileList={photoList}
+              onChange={({ fileList }) => setPhotoList(fileList)}
+              beforeUpload={() => false}
+              maxCount={5}
+            >
+              {photoList.length < 5 && (
+                <div>
+                  <PlusOutlined />
+                  <div style={{ marginTop: 8 }}>Upload</div>
+                </div>
+              )}
+            </Upload>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Capture and upload up to 5 photos showing today's progress.
+            </Text>
+          </Form.Item>
+
+          <Form.Item label={<span style={getLabelStyle()}>Observations & Site Remarks</span>} name="remarks">
+            <TextArea rows={4} placeholder="Major events, breakdowns, delays or milestones achieved today..." />
+          </Form.Item>
+        </SectionCard>
+
+        {/* Final Actions */}
         <Card style={actionCardStyle}>
           <div style={flexBetweenStyle}>
             <Text type="secondary">
               <InfoCircleOutlined style={{ marginRight: '8px' }} />
-              Verifying all metrics ensures accurate project cost & timeline tracking.
+              Submitting this report will automatically update the project dashboard and inventory.
             </Text>
             <Space size="middle">
-              <Button
-                onClick={() => navigate('/operations/dpr')}
-                size="large"
-                style={getSecondaryButtonStyle()}
-              >
+              <Button onClick={() => navigate('/operations/dpr')} size="large" style={getSecondaryButtonStyle()}>
                 Cancel
               </Button>
               <Button
@@ -478,12 +644,12 @@ const DPRForm = () => {
                 size="large"
                 style={getPrimaryButtonStyle()}
               >
-                {id ? 'Update Report' : 'Submit Today\'s DPR'}
+                Submit Today's DPR
               </Button>
             </Space>
           </div>
         </Card>
-      </form>
+      </Form>
     </PageContainer>
   )
 }

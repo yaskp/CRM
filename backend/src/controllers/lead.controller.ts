@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express'
 import { AuthRequest } from '../middleware/auth.middleware'
 import Lead from '../models/Lead'
 import Project from '../models/Project'
+import Client from '../models/Client'
 import { createError } from '../middleware/errorHandler'
 import { Op } from 'sequelize'
 
@@ -9,6 +10,7 @@ export const createLead = async (req: AuthRequest, res: Response, next: NextFunc
   try {
     const {
       project_id,
+      client_id,
       name,
       company_name,
       phone,
@@ -19,7 +21,10 @@ export const createLead = async (req: AuthRequest, res: Response, next: NextFunc
       soil_report_url,
       layout_url,
       section_url,
-      remarks
+      remarks,
+      city,
+      state,
+      state_code
     } = req.body
 
     if (project_id) {
@@ -31,11 +36,15 @@ export const createLead = async (req: AuthRequest, res: Response, next: NextFunc
 
     const lead = await Lead.create({
       project_id: project_id || null,
+      client_id: client_id || null,
       name,
       company_name,
       phone,
       email,
       address,
+      city,
+      state,
+      state_code,
       source,
       enquiry_date,
       soil_report_url,
@@ -62,11 +71,19 @@ export const getLeads = async (req: AuthRequest, res: Response, next: NextFuncti
 
     const where: any = {}
     if (project_id === 'null') {
-      where.project_id = null
+      where.project_id = { [Op.eq]: null }
     } else if (project_id) {
       where.project_id = project_id
     }
+    // Also ensuring we list leads even if they have quotes, as long as they aren't converted to a project yet.
+    // Maybe filter by status too? Usually 'converted' leads have a project.
+    // If status != 'converted' and project_id is null.
     if (status) where.status = status
+    else if (project_id === 'null') {
+      // If asking for unassigned leads, we generally don't want 'converted' ones, though project_id=null implies not converted.
+      // But just in case:
+      where.status = { [Op.ne]: 'converted' }
+    }
     if (search) {
       where[Op.or] = [
         { name: { [Op.like]: `%${search}%` } },
@@ -85,6 +102,10 @@ export const getLeads = async (req: AuthRequest, res: Response, next: NextFuncti
         {
           association: 'project',
           attributes: ['id', 'name', 'project_code'],
+        },
+        {
+          association: 'client',
+          attributes: ['id', 'company_name', 'client_code', 'client_group_id', 'gstin', 'state'],
         },
       ],
     })
@@ -114,6 +135,14 @@ export const getLead = async (req: AuthRequest, res: Response, next: NextFunctio
           association: 'project',
           attributes: ['id', 'name', 'project_code'],
         },
+        {
+          association: 'client',
+          attributes: ['id', 'company_name', 'client_code', 'client_group_id', 'gstin', 'state'],
+        },
+        {
+          association: 'quotations',
+          attributes: ['id', 'quotation_number', 'final_amount', 'status', 'created_at']
+        }
       ],
     })
 
@@ -135,6 +164,7 @@ export const updateLead = async (req: AuthRequest, res: Response, next: NextFunc
     const { id } = req.params
     const {
       name,
+      client_id,
       company_name,
       phone,
       email,
@@ -145,6 +175,9 @@ export const updateLead = async (req: AuthRequest, res: Response, next: NextFunc
       layout_url,
       section_url,
       remarks,
+      city,
+      state,
+      state_code,
       status
     } = req.body
 
@@ -155,10 +188,14 @@ export const updateLead = async (req: AuthRequest, res: Response, next: NextFunc
 
     await lead.update({
       name,
+      client_id,
       company_name,
       phone,
       email,
       address,
+      city,
+      state,
+      state_code,
       source,
       enquiry_date,
       soil_report_url,

@@ -4,6 +4,7 @@ import Quotation from '../models/Quotation'
 import QuotationItem from '../models/QuotationItem'
 import Lead from '../models/Lead'
 import Project from '../models/Project'
+import Client from '../models/Client'
 import { sequelize } from '../database/connection'
 import { generateQuotationNumber } from '../utils/quotationCodeGenerator'
 import { createError } from '../middleware/errorHandler'
@@ -16,8 +17,17 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
       lead_id,
       total_amount,
       discount_percentage,
+      gst_type,
+      cgst_amount,
+      sgst_amount,
+      igst_amount,
       payment_terms,
       valid_until,
+      annexure_id,
+      billing_unit_id,
+      client_scope,
+      contractor_scope,
+      terms_conditions,
       items
     } = req.body
 
@@ -25,7 +35,9 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
       throw createError('Lead ID and total amount are required', 400)
     }
 
-    const lead = await Lead.findByPk(lead_id)
+    const lead = await Lead.findByPk(lead_id, {
+      include: [{ model: Client, as: 'client' }]
+    })
     if (!lead) {
       throw createError('Lead not found', 404)
     }
@@ -41,18 +53,43 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
       const version_number = latestQuotation ? latestQuotation.version_number + 1 : 1
 
       const quotation_number = await generateQuotationNumber()
-      const discount = discount_percentage || 0
-      const final_amount = total_amount - (total_amount * discount) / 100
+      const discount = Number(discount_percentage || 0)
+      const amountAfterDiscount = Number(total_amount) - (Number(total_amount) * discount) / 100
+
+      // Calculate final amount with taxes if not explicitly provided
+      let final_cgst = Number(cgst_amount || 0)
+      let final_sgst = Number(sgst_amount || 0)
+      let final_igst = Number(igst_amount || 0)
+      let final_gst_type = gst_type
+
+      // Optional: Auto-detect GST if possible and not provided
+      if (!final_gst_type && lead.client?.gstin) {
+        // Assuming company state is '27' (Maharashtra) for now as default, 
+        // or we can fetch company state from companies table. 
+        // Let's assume a default for now or stick to provided values if available.
+        // For ERP robustness, we should fetch Company details.
+      }
+
+      const final_amount = amountAfterDiscount + final_cgst + final_sgst + final_igst
 
       const quotation = await Quotation.create({
         lead_id,
         version_number,
         quotation_number,
+        billing_unit_id,
         total_amount,
         discount_percentage: discount,
+        gst_type: final_gst_type,
+        cgst_amount: final_cgst,
+        sgst_amount: final_sgst,
+        igst_amount: final_igst,
         final_amount,
         payment_terms,
         valid_until,
+        annexure_id,
+        client_scope,
+        contractor_scope,
+        terms_conditions,
         status: 'draft',
         created_by: req.user!.id,
       }, { transaction: t })
@@ -60,7 +97,8 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
       if (items && Array.isArray(items)) {
         const quotationItems = items.map((item: any) => ({
           ...item,
-          quotation_id: quotation.id
+          quotation_id: quotation.id,
+          work_item_type_id: item.work_item_type_id
         }))
         await QuotationItem.bulkCreate(quotationItems, { transaction: t })
       }
@@ -174,6 +212,9 @@ export const getQuotation = async (req: AuthRequest, res: Response, next: NextFu
           association: 'creator',
           attributes: ['id', 'name', 'email'],
         },
+        {
+          association: 'annexure',
+        }
       ],
     })
 
@@ -196,10 +237,19 @@ export const updateQuotation = async (req: AuthRequest, res: Response, next: Nex
     const {
       total_amount,
       discount_percentage,
+      gst_type,
+      cgst_amount,
+      sgst_amount,
+      igst_amount,
       payment_terms,
       valid_until,
+      annexure_id,
+      client_scope,
+      contractor_scope,
+      terms_conditions,
       status,
-      items
+      items,
+      billing_unit_id
     } = req.body
 
     const quotation = await Quotation.findByPk(id)
@@ -208,16 +258,31 @@ export const updateQuotation = async (req: AuthRequest, res: Response, next: Nex
     }
 
     await sequelize.transaction(async (t) => {
-      const discount = discount_percentage !== undefined ? discount_percentage : quotation.discount_percentage
-      const total = total_amount !== undefined ? total_amount : quotation.total_amount
-      const final_amount = total - (total * discount) / 100
+      const discount = discount_percentage !== undefined ? Number(discount_percentage) : Number(quotation.discount_percentage)
+      const total = total_amount !== undefined ? Number(total_amount) : Number(quotation.total_amount)
+      const baseAmount = total - (total * discount) / 100
+
+      const final_cgst = cgst_amount !== undefined ? Number(cgst_amount) : Number(quotation.cgst_amount || 0)
+      const final_sgst = sgst_amount !== undefined ? Number(sgst_amount) : Number(quotation.sgst_amount || 0)
+      const final_igst = igst_amount !== undefined ? Number(igst_amount) : Number(quotation.igst_amount || 0)
+
+      const final_amount = baseAmount + final_cgst + final_sgst + final_igst
 
       await quotation.update({
+        billing_unit_id,
         total_amount: total,
         discount_percentage: discount,
+        gst_type,
+        cgst_amount: final_cgst,
+        sgst_amount: final_sgst,
+        igst_amount: final_igst,
         final_amount,
         payment_terms,
         valid_until,
+        annexure_id,
+        client_scope,
+        contractor_scope,
+        terms_conditions,
         status,
       }, { transaction: t })
 
@@ -228,21 +293,16 @@ export const updateQuotation = async (req: AuthRequest, res: Response, next: Nex
         if (lead) {
           if (status === 'sent') {
             await lead.update({ status: 'quoted' }, { transaction: t })
-
             if (lead.project_id) {
-              await Project.update(
-                { status: 'quotation' },
-                { where: { id: lead.project_id }, transaction: t }
-              )
+              await Project.update({ status: 'quotation' }, { where: { id: lead.project_id }, transaction: t })
             }
-          } else if (status === 'accepted') {
+          } else if (['accepted', 'accepted_by_party', 'approved'].includes(status)) {
+            // Note: In standard CRM, 'converted' usually happens at the Project Creation stage, 
+            // but we mark it here as 'WON/READY' for conversion.
             await lead.update({ status: 'converted' }, { transaction: t })
 
             if (lead.project_id) {
-              await Project.update(
-                { status: 'confirmed' },
-                { where: { id: lead.project_id }, transaction: t }
-              )
+              await Project.update({ status: 'confirmed' }, { where: { id: lead.project_id }, transaction: t })
             }
           }
         }
@@ -254,7 +314,8 @@ export const updateQuotation = async (req: AuthRequest, res: Response, next: Nex
 
         const quotationItems = items.map((item: any) => ({
           ...item,
-          quotation_id: id
+          quotation_id: id,
+          work_item_type_id: item.work_item_type_id
         }))
         await QuotationItem.bulkCreate(quotationItems, { transaction: t })
       }
@@ -303,6 +364,12 @@ export const downloadPdf = async (req: AuthRequest, res: Response, next: NextFun
         {
           association: 'lead',
           attributes: ['name', 'company_name', 'address', 'phone', 'email'],
+        },
+        {
+          association: 'items',
+        },
+        {
+          association: 'annexure',
         },
       ],
     })

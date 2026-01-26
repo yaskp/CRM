@@ -16,18 +16,7 @@ export const workOrderService = {
     return response.data
   },
 
-  createWorkOrder: async (data: {
-    project_id: number
-    work_order_date: string
-    items: Array<{
-      item_type: string
-      quantity: number
-      rate: number
-    }>
-    discount_percentage?: number
-    payment_terms?: string
-    remarks?: string
-  }) => {
+  createWorkOrder: async (data: any) => {
     const response = await api.post('/work-orders', data)
     return response.data
   },
@@ -36,5 +25,11 @@ export const workOrderService = {
     const response = await api.put(`/work-orders/${id}`, data)
     return response.data
   },
-}
 
+  downloadPDF: async (id: number) => {
+    const response = await api.get(`/work-orders/${id}/pdf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
+}

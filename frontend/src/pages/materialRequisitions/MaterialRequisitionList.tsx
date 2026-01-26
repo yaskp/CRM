@@ -44,7 +44,9 @@ const MaterialRequisitionList = () => {
     const fetchRequisitions = async () => {
         setLoading(true)
         try {
-            const response = await materialRequisitionService.getRequisitions(filters)
+            const params: any = { ...filters }
+            if (params.project_id) params.project_id = Number(params.project_id)
+            const response = await materialRequisitionService.getRequisitions(params)
             setRequisitions(response.requisitions || response.data || [])
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch requisitions')

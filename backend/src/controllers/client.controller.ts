@@ -1,8 +1,12 @@
 import { Response, NextFunction } from 'express'
 import { AuthRequest } from '../middleware/auth.middleware'
 import Client from '../models/Client'
+import ClientGroup from '../models/ClientGroup'
+import ClientContact from '../models/ClientContact'
+import Project from '../models/Project'
 import { createError } from '../middleware/errorHandler'
-import { Op } from 'sequelize'
+import { Op, Transaction } from 'sequelize'
+import { sequelize } from '../database/connection'
 
 // Generate client code (e.g., CLT-2026-001)
 const generateClientCode = async (): Promise<string> => {
@@ -31,6 +35,7 @@ export const createClient = async (req: AuthRequest, res: Response, next: NextFu
     try {
         const {
             company_name,
+            client_group_id,
             contact_person,
             email,
             phone,
@@ -43,7 +48,8 @@ export const createClient = async (req: AuthRequest, res: Response, next: NextFu
             payment_terms,
             credit_limit,
             client_type,
-            status
+            status,
+            contacts // Array of contact persons
         } = req.body
 
         if (!company_name) {
@@ -52,28 +58,56 @@ export const createClient = async (req: AuthRequest, res: Response, next: NextFu
 
         const client_code = await generateClientCode()
 
-        const client = await Client.create({
-            client_code,
-            company_name,
-            contact_person,
-            email,
-            phone,
-            address,
-            city,
-            state,
-            pincode,
-            gstin,
-            pan,
-            payment_terms,
-            credit_limit,
-            client_type: client_type || 'company',
-            status: status || 'active'
+        // Use transaction to ensure data consistency
+        const result = await sequelize.transaction(async (t: Transaction) => {
+            // Create client
+            const client = await Client.create({
+                client_code,
+                client_group_id,
+                company_name,
+                contact_person,
+                email,
+                phone,
+                address,
+                city,
+                state,
+                pincode,
+                gstin,
+                pan,
+                payment_terms,
+                credit_limit,
+                client_type: client_type || 'company',
+                status: status || 'active'
+            }, { transaction: t })
+
+            // Create contact persons if provided
+            if (contacts && Array.isArray(contacts) && contacts.length > 0) {
+                const contactsData = contacts.map((contact: any) => ({
+                    client_id: client.id,
+                    contact_name: contact.contact_name,
+                    designation: contact.designation,
+                    email: contact.email,
+                    phone: contact.phone,
+                    is_primary: contact.is_primary || false
+                }))
+                await ClientContact.bulkCreate(contactsData, { transaction: t })
+            }
+
+            return client
+        })
+
+        // Fetch the created client with associations
+        const clientWithDetails = await Client.findByPk(result.id, {
+            include: [
+                { model: ClientGroup, as: 'group' },
+                { model: ClientContact, as: 'contacts' }
+            ]
         })
 
         res.status(201).json({
             success: true,
             message: 'Client created successfully',
-            client
+            client: clientWithDetails
         })
     } catch (error) {
         next(error)
@@ -82,7 +116,7 @@ export const createClient = async (req: AuthRequest, res: Response, next: NextFu
 
 export const getClients = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { search, status, client_type, page = 1, limit = 10 } = req.query
+        const { search, status, client_type, client_group_id, page = 1, limit = 10 } = req.query
 
         const offset = (Number(page) - 1) * Number(limit)
         const where: any = {}
@@ -99,9 +133,14 @@ export const getClients = async (req: AuthRequest, res: Response, next: NextFunc
 
         if (status) where.status = status
         if (client_type) where.client_type = client_type
+        if (client_group_id) where.client_group_id = client_group_id
 
         const { count, rows } = await Client.findAndCountAll({
             where,
+            include: [
+                { model: ClientGroup, as: 'group' },
+                { model: ClientContact, as: 'contacts' }
+            ],
             limit: Number(limit),
             offset,
             order: [['created_at', 'DESC']]
@@ -126,7 +165,12 @@ export const getClient = async (req: AuthRequest, res: Response, next: NextFunct
     try {
         const { id } = req.params
 
-        const client = await Client.findByPk(id)
+        const client = await Client.findByPk(id, {
+            include: [
+                { model: ClientGroup, as: 'group' },
+                { model: ClientContact, as: 'contacts' }
+            ]
+        })
 
         if (!client) {
             throw createError('Client not found', 404)
@@ -146,6 +190,7 @@ export const updateClient = async (req: AuthRequest, res: Response, next: NextFu
         const { id } = req.params
         const {
             company_name,
+            client_group_id,
             contact_person,
             email,
             phone,
@@ -158,7 +203,8 @@ export const updateClient = async (req: AuthRequest, res: Response, next: NextFu
             payment_terms,
             credit_limit,
             client_type,
-            status
+            status,
+            contacts // Array of contact persons
         } = req.body
 
         const client = await Client.findByPk(id)
@@ -167,27 +213,58 @@ export const updateClient = async (req: AuthRequest, res: Response, next: NextFu
             throw createError('Client not found', 404)
         }
 
-        await client.update({
-            company_name,
-            contact_person,
-            email,
-            phone,
-            address,
-            city,
-            state,
-            pincode,
-            gstin,
-            pan,
-            payment_terms,
-            credit_limit,
-            client_type,
-            status
+        await sequelize.transaction(async (t: Transaction) => {
+            // Update client
+            await client.update({
+                company_name,
+                client_group_id,
+                contact_person,
+                email,
+                phone,
+                address,
+                city,
+                state,
+                pincode,
+                gstin,
+                pan,
+                payment_terms,
+                credit_limit,
+                client_type,
+                status
+            }, { transaction: t })
+
+            // Update contacts if provided
+            if (contacts && Array.isArray(contacts)) {
+                // Delete existing contacts
+                await ClientContact.destroy({ where: { client_id: id }, transaction: t })
+
+                // Create new contacts
+                if (contacts.length > 0) {
+                    const contactsData = contacts.map((contact: any) => ({
+                        client_id: client.id,
+                        contact_name: contact.contact_name,
+                        designation: contact.designation,
+                        email: contact.email,
+                        phone: contact.phone,
+                        is_primary: contact.is_primary || false
+                    }))
+                    await ClientContact.bulkCreate(contactsData, { transaction: t })
+                }
+            }
+        })
+
+        // Fetch updated client with associations
+        const updatedClient = await Client.findByPk(id, {
+            include: [
+                { model: ClientGroup, as: 'group' },
+                { model: ClientContact, as: 'contacts' }
+            ]
         })
 
         res.json({
             success: true,
             message: 'Client updated successfully',
-            client
+            client: updatedClient
         })
     } catch (error) {
         next(error)
@@ -204,8 +281,7 @@ export const deleteClient = async (req: AuthRequest, res: Response, next: NextFu
             throw createError('Client not found', 404)
         }
 
-        // Check if client has associated projects or invoices
-        // TODO: Add checks when invoice module is implemented
+        // Contacts will be deleted automatically due to CASCADE
 
         await client.destroy()
 
@@ -218,20 +294,118 @@ export const deleteClient = async (req: AuthRequest, res: Response, next: NextFu
     }
 }
 
+// Client Groups endpoints
+export const getClientGroups = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const groups = await ClientGroup.findAll({
+            order: [['group_name', 'ASC']]
+        })
+
+        res.json({
+            success: true,
+            groups
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const createClientGroup = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { group_name, group_type, description } = req.body
+
+        if (!group_name) {
+            throw createError('Group name is required', 400)
+        }
+
+        if (!group_type) {
+            throw createError('Group type is required', 400)
+        }
+
+        const group = await ClientGroup.create({
+            group_name,
+            group_type,
+            description
+        })
+
+        res.status(201).json({
+            success: true,
+            message: 'Client group created successfully',
+            group
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const updateClientGroup = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params
+        const { group_name, group_type, description } = req.body
+
+        const group = await ClientGroup.findByPk(id)
+
+        if (!group) {
+            throw createError('Client group not found', 404)
+        }
+
+        await group.update({ group_name, group_type, description })
+
+        res.json({
+            success: true,
+            message: 'Client group updated successfully',
+            group
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const deleteClientGroup = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params
+
+        const group = await ClientGroup.findByPk(id)
+
+        if (!group) {
+            throw createError('Client group not found', 404)
+        }
+
+        // Check if group has clients
+        const clientCount = await Client.count({ where: { client_group_id: id } })
+        if (clientCount > 0) {
+            throw createError(`Cannot delete group. ${clientCount} client(s) are assigned to this group.`, 400)
+        }
+
+        await group.destroy()
+
+        res.json({
+            success: true,
+            message: 'Client group deleted successfully'
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+
 export const getClientProjects = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
 
         const client = await Client.findByPk(id)
-
         if (!client) {
             throw createError('Client not found', 404)
         }
 
-        // TODO: Fetch projects when client_id is added to projects table
+        const projects = await Project.findAll({
+            where: { client_id: id },
+            order: [['created_at', 'DESC']]
+        })
+
         res.json({
             success: true,
-            projects: []
+            projects
         })
     } catch (error) {
         next(error)

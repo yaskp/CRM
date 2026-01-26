@@ -24,11 +24,14 @@ import workItemTypeRoutes from './workItemType.routes'
 import unitRoutes from './unit.routes'
 import reportRoutes from './reports'
 import clientRoutes from './client.routes'
-// ...
+import annexureRoutes from './annexure.routes'
+import projectHierarchyRoutes from './projectHierarchy.routes'
+import boqRoutes from './boq.routes'
+import masterRoutes from './master.routes'
+import budgetRoutes from './budget.routes'
 
 const router = Router()
 
-// ...
 router.use('/reports', reportRoutes)
 router.use('/auth', authRoutes)
 router.use('/units', unitRoutes)
@@ -54,6 +57,10 @@ router.use('/users', userRoutes)
 router.use('/roles', roleRoutes)
 router.use('/inventory', inventoryRoutes)
 router.use('/clients', clientRoutes)
+router.use('/annexures', annexureRoutes)
+router.use('/project-hierarchy', projectHierarchyRoutes)
+router.use('/boqs', boqRoutes)
+router.use('/master', masterRoutes)
+router.use('/budgets', budgetRoutes)
 
 export default router
-

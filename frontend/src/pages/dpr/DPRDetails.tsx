@@ -1,232 +1,257 @@
 import { useState, useEffect } from 'react'
-import { Card, Descriptions, Tag, Button, Table, Space, message, Row, Col, Statistic, Typography, Divider } from 'antd'
+import { Descriptions, Tag, Button, Table, Space, message, Row, Col, Typography, Image } from 'antd'
 import {
   ArrowLeftOutlined,
   EditOutlined,
   PrinterOutlined,
   DashboardOutlined,
-  ProjectOutlined,
-  CalendarOutlined,
   EnvironmentOutlined,
-  BarChartOutlined,
   CloudOutlined,
   TeamOutlined,
   FileTextOutlined,
-  InfoCircleOutlined,
-  DeploymentUnitOutlined
+  CheckCircleOutlined,
+  CameraOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
-import { dprService } from '../../services/api/dpr'
+import { storeTransactionService } from '../../services/api/storeTransactions'
 import dayjs from 'dayjs'
-import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
-import { theme } from '../../styles/theme'
+import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
 import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
 
-const { Text } = Typography
+const { Text, Paragraph } = Typography
 
 const DPRDetails = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
-  const [dpr, setDpr] = useState<any>(null)
+  const [log, setLog] = useState<any>(null)
 
   useEffect(() => {
     if (id) {
-      fetchDPR()
+      fetchLogDetails()
     }
   }, [id])
 
-  const fetchDPR = async () => {
+  const fetchLogDetails = async () => {
     setLoading(true)
     try {
-      const response = await dprService.getDPR(Number(id))
-      setDpr(response.dpr)
+      const response = await storeTransactionService.getTransaction(Number(id))
+      setLog(response.transaction)
     } catch (error: any) {
-      message.error(error.response?.data?.message || 'Failed to fetch DPR')
+      message.error(error.response?.data?.message || 'Failed to fetch report details')
     } finally {
       setLoading(false)
     }
   }
 
-  if (!dpr) {
-    return (
-      <PageContainer>
-        <Card loading={loading}>
-          <div style={{ padding: '50px', textAlign: 'center' }}>
-            <Text type="secondary">Loading report data...</Text>
-          </div>
-        </Card>
-      </PageContainer>
-    )
-  }
+  if (!log) return null
 
-  const manpowerColumns = [
+  const manpowerList = log.manpower_data ? JSON.parse(log.manpower_data) : []
+  const photoList = log.progress_photos ? JSON.parse(log.progress_photos) : []
+
+  const materialColumns = [
     {
-      title: 'Worker Category',
-      dataIndex: 'worker_type',
-      key: 'worker_type',
-      render: (type: string) => {
-        const typeMap: Record<string, string> = {
-          steel_worker: '🏗️ Steel Worker',
-          concrete_worker: '🏗️ Concrete Worker',
-          department_worker: '🏢 Dept. Worker',
-          electrician: '⚡ Electrician',
-          welder: '🔥 Welder',
-        }
-        return <Text strong>{typeMap[type] || type}</Text>
-      },
+      title: 'Activity / Material',
+      key: 'item',
+      render: (_: any, record: any) => (
+        <Space direction="vertical" size={0}>
+          <Text strong>{record.material?.name}</Text>
+          <Text type="secondary" style={{ fontSize: '12px' }}>{record.material?.material_code}</Text>
+        </Space>
+      )
     },
     {
-      title: 'Head Count',
-      dataIndex: 'count',
-      key: 'count',
+      title: 'Consumed',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      align: 'right' as const,
+      render: (val: any, record: any) => <Text strong>{val} {record.unit || record.material?.uom}</Text>
+    },
+    {
+      title: 'Work Achievement',
+      dataIndex: 'work_done_quantity',
+      key: 'work_done',
+      align: 'right' as const,
+      render: (val: any) => <Text strong style={{ color: '#0d9488' }}>{val || 0} {log.items?.[0]?.unit || 'm'}</Text>
+    },
+    {
+      title: 'Wastage',
+      dataIndex: 'wastage_quantity',
+      key: 'wastage',
+      align: 'right' as const,
+    },
+    {
+      title: 'Efficiency',
+      key: 'efficiency',
       align: 'center' as const,
-      render: (count: number) => <Text strong style={{ fontSize: '16px' }}>{count}</Text>
-    },
-    {
-      title: 'Shift / Hajri',
-      dataIndex: 'hajri',
-      key: 'hajri',
-      align: 'center' as const,
-      render: (hajri: string) => (
-        <Tag color={hajri === '1' ? 'blue' : 'orange'} style={{ borderRadius: '4px', fontWeight: 'bold' }}>
-          {hajri} Shift
-        </Tag>
-      ),
-    },
+      render: (_: any, record: any) => {
+        const stdRate = record.material?.standard_rate
+        if (!stdRate || !record.work_done_quantity) return '-'
+        const actualRate = record.quantity / record.work_done_quantity
+        const eff = Math.round((stdRate / actualRate) * 100)
+        let color = 'success'
+        if (eff < 70) color = 'error'
+        else if (eff < 90) color = 'warning'
+        return <Tag color={color}>{eff}%</Tag>
+      }
+    }
   ]
 
+  const handleApprove = async () => {
+    try {
+      setLoading(true)
+      await storeTransactionService.approveTransaction(Number(id))
+      message.success('Report approved successfully. Inventory and BOQ progress have been updated.')
+      fetchLogDetails()
+    } catch (error: any) {
+      message.error(error.response?.data?.message || 'Approval failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePDFAction = (mode: 'inline' | 'download' = 'download') => {
+    const token = localStorage.getItem('token')
+    const apiUrl = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000/api'
+    const suffix = mode === 'inline' ? '&mode=inline' : ''
+    window.open(`${apiUrl}/store/${id}/pdf?token=${token}${suffix}`, '_blank')
+  }
+
   return (
-    <PageContainer maxWidth={1200}>
+    <PageContainer maxWidth={1105}>
       <PageHeader
-        title={`DPR Report: #${id}`}
-        subtitle={`Summary for ${dayjs(dpr.report_date).format('DD MMMM YYYY')}`}
+        title={`Daily Progress Report: ${log.transaction_number}`}
+        subtitle={`Site achievements for ${dayjs(log.transaction_date).format('DD MMMM YYYY')}`}
         icon={<DashboardOutlined />}
         extra={[
           <Button key="back" icon={<ArrowLeftOutlined />} onClick={() => navigate('/operations/dpr')} style={getSecondaryButtonStyle()}>Back</Button>,
-          <Button key="print" icon={<PrinterOutlined />} onClick={() => window.print()} style={getSecondaryButtonStyle()}>Print</Button>,
-          <Button key="edit" type="primary" icon={<EditOutlined />} onClick={() => navigate(`/operations/dpr/${id}/edit`)} style={getPrimaryButtonStyle()}>Edit Report</Button>
-        ]}
+          log.status === 'draft' && <Button key="edit" type="primary" icon={<EditOutlined />} onClick={() => navigate(`/operations/dpr/${id}/edit`)} style={getPrimaryButtonStyle()}>Edit</Button>,
+        ].filter(Boolean)}
       />
 
-      <Row gutter={[16, 16]}>
-        <Col xs={24} lg={16}>
-          <SectionCard title="Project & Site Overview" icon={<ProjectOutlined />}>
-            <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
-              <Descriptions.Item label={<Text type="secondary"><ProjectOutlined /> Project</Text>}>
-                <b>{dpr.project?.name}</b> <br />
-                <Text type="secondary" style={{ fontSize: '12px' }}>{dpr.project?.project_code}</Text>
-              </Descriptions.Item>
-              <Descriptions.Item label={<Text type="secondary"><CalendarOutlined /> Report Date</Text>}>
-                <b>{dayjs(dpr.report_date).format('DD-MMM-YYYY')}</b>
-              </Descriptions.Item>
-              <Descriptions.Item label={<Text type="secondary"><EnvironmentOutlined /> Site / Area</Text>}>
-                <b>{dpr.site_location || '-'}</b>
-              </Descriptions.Item>
-              <Descriptions.Item label={<Text type="secondary"><DeploymentUnitOutlined /> Panel #</Text>}>
-                <Tag color="purple">#{dpr.panel_number || 'N/A'}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label={<Text type="secondary"><CloudOutlined /> Weather</Text>}>
-                {dpr.weather_conditions || '-'}
-              </Descriptions.Item>
-              <Descriptions.Item label={<Text type="secondary"><TeamOutlined /> Reported By</Text>}>
-                <Tag style={{ border: 'none' }}>{dpr.creator?.name}</Tag>
-              </Descriptions.Item>
-            </Descriptions>
-          </SectionCard>
-
-          <SectionCard title="Manpower Details" icon={<TeamOutlined />} style={{ marginTop: '16px' }}>
-            <Table
-              columns={manpowerColumns}
-              dataSource={dpr.manpower}
-              rowKey="id"
-              pagination={false}
-              bordered
-              size="middle"
-              locale={{ emptyText: 'No manpower recorded' }}
-            />
-          </SectionCard>
-
-          {dpr.remarks && (
-            <SectionCard title="Site Observations" icon={<FileTextOutlined />} style={{ marginTop: '16px' }}>
-              <div style={{ padding: '8px', minHeight: '80px', background: theme.colors.neutral.gray50, borderRadius: '8px', border: `1px solid ${theme.colors.neutral.gray200}` }}>
-                <Text>{dpr.remarks}</Text>
-              </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* 1. Header Row: Overview + Actions */}
+        <Row gutter={24}>
+          <Col span={16}>
+            <SectionCard title="Project & Location Overview" icon={<EnvironmentOutlined />}>
+              <Descriptions bordered column={2} size="small">
+                <Descriptions.Item label="Project" span={2}><b>{log.project?.name}</b></Descriptions.Item>
+                <Descriptions.Item label="Building">{log.toBuilding?.name || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Floor">{log.toFloor?.name || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Zone">{log.toZone?.name || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Reporting Date">{dayjs(log.transaction_date).format('DD-MMM-YYYY')}</Descriptions.Item>
+                <Descriptions.Item label="Status">
+                  <Tag color={log.status === 'approved' ? 'success' : 'processing'}>{log.status.toUpperCase()}</Tag>
+                </Descriptions.Item>
+              </Descriptions>
             </SectionCard>
-          )}
-        </Col>
+          </Col>
+          <Col span={8}>
+            <SectionCard title="Report Actions" icon={<FileTextOutlined />}>
+              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                <Button
+                  block
+                  icon={<PrinterOutlined />}
+                  onClick={() => handlePDFAction('inline')}
+                  style={getSecondaryButtonStyle()}
+                >
+                  Print Pro Report
+                </Button>
+                <Button
+                  block
+                  icon={<FileTextOutlined />}
+                  onClick={() => handlePDFAction('download')}
+                  style={getPrimaryButtonStyle()}
+                >
+                  Download Pro PDF
+                </Button>
 
-        <Col xs={24} lg={8}>
-          <SectionCard title="Key Performance Metrcs" icon={<BarChartOutlined />}>
-            <Space direction="vertical" style={{ width: '100%' }} size="large">
-              <Card bordered={false} style={{ background: 'linear-gradient(135deg, #f0f7ff 0%, #e6f4ff 100%)', borderRadius: '12px' }}>
-                <Statistic
-                  title={<Text type="secondary">Guide Wall Run</Text>}
-                  value={dpr.guide_wall_running_meter || 0}
-                  suffix="m"
-                  precision={2}
-                  valueStyle={{ color: theme.colors.primary.main, fontWeight: 'bold' }}
-                />
-              </Card>
+                {log.status !== 'approved' && (
+                  <Button
+                    block
+                    type="primary"
+                    icon={<CheckCircleOutlined />}
+                    onClick={handleApprove}
+                    loading={loading}
+                    style={{ background: '#059669', borderColor: '#059669', color: '#fff', height: '40px', marginTop: '8px' }}
+                  >
+                    Approve & Sync Report
+                  </Button>
+                )}
+              </Space>
+            </SectionCard>
+          </Col>
+        </Row>
 
-              <Card bordered={false} style={{ background: 'linear-gradient(135deg, #fffcf0 0%, #fffbe6 100%)', borderRadius: '12px' }}>
-                <Statistic
-                  title={<Text type="secondary">Steel Consumption</Text>}
-                  value={dpr.steel_quantity_kg || 0}
-                  suffix="kg"
-                  precision={2}
-                  valueStyle={{ color: '#faad14', fontWeight: 'bold' }}
-                />
-              </Card>
+        {/* 2. Achievements & Consumption */}
+        <SectionCard title="Activities & Consumption" icon={<FileTextOutlined />}>
+          <Table
+            dataSource={log.items}
+            columns={materialColumns}
+            pagination={false}
+            rowKey="id"
+            bordered
+            size="middle"
+          />
+        </SectionCard>
 
-              <Card bordered={false} style={{ background: 'linear-gradient(135deg, #f0fff4 0%, #e6ffed 100%)', borderRadius: '12px' }}>
-                <Statistic
-                  title={<Text type="secondary">Concrete Volume</Text>}
-                  value={dpr.concrete_quantity_cubic_meter || 0}
-                  suffix="m³"
-                  precision={2}
-                  valueStyle={{ color: '#52c41a', fontWeight: 'bold' }}
-                />
-              </Card>
+        {/* 3. Manpower & Site Conditions */}
+        <Row gutter={24}>
+          <Col span={12}>
+            <SectionCard title="Manpower Deployment (Labor Hajri)" icon={<TeamOutlined />}>
+              <Table
+                dataSource={manpowerList}
+                size="small"
+                pagination={false}
+                rowKey={(r: any) => r.worker_type || Math.random()}
+                columns={[
+                  { title: 'Category', dataIndex: 'worker_type' },
+                  { title: 'Count', dataIndex: 'count', align: 'center' },
+                  { title: 'Hajri', dataIndex: 'hajri', align: 'center' },
+                  { title: 'Mandays', align: 'right', render: (_, r: any) => (Number(r.count || 0) * Number(r.hajri || 0)).toFixed(1) }
+                ]}
+              />
+            </SectionCard>
+          </Col>
+          <Col span={12}>
+            <SectionCard title="Site Conditions" icon={<CloudOutlined />}>
+              <Descriptions column={1} size="small" bordered>
+                <Descriptions.Item label="Weather">{log.weather_condition || 'Clear'}</Descriptions.Item>
+                <Descriptions.Item label="Work Hours">{log.work_hours || 'N/A'}</Descriptions.Item>
+                <Descriptions.Item label="Temperature">{log.temperature ? `${log.temperature}°C` : 'N/A'}</Descriptions.Item>
+              </Descriptions>
+            </SectionCard>
+          </Col>
+        </Row>
 
-              <Card bordered={false} style={{ background: theme.colors.neutral.gray50, borderRadius: '12px' }}>
-                <Row gutter={16}>
-                  <Col span={12}>
-                    <Statistic
-                      title={<Text type="secondary" style={{ fontSize: '11px' }}>Polymer Bags</Text>}
-                      value={dpr.polymer_consumption_bags || 0}
-                      valueStyle={{ fontSize: '18px' }}
-                    />
-                  </Col>
-                  <Col span={12}>
-                    <Statistic
-                      title={<Text type="secondary" style={{ fontSize: '11px' }}>Diesel (L)</Text>}
-                      value={dpr.diesel_consumption_liters || 0}
-                      precision={1}
-                      valueStyle={{ fontSize: '18px' }}
-                    />
-                  </Col>
-                </Row>
-              </Card>
-            </Space>
-          </SectionCard>
+        {/* 4. Photos */}
+        <SectionCard title="Site Progress Photos" icon={<CameraOutlined />}>
+          <Row gutter={[12, 12]}>
+            {photoList.length > 0 ? photoList.map((photo: any, idx: number) => {
+              if (!photo) return null
+              const photoUrl = typeof photo === 'string' ? photo : (photo.url || photo.response?.url)
+              if (!photoUrl) return null
+              const fullUrl = photoUrl?.startsWith('http') ? photoUrl : `http://localhost:5000/${photoUrl}`
+              return (
+                <Col span={6} key={idx}>
+                  <Image
+                    src={fullUrl}
+                    style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                    fallback="https://via.placeholder.com/300x200?text=Site+Photo"
+                  />
+                </Col>
+              )
+            }) : <Text type="secondary">No photos recorded for this report.</Text>}
+          </Row>
+        </SectionCard>
 
-          <InfoCard title="Report Status" style={{ marginTop: '16px' }}>
-            <div style={flexBetweenStyle}>
-              <Text type="secondary">Submission ID:</Text>
-              <Text strong>#DPR-{dpr.id}</Text>
-            </div>
-            <Divider style={{ margin: '8px 0' }} />
-            <div style={flexBetweenStyle}>
-              <Text type="secondary">Generated At:</Text>
-              <Text>{dayjs(dpr.createdAt).format('DD-MMM HH:mm')}</Text>
-            </div>
-            <div style={{ marginTop: '16px', fontSize: '12px', color: theme.colors.neutral.gray500 }}>
-              <InfoCircleOutlined /> This is an automated site report. Physical verification and store audit may apply.
-            </div>
-          </InfoCard>
-        </Col>
-      </Row>
+        {/* 5. Remarks */}
+        <SectionCard title="Engineer's Site Remarks" icon={<Paragraph />}>
+          <div style={{ fontSize: '15px', background: '#f8fafc', padding: '20px', borderRadius: '12px', border: '1px solid #f1f5f9', color: '#334155' }}>
+            {log.remarks || 'Construction proceeding as per layout. All safety protocols followed.'}
+          </div>
+        </SectionCard>
+      </div>
     </PageContainer>
   )
 }

@@ -7,6 +7,8 @@ import {
     CloseCircleOutlined,
     ClockCircleOutlined,
     FileDoneOutlined,
+    EyeOutlined,
+    EditOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { purchaseOrderService, PurchaseOrder } from '../../services/api/purchaseOrders'
@@ -138,6 +140,22 @@ const PurchaseOrderList = () => {
             width: 200,
             render: (_: any, record: PurchaseOrder) => (
                 <Space>
+                    <Button
+                        type="link"
+                        icon={<EyeOutlined />}
+                        onClick={() => navigate(`/procurement/purchase-orders/${record.id}`)}
+                        style={{ padding: 0 }}
+                    >
+                        View
+                    </Button>
+                    <Button
+                        type="link"
+                        icon={<EditOutlined />}
+                        onClick={() => navigate(`/procurement/purchase-orders/${record.id}/edit`)}
+                        style={{ padding: 0 }}
+                    >
+                        Edit
+                    </Button>
                     {record.status === 'draft' && (
                         <>
                             <Button

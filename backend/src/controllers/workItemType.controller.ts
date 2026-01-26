@@ -21,7 +21,7 @@ export const getAllWorkItemTypes = async (req: AuthRequest, res: Response, next:
 
 export const createWorkItemType = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { name, code, description } = req.body
+        const { name, code, uom, description } = req.body
 
         if (!name) {
             throw createError('Name is required', 400)
@@ -30,6 +30,7 @@ export const createWorkItemType = async (req: AuthRequest, res: Response, next: 
         const newItem = await WorkItemType.create({
             name,
             code,
+            uom,
             description,
             is_active: true
         })
@@ -47,7 +48,7 @@ export const createWorkItemType = async (req: AuthRequest, res: Response, next: 
 export const updateWorkItemType = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
-        const { name, code, description, is_active } = req.body
+        const { name, code, uom, description, is_active } = req.body
 
         const item = await WorkItemType.findByPk(id)
         if (!item) {
@@ -57,6 +58,7 @@ export const updateWorkItemType = async (req: AuthRequest, res: Response, next: 
         await item.update({
             name,
             code,
+            uom,
             description,
             is_active
         })

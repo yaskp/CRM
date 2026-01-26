@@ -16,6 +16,10 @@ interface Warehouse {
   address?: string
   is_common: boolean
   type: 'central' | 'site'
+  project?: {
+    id: number
+    name: string
+  }
 }
 
 const WarehouseList = () => {
@@ -82,20 +86,27 @@ const WarehouseList = () => {
       ),
     },
     {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      width: 150,
-      render: (type: string) => {
-        const isSite = type === 'site'
+      title: 'Type / Project',
+      key: 'type_project',
+      width: 250,
+      render: (_: any, record: Warehouse) => {
+        const isSite = record.type === 'site'
         return (
-          <Tag
-            icon={isSite ? <ShopOutlined /> : <BankOutlined />}
-            color={isSite ? 'orange' : 'purple'}
-            style={{ fontWeight: 500, textTransform: 'capitalize' }}
-          >
-            {type || 'Central'}
-          </Tag>
+          <Space direction="vertical" size={4}>
+            <Tag
+              icon={isSite ? <ShopOutlined /> : <BankOutlined />}
+              color={isSite ? 'orange' : 'purple'}
+              style={{ fontWeight: 500, textTransform: 'capitalize', margin: 0 }}
+            >
+              {record.type || 'Central'}
+            </Tag>
+            {isSite && record.project && (
+              <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+                <PlusOutlined style={{ fontSize: 10, marginRight: 4 }} rotate={45} />
+                {record.project.name}
+              </Text>
+            )}
+          </Space>
         )
       },
     },

@@ -26,7 +26,7 @@ interface Material {
     material_code: string
     name: string
     category: string
-    unit: string
+    unit: string | string[]
     description?: string
     hsn_code?: string
     gst_rate?: number
@@ -121,7 +121,17 @@ const MaterialList = () => {
             title: 'Unit',
             dataIndex: 'unit',
             key: 'unit',
-            width: 100,
+            width: 150,
+            render: (unit: string | string[]) => {
+                const units = Array.isArray(unit) ? unit : (unit ? [unit] : []);
+                return (
+                    <Space size={[0, 4]} wrap>
+                        {units.map((u, i) => (
+                            <Tag key={i} color="purple">{u}</Tag>
+                        ))}
+                    </Space>
+                );
+            }
         },
         {
             title: 'HSN Code',

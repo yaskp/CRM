@@ -85,6 +85,40 @@ const SRNForm = () => {
     }
   }, [id])
 
+  // Filtered Data
+  const [poMaterials, setPoMaterials] = useState<any[]>([])
+  const [filteredVendors, setFilteredVendors] = useState<any[]>([])
+  const selectedPOId = watch('purchase_order_id')
+
+  // Filter Vendors based on selected Project (if Purchase Return)
+  useEffect(() => {
+    if (destType === 'vendor' && sourceType === 'project' && sourceId) {
+      fetchProjectVendors(Number(sourceId))
+    } else {
+      setFilteredVendors([])
+    }
+  }, [destType, sourceType, sourceId])
+
+  const fetchProjectVendors = async (pId: number) => {
+    try {
+      const response = await purchaseOrderService.getPurchaseOrders({
+        project_id: pId,
+        status: 'approved'
+      })
+      const pos = response.purchaseOrders || []
+      // Extract unique vendors
+      const vendorIds = new Set(pos.map((p: any) => p.vendor_id))
+      const filtered = vendors.filter(v => vendorIds.has(v.id))
+      setFilteredVendors(filtered)
+
+      if (filtered.length === 0) {
+        message.info('No approved purchase orders found for this project.')
+      }
+    } catch (e) {
+      console.error('Failed to filter vendors', e)
+    }
+  }
+
   // PO Fetching when Vendor changes
   useEffect(() => {
     if (vendorId) {
@@ -94,9 +128,18 @@ const SRNForm = () => {
     }
   }, [vendorId])
 
-  // Filter Materials based on selected PO
-  const [poMaterials, setPoMaterials] = useState<any[]>([])
-  const selectedPOId = watch('purchase_order_id')
+  const fetchVendorPOs = async (vId: number) => {
+    try {
+      const response = await purchaseOrderService.getPurchaseOrders({
+        vendor_id: vId,
+        project_id: sourceType === 'project' ? Number(sourceId) : undefined,
+        status: 'approved'
+      })
+      setPurchaseOrders(response.purchaseOrders || [])
+    } catch (error) {
+      console.error('Failed to fetch POs', error)
+    }
+  }
 
   useEffect(() => {
     if (selectedPOId) {
@@ -109,20 +152,31 @@ const SRNForm = () => {
         const filtered = materials.filter(m => allowedIds.has(m.id))
         setPoMaterials(filtered)
 
-        // Optional: Pre-fill items with remaining qty from PO if desired? 
-        // For now, let's just clear invalid items or warn
-        const currentItems = watch('items')
-        const validItems = currentItems?.filter((item: any) => allowedIds.has(item.material_id)) || []
-        // If items changed, update
-        if (validItems.length !== currentItems?.length) {
-          setValue('items', validItems)
-          message.info('Removed items not present in the selected Purchase Order')
+        // AUTO-POPULATE ITEMS (if table is empty)
+        if (!id && items.length === 0) {
+          const mappedItems = po.items.map((pi: any) => ({
+            material_id: pi.material_id,
+            material_name: pi.material?.name,
+            quantity: Number(pi.quantity),
+            remarks: ''
+          }))
+          setItems(mappedItems)
+          setValue('items', mappedItems)
+          message.success(`Imported ${mappedItems.length} items from PO`)
+        } else if (items.length > 0) {
+          // Filter existing items to ensure they belong to this PO
+          const validItems = items.filter((item: any) => allowedIds.has(item.material_id))
+          if (validItems.length !== items.length) {
+            setItems(validItems)
+            setValue('items', validItems)
+            message.warning('Filtered items to match the selected Purchase Order')
+          }
         }
       }
     } else {
       setPoMaterials(materials) // Reset to all materials
     }
-  }, [selectedPOId, purchaseOrders, materials])
+  }, [selectedPOId, purchaseOrders, materials, id])
 
   // Initial Material Sync
   useEffect(() => {
@@ -176,18 +230,6 @@ const SRNForm = () => {
       setVendors(vendRes.vendors || [])
     } catch (error) {
       message.error('Failed to load metadata')
-    }
-  }
-
-  const fetchVendorPOs = async (vId: number) => {
-    try {
-      const response = await purchaseOrderService.getPurchaseOrders({
-        vendor_id: vId,
-        status: 'approved'
-      })
-      setPurchaseOrders(response.purchaseOrders || [])
-    } catch (error) {
-      console.error('Failed to fetch POs', error)
     }
   }
 
@@ -357,18 +399,22 @@ const SRNForm = () => {
       title: 'Return Qty',
       key: 'quantity',
       width: '20%',
-      render: (_: any, record: SRNFormItem, index: number) => (
-        <InputNumber
-          style={{ width: '100%' }}
-          placeholder="Qty"
-          value={record.quantity}
-          min={0}
-          step={0.01}
-          status={sourceType === 'warehouse' && (stockMap[record.material_id] || 0) < record.quantity ? 'error' : ''}
-          onChange={(value) => updateItem(index, 'quantity', value || 0)}
-          size="large"
-        />
-      ),
+      render: (_: any, record: SRNFormItem, index: number) => {
+        const available = stockMap[record.material_id] || 0
+        return (
+          <InputNumber
+            style={{ width: '100%' }}
+            placeholder="Qty"
+            value={record.quantity}
+            min={0}
+            max={available}
+            step={0.01}
+            status={record.quantity > available ? 'error' : ''}
+            onChange={(value) => updateItem(index, 'quantity', value || 0)}
+            size="large"
+          />
+        )
+      },
     },
     {
       title: 'Remarks',
@@ -509,7 +555,7 @@ const SRNForm = () => {
                           }}
                         >
                           {destType === 'vendor'
-                            ? vendors.map(v => <Option key={v.id} value={v.id}>{v.name}</Option>)
+                            ? (filteredVendors.length > 0 ? filteredVendors : vendors).map(v => <Option key={v.id} value={v.id}>{v.name}</Option>)
                             : warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)
                           }
                         </Select>

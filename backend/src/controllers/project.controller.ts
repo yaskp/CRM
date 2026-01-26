@@ -47,7 +47,16 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
       city,
       state,
       start_date,
-      site_state_code
+      site_state_code,
+      // Extra Client Fields
+      client_group_id,
+      client_type,
+      gstin,
+      pan,
+      pincode,
+      payment_terms,
+      credit_limit,
+      is_gst_registered
     } = req.body
 
     const quotation = await Quotation.findByPk(quotationId, {
@@ -73,15 +82,13 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
 
     // Check if project already created
     const lead = (quotation as any).lead as Lead
+    let project = null
+    let isUpdate = false
+
     if (lead.project_id) {
-      const existingProject = await Project.findByPk(lead.project_id)
-      if (existingProject) {
-        await transaction.rollback()
-        return res.json({
-          success: true,
-          message: 'Project already exists for this lead',
-          project: existingProject
-        })
+      project = await Project.findByPk(lead.project_id, { transaction })
+      if (project) {
+        isUpdate = true
       }
     }
 
@@ -110,23 +117,34 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
         clientId = existingClient.id
         finalClient = existingClient
       } else {
-        // Find a default group if not provided (e.g., Corporate)
-        let group = await ClientGroup.findOne({ where: { group_type: 'corporate' }, transaction })
-        if (!group) group = await ClientGroup.findOne({ transaction })
+        // Find a default group if not provided (e.g., Corporate) for NON-individual clients
+        let finalGroupId = client_group_id;
+
+        if (!finalGroupId && client_type !== 'individual') {
+          let fallbackGroup = await ClientGroup.findOne({ where: { group_type: 'corporate' }, transaction })
+          if (!fallbackGroup) fallbackGroup = await ClientGroup.findOne({ transaction })
+          finalGroupId = fallbackGroup?.id;
+        }
 
         // Create New Client
         const clientCode = await generateClientCode()
         const newClient = await Client.create({
           client_code: clientCode,
           company_name: lead.company_name || lead.name,
-          client_group_id: group?.id,
+          client_group_id: finalGroupId,
           contact_person: lead.name,
           email: lead.email,
           phone: lead.phone,
           address: lead.address,
           city: lead.city,
           state: lead.state,
-          client_type: 'company',
+          pincode: pincode,
+          gstin: gstin,
+          pan: pan,
+          is_gst_registered: is_gst_registered !== undefined ? is_gst_registered : true,
+          payment_terms: payment_terms,
+          credit_limit: credit_limit,
+          client_type: client_type || 'company',
           status: 'active'
         }, { transaction })
 
@@ -168,76 +186,162 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
     }
 
 
-    // Create Project
-    const projectCode = await generateProjectCode()
-    const project = await Project.create({
-      project_code: projectCode,
-      name: name || (lead.name ? `${lead.name} Project` : `Project for Quote ${quotation.quotation_number}`),
+    if (isUpdate && project) {
+      // 🔄 UPDATE EXISTING PROJECT
+      await project.update({
+        name: name || project.name,
+        contract_value: quotation.final_amount,
+        start_date: start_date || project.start_date,
+        site_location: location || project.site_location,
+        site_city: city || project.site_city,
+        site_state: state || project.site_state,
+        site_state_code: finalSiteStateCode || project.site_state_code,
+        // Update client identity fields in case they changed
+        client_name: finalClient?.company_name || project.client_name,
+        client_contact_person: finalClient?.contact_person || project.client_contact_person,
+        client_email: finalClient?.email || project.client_email,
+        client_phone: finalClient?.phone || project.client_phone,
+        client_address: finalClient?.address || project.client_address,
+        client_gst_number: finalClient?.gstin || project.client_gst_number,
+        client_pan_number: finalClient?.pan || project.client_pan_number,
+      }, { transaction })
 
-      // Client Identity (Normalization fallback)
-      client_id: clientId,
-      client_name: finalClient?.company_name || lead.company_name || 'Unknown Client',
-      client_contact_person: finalClient?.contact_person || lead.name,
-      client_email: finalClient?.email || lead.email,
-      client_phone: finalClient?.phone || lead.phone,
-      client_address: finalClient?.address || lead.address,
-      client_gst_number: finalClient?.gstin,
-      client_pan_number: finalClient?.pan || undefined,
+      // Update Extended Details
+      const details = await ProjectDetails.findOne({ where: { project_id: project.id }, transaction })
+      if (details) {
+        await details.update({
+          contract_value: quotation.final_amount,
+          payment_terms: quotation.payment_terms || details.payment_terms,
+          remarks: (details.remarks || '') + `\nSynced with Quote Rev: ${quotation.quotation_number} v${quotation.version_number}`
+        }, { transaction })
+      }
+    } else {
+      // 🆕 CREATE NEW PROJECT
+      const projectCode = await generateProjectCode()
+      project = await Project.create({
+        project_code: projectCode,
+        name: name || (lead.name ? `${lead.name} Project` : `Project for Quote ${quotation.quotation_number}`),
 
-      // Site Details
-      site_location: location || lead.address,
-      site_address: lead.address,
-      site_city: city || lead.city,
-      site_state: state || lead.state,
-      site_state_code: finalSiteStateCode,
+        // Client Identity (Normalization fallback)
+        client_id: clientId,
+        client_name: finalClient?.company_name || lead.company_name || 'Unknown Client',
+        client_contact_person: finalClient?.contact_person || lead.name,
+        client_email: finalClient?.email || lead.email,
+        client_phone: finalClient?.phone || lead.phone,
+        client_address: finalClient?.address || lead.address,
+        client_gst_number: finalClient?.gstin,
+        client_pan_number: finalClient?.pan || undefined,
 
-      // Duplication for compatibility
-      client_gstin: projectClientGstin,
-      client_ho_address: projectClientAddress,
+        // Site Details
+        site_location: location || lead.address,
+        site_address: lead.address,
+        site_city: city || lead.city,
+        site_state: state || lead.state,
+        site_state_code: finalSiteStateCode,
 
-      contract_value: quotation.final_amount,
-      start_date: start_date || new Date(),
-      status: 'confirmed',
-      created_by: req.user!.id,
-      company_id: req.user!.company_id,
-    }, { transaction })
+        // Duplication for compatibility
+        client_gstin: projectClientGstin,
+        client_ho_address: projectClientAddress,
 
-    // Initialize Extended Project Details
-    await ProjectDetails.create({
-      project_id: project.id,
-      site_address: lead.address,
-      contract_value: quotation.final_amount,
-      start_date: start_date || new Date(),
-      payment_terms: quotation.payment_terms || undefined,
-      remarks: `Converted from Quotation: ${quotation.quotation_number}`
-    }, { transaction })
+        contract_value: quotation.final_amount,
+        start_date: start_date || new Date(),
+        status: 'confirmed',
+        created_by: req.user!.id,
+        company_id: req.user!.company_id,
+      }, { transaction })
 
-    // Link Lead to Project
-    await lead.update({ project_id: project.id, status: 'converted' }, { transaction })
+      // Initialize Extended Project Details
+      await ProjectDetails.create({
+        project_id: project.id,
+        site_address: lead.address,
+        contract_value: quotation.final_amount,
+        start_date: start_date || new Date(),
+        payment_terms: quotation.payment_terms || undefined,
+        remarks: `Converted from Quotation: ${quotation.quotation_number}`
+      }, { transaction })
 
-    // Create Site Warehouse
-    const warehouseCode = `WH-${projectCode}`
-    await Warehouse.create({
-      name: `Site - ${project.name}`,
-      code: warehouseCode,
-      type: 'site',
-      company_id: req.user!.company_id,
-      is_common: false,
-      project_id: project.id
-    }, { transaction })
+      // Link Lead to Project
+      await lead.update({ project_id: project.id, status: 'converted' }, { transaction })
+    }
 
-    // LINK QUOTATION TO PROJECT
+    if (!project) {
+      throw createError('Failed to identify or create project', 500)
+    }
+
+    // 🔗 LINK QUOTATION TO PROJECT
     await quotation.update({ project_id: project.id }, { transaction })
 
-    // AUTO-INITIALIZE BILL OF QUANTITIES (BOQ)
-    const boq = await ProjectBOQ.create({
-      project_id: project.id,
-      title: `Bill of Quantities (BOQ) - Synced from Quote ${quotation.quotation_number}`,
-      version: 1,
-      status: 'approved', // Auto-approved as it matches the contract
-      created_by: req.user!.id,
-      total_estimated_amount: quotation.total_amount
-    }, { transaction })
+    // After project is identified/created:
+    const projectCode = project.project_code;
+
+    // 🏗️ SITE / WAREHOUSE LOGIC
+    const {
+      warehouse_action = 'create_new', // 'create_new' or 'link_existing'
+      warehouse_id: existingWarehouseId,
+      warehouse_name,
+      warehouse_type,
+      warehouse_code: customWarehouseCode,
+      warehouse_address,
+      warehouse_city,
+      warehouse_state,
+      warehouse_state_code: whStateCode,
+      warehouse_pincode,
+      warehouse_gstin,
+      warehouse_incharge_name,
+      warehouse_incharge_phone
+    } = req.body
+
+    if (warehouse_action === 'link_existing' && existingWarehouseId) {
+      const warehouse = await Warehouse.findByPk(existingWarehouseId, { transaction })
+      if (warehouse) {
+        await warehouse.update({ project_id: project.id }, { transaction })
+      }
+    } else if (warehouse_action === 'create_new') {
+      const warehouseCode = customWarehouseCode || `WH-${projectCode}`
+      await Warehouse.create({
+        name: warehouse_name || `Site - ${project.name}`,
+        code: warehouseCode,
+        type: warehouse_type || 'site',
+        company_id: req.user!.company_id,
+        is_common: false,
+        project_id: project.id,
+        address: warehouse_address || project.site_address,
+        city: warehouse_city || project.site_city,
+        state: warehouse_state || project.site_state,
+        state_code: whStateCode || project.site_state_code,
+        pincode: warehouse_pincode || (finalClient?.pincode as any),
+        gstin: warehouse_gstin || project.client_gst_number,
+        incharge_name: warehouse_incharge_name || project.client_contact_person,
+        incharge_phone: warehouse_incharge_phone || project.client_phone
+      }, { transaction })
+    }
+
+    // 🚀 AUTO-INITIALIZE OR SYNC BILL OF QUANTITIES (BOQ)
+    let boq = await ProjectBOQ.findOne({
+      where: { project_id: project.id, status: { [Op.ne]: 'obsolete' } },
+      order: [['version', 'DESC']],
+      transaction
+    })
+
+    if (!boq) {
+      boq = await ProjectBOQ.create({
+        project_id: project.id,
+        title: `Bill of Quantities (BOQ) - Synced from Quote ${quotation.quotation_number}`,
+        version: 1,
+        status: 'approved',
+        created_by: req.user!.id,
+        total_estimated_amount: quotation.total_amount
+      }, { transaction })
+    } else if (isUpdate) {
+      // Update existing BOQ total and title
+      await boq.update({
+        total_estimated_amount: quotation.total_amount,
+        title: `BOQ Revised - Quote ${quotation.quotation_number} (v${quotation.version_number})`
+      }, { transaction })
+
+      // Clear old items for this version to refresh from the new quote
+      await ProjectBOQItem.destroy({ where: { boq_id: boq.id }, transaction })
+    }
 
     // Pull material items from quotation to populate BOQ
     const quotationItems = await QuotationItem.findAll({
@@ -249,12 +353,12 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
       const boqItems = quotationItems
         .filter(qi => !!qi.reference_id) // Only materials with valid master link
         .map(qi => ({
-          boq_id: boq.id,
+          boq_id: boq!.id,
           material_id: qi.reference_id!,
           quantity: qi.quantity,
           unit: qi.unit,
           estimated_rate: qi.rate,
-          remarks: `Synced from Quotation Item: ${qi.description}`
+          remarks: `Synced from Quote Item: ${qi.description}`
         }))
 
       if (boqItems.length > 0) {

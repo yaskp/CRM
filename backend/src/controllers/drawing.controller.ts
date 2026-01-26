@@ -1,5 +1,4 @@
 import { Response, NextFunction } from 'express'
-import { Request } from 'express'
 import { AuthRequest } from '../middleware/auth.middleware'
 import Drawing from '../models/Drawing'
 import DrawingPanel from '../models/DrawingPanel'
@@ -48,18 +47,18 @@ export const uploadDrawing = async (req: AuthRequest, res: Response, next: NextF
       const { project_id, drawing_number, drawing_name, drawing_type } = req.body
       const file = (req as any).file
 
-      if (!project_id || !file) {
-        return next(createError('Project ID and file are required', 400))
+      if (!project_id) {
+        return next(createError('Project ID is required', 400))
       }
 
       const drawing = await Drawing.create({
         project_id,
         drawing_number,
-        drawing_name: drawing_name || file.originalname,
+        drawing_name: drawing_name || (file ? file.originalname : 'Panel Schedule'),
         drawing_type,
-        file_url: `/uploads/drawings/${file.filename}`,
-        file_type: path.extname(file.originalname).slice(1),
-        file_size: file.size,
+        file_url: file ? `/uploads/drawings/${file.filename}` : undefined,
+        file_type: file ? path.extname(file.originalname).slice(1) : undefined,
+        file_size: file ? file.size : undefined,
         uploaded_by: req.user!.id,
         version: 1,
         is_active: true,
@@ -135,8 +134,8 @@ export const getDrawing = async (req: AuthRequest, res: Response, next: NextFunc
           association: 'panels',
           include: [
             {
-              association: 'progress',
-              order: [['progress_date', 'DESC']],
+              association: 'dprRecords',
+              order: [['report_date', 'DESC']],
               limit: 1,
             },
           ],
@@ -172,7 +171,7 @@ export const markPanel = async (req: AuthRequest, res: Response, next: NextFunct
     }
 
     const panel = await DrawingPanel.create({
-      drawing_id: id,
+      drawing_id: Number(id),
       panel_identifier,
       coordinates_json: JSON.stringify(coordinates_json),
       panel_type,
@@ -189,6 +188,40 @@ export const markPanel = async (req: AuthRequest, res: Response, next: NextFunct
   }
 }
 
+export const bulkCreatePanels = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params // drawing_id
+    const { panels } = req.body
+
+    if (!panels || !Array.isArray(panels)) {
+      throw createError('Panels array is required', 400)
+    }
+
+    const drawing = await Drawing.findByPk(id)
+    if (!drawing) {
+      throw createError('Drawing not found', 404)
+    }
+
+    const createdPanels = await DrawingPanel.bulkCreate(
+      panels.map(p => ({
+        drawing_id: Number(id),
+        panel_identifier: p.panel_identifier,
+        panel_type: p.panel_type || 'Primary',
+        coordinates_json: JSON.stringify(p.dimensions || {}),
+        created_by: req.user!.id
+      }))
+    )
+
+    res.status(201).json({
+      success: true,
+      message: `${createdPanels.length} panels created successfully`,
+      count: createdPanels.length
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const getPanels = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params
@@ -197,8 +230,8 @@ export const getPanels = async (req: AuthRequest, res: Response, next: NextFunct
       where: { drawing_id: id },
       include: [
         {
-          association: 'progress',
-          order: [['progress_date', 'DESC']],
+          association: 'dprRecords',
+          order: [['report_date', 'DESC']],
         },
       ],
     })
@@ -223,7 +256,7 @@ export const updatePanelProgress = async (req: AuthRequest, res: Response, next:
     }
 
     const panelProgress = await PanelProgress.create({
-      panel_id: panelId,
+      panel_id: Number(panelId),
       progress_date,
       progress_percentage,
       status: status || 'in_progress',

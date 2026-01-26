@@ -256,7 +256,7 @@ const WorkOrderForm = () => {
           work_item_type_id: item.work_item_type_id,
           description: item.description,
           quantity: item.quantity,
-          unit: item.unit,
+          unit: item.unit || 'LS',
           rate: item.rate,
         })),
         discount_percentage: discount,

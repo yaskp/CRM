@@ -29,6 +29,7 @@ import projectHierarchyRoutes from './projectHierarchy.routes'
 import boqRoutes from './boq.routes'
 import masterRoutes from './master.routes'
 import budgetRoutes from './budget.routes'
+import workTemplateRoutes from './workTemplate.routes'
 
 const router = Router()
 
@@ -62,5 +63,6 @@ router.use('/project-hierarchy', projectHierarchyRoutes)
 router.use('/boqs', boqRoutes)
 router.use('/master', masterRoutes)
 router.use('/budgets', budgetRoutes)
+router.use('/work-templates', workTemplateRoutes)
 
 export default router

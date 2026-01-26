@@ -10,6 +10,7 @@ interface DailyProgressReportAttributes {
   building_id?: number
   floor_id?: number
   zone_id?: number
+  drawing_panel_id?: number
   work_item_type_id?: number
   work_completion_percentage?: number
   guide_wall_running_meter?: number
@@ -34,6 +35,7 @@ class DailyProgressReport extends Model<DailyProgressReportAttributes, DailyProg
   public building_id?: number
   public floor_id?: number
   public zone_id?: number
+  public drawing_panel_id?: number
   public work_item_type_id?: number
   public work_completion_percentage?: number
   public guide_wall_running_meter?: number
@@ -95,6 +97,14 @@ DailyProgressReport.init(
       allowNull: true,
       references: {
         model: 'project_zones',
+        key: 'id',
+      },
+    },
+    drawing_panel_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'drawing_panels',
         key: 'id',
       },
     },

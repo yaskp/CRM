@@ -4,7 +4,6 @@ import {
     ArrowLeftOutlined,
     EditOutlined,
     ProjectOutlined,
-    CalendarOutlined,
     PhoneOutlined,
     MailOutlined,
     EnvironmentOutlined,
@@ -12,17 +11,17 @@ import {
     UserOutlined,
     GlobalOutlined,
     InfoCircleOutlined,
-    DownloadOutlined,
-    LinkOutlined
+    DownloadOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { leadService } from '../../services/api/leads'
+import { quotationService } from '../../services/api/quotations'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import { theme } from '../../styles/theme'
 import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 
 const LeadDetails = () => {
     const { id } = useParams()
@@ -183,22 +182,70 @@ const LeadDetails = () => {
                         </div>
                     </InfoCard>
 
-                    <Button
-                        block
-                        type="primary"
-                        style={{ marginTop: '16px', height: '40px' }}
-                        onClick={() => navigate(`/sales/quotations/new?lead_id=${lead.id}`)}
-                        icon={<FileTextOutlined />}
-                    >
-                        Generate Quotation
-                    </Button>
+                    {lead.status !== 'converted' ? (
+                        <Button
+                            block
+                            type="primary"
+                            style={{ marginTop: '16px', height: '40px' }}
+                            onClick={async () => {
+                                if (lead.status === 'quoted') {
+                                    try {
+                                        const hide = message.loading('Preparing revision...', 0)
+                                        const res = await quotationService.getQuotationsByLead(lead.id)
+                                        const quotes = res.quotations || []
+                                        if (quotes.length > 0) {
+                                            const latest = quotes.sort((a: any, b: any) => b.version_number - a.version_number)[0]
+                                            const revRes = await quotationService.reviseQuotation(latest.id)
+                                            hide()
+                                            message.success(`Creating Revision v${revRes.quotation.version_number}`)
+                                            navigate(`/sales/quotations/${revRes.quotation.id}/edit`)
+                                            return
+                                        }
+                                        hide()
+                                    } catch (error) {
+                                        message.error('Failed to create revision')
+                                    }
+                                }
+                                navigate(`/sales/quotations/new?lead_id=${lead.id}`)
+                            }}
+                            icon={<FileTextOutlined />}
+                            loading={loading}
+                        >
+                            {lead.status === 'quoted' ? 'Revise Quotation' : 'Generate Quotation'}
+                        </Button>
+                    ) : (
+                        <div style={{ marginTop: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '8px', border: '1px solid #d9d9d9' }}>
+                            <Text type="secondary" style={{ fontSize: '13px' }}>
+                                <InfoCircleOutlined /> Lead is converted. Manage new quotes or revisions through the linked <b>Project</b>.
+                            </Text>
+                        </div>
+                    )}
 
                     {lead.status !== 'converted' && lead.status !== 'lost' && (
                         <Button
                             block
                             style={{ marginTop: '12px', height: '40px', borderColor: theme.colors.success.main, color: theme.colors.success.main }}
-                            onClick={() => navigate('/sales/projects/new', { state: { name: lead.name, company_name: lead.company_name, location: lead.address, lead_id: lead.id } })}
+                            onClick={async () => {
+                                try {
+                                    setLoading(true)
+                                    const res = await quotationService.getQuotationsByLead(lead.id)
+                                    const quotes = res.quotations || []
+
+                                    if (quotes.length > 0) {
+                                        const latest = quotes.sort((a: any, b: any) => b.version_number - a.version_number)[0]
+                                        navigate(`/sales/quotations/${latest.id}`)
+                                    } else {
+                                        message.warning('Please create a quotation first to convert this lead.')
+                                        navigate(`/sales/quotations/new?lead_id=${lead.id}`)
+                                    }
+                                } catch (error) {
+                                    message.error('Failed to process conversion')
+                                } finally {
+                                    setLoading(false)
+                                }
+                            }}
                             icon={<ProjectOutlined />}
+                            loading={loading}
                         >
                             Convert to Project
                         </Button>

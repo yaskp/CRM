@@ -5,7 +5,8 @@ import {
   getQuotation,
   updateQuotation,
   getQuotationsByLead,
-  downloadPdf
+  downloadPdf,
+  reviseQuotation
 } from '../controllers/quotation.controller'
 import { authenticate } from '../middleware/auth.middleware'
 import { hasPermission } from '../middleware/rbac.middleware'
@@ -20,6 +21,7 @@ router.get('/lead/:leadId', hasPermission('quotations.read'), getQuotationsByLea
 router.get('/:id/pdf', hasPermission('quotations.read'), downloadPdf)
 router.get('/:id', hasPermission('quotations.read'), getQuotation)
 router.put('/:id', hasPermission('quotations.update'), updateQuotation)
+router.post('/:id/revise', hasPermission('quotations.create'), reviseQuotation)
 
 export default router
 

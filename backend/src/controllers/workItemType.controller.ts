@@ -4,10 +4,9 @@ import { AuthRequest } from '../middleware/auth.middleware'
 import WorkItemType from '../models/WorkItemType'
 import { createError } from '../middleware/errorHandler'
 
-export const getAllWorkItemTypes = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getAllWorkItemTypes = async (_req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const types = await WorkItemType.findAll({
-            where: { is_active: true },
             order: [['name', 'ASC']]
         })
         res.json({
@@ -40,7 +39,10 @@ export const createWorkItemType = async (req: AuthRequest, res: Response, next: 
             message: 'Work item type created successfully',
             data: newItem
         })
-    } catch (error) {
+    } catch (error: any) {
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return next(createError('A work item type with this name already exists', 409))
+        }
         next(error)
     }
 }
@@ -68,7 +70,10 @@ export const updateWorkItemType = async (req: AuthRequest, res: Response, next: 
             message: 'Work item type updated successfully',
             data: item
         })
-    } catch (error) {
+    } catch (error: any) {
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return next(createError('A work item type with this name already exists', 409))
+        }
         next(error)
     }
 }

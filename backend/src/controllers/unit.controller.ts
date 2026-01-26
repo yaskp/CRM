@@ -7,11 +7,11 @@ import { createError } from '../middleware/errorHandler'
 export const getAllUnits = async (_req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const units = await Unit.findAll({
-            where: { is_active: true },
             order: [['name', 'ASC']]
         })
         res.json({
             success: true,
+            data: units,
             units: units
         })
     } catch (error) {
@@ -40,7 +40,10 @@ export const createUnit = async (req: AuthRequest, res: Response, next: NextFunc
             message: 'Unit created successfully',
             data: newUnit
         })
-    } catch (error) {
+    } catch (error: any) {
+        if (error.name === 'SequelizeUniqueConstraintError') {
+            return next(createError('A unit with this code already exists', 409))
+        }
         next(error)
     }
 }

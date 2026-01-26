@@ -10,10 +10,12 @@ import {
   UserAddOutlined,
   ProjectOutlined,
   FileTextOutlined,
-  EditOutlined
+  EditOutlined,
+  LinkOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { leadService } from '../../services/api/leads'
+import { quotationService } from '../../services/api/quotations'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
 import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
@@ -142,7 +144,7 @@ const LeadList = () => {
       title: 'Docs',
       key: 'docs',
       width: 120,
-      render: (_, record: Lead) => (
+      render: (_: any, record: Lead) => (
         <Space>
           {record.soil_report_url && (
             <a href={record.soil_report_url} target="_blank" rel="noopener noreferrer" title="Soil Report">
@@ -191,52 +193,104 @@ const LeadList = () => {
           >
             View
           </Button>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate(`/sales/leads/${record.id}/edit`)
-            }}
-            style={{ padding: 0 }}
-          >
-            Edit
-          </Button>
-          <Button
-            type="link"
-            icon={<FileTextOutlined />}
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate(`/sales/quotations/new?lead_id=${record.id}`)
-            }}
-            style={{ padding: 0 }}
-          >
-            Quote
-          </Button>
-          <Button
-            type="link"
-            icon={<ProjectOutlined />}
-            onClick={(e) => {
-              e.stopPropagation();
-              // If lead is not converted and no project linked, allow creating project
-              if (record.status !== 'converted' && record.status !== 'lost') {
-                navigate('/sales/projects/new', {
-                  state: {
-                    name: record.name,
-                    company_name: record.company_name, // Map company name if needed
-                    location: record.address, // Mapping address to location
-                    lead_id: record.id
+
+          {record.status !== 'converted' && record.status !== 'lost' && (
+            <>
+              <Button
+                type="link"
+                icon={<EditOutlined />}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigate(`/sales/leads/${record.id}/edit`)
+                }}
+                style={{ padding: 0 }}
+              >
+                Edit
+              </Button>
+              <Button
+                type="link"
+                icon={<FileTextOutlined />}
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  if (record.status === 'quoted') {
+                    try {
+                      const hide = message.loading('Preparing revision...', 0)
+                      // 1. Get quotations for this lead
+                      const res = await quotationService.getQuotationsByLead(record.id)
+                      const quotes = res.quotations || []
+
+                      if (quotes.length > 0) {
+                        // 2. Sort to find latest version
+                        const latest = quotes.sort((a: any, b: any) => b.version_number - a.version_number)[0]
+                        // 3. Call the revise API
+                        const revRes = await quotationService.reviseQuotation(latest.id)
+                        hide()
+                        message.success(`Creating Revision v${revRes.quotation.version_number}`)
+                        // 4. Navigate to edit the new revision
+                        navigate(`/sales/quotations/${revRes.quotation.id}/edit`)
+                        return
+                      }
+                      hide()
+                    } catch (error) {
+                      message.error('Failed to create revision')
+                    }
                   }
-                });
-              } else {
-                message.info('Lead is already converted or lost');
-              }
-            }}
-            disabled={record.status === 'converted' || record.status === 'lost'}
-            style={{ padding: 0 }}
-          >
-            Convert
-          </Button>
+                  // Fallback to standard new quote
+                  navigate(`/sales/quotations/new?lead_id=${record.id}`)
+                }}
+                disabled={record.status === 'converted' || record.status === 'lost'}
+                style={{ padding: 0 }}
+              >
+                {record.status === 'quoted' ? 'Revise' : 'Quote'}
+              </Button>
+              <Button
+                type="link"
+                icon={<ProjectOutlined />}
+                onClick={async (e) => {
+                  e.stopPropagation();
+
+                  try {
+                    const res = await quotationService.getQuotationsByLead(record.id)
+                    const quotes = res.quotations || []
+
+                    if (quotes.length > 0) {
+                      // Navigate to the latest quotation to finish conversion
+                      const latest = quotes.sort((a: any, b: any) => b.version_number - a.version_number)[0]
+                      navigate(`/sales/quotations/${latest.id}`)
+                    } else {
+                      message.warning('Please create a quotation first to convert this lead to a project.')
+                      navigate(`/sales/quotations/new?lead_id=${record.id}`)
+                    }
+                  } catch (error) {
+                    message.error('Failed to process conversion')
+                  }
+                }}
+                disabled={record.status === 'converted' || record.status === 'lost'}
+                style={{ padding: 0 }}
+              >
+                Convert
+              </Button>
+            </>
+          )}
+
+          {record.status === 'converted' && (
+            <Button
+              type="link"
+              icon={<LinkOutlined />}
+              onClick={(e) => {
+                e.stopPropagation()
+                // Navigate to the linked project if we have the ID, otherwise Lead detail
+                if ((record as any).project_id) {
+                  navigate(`/sales/projects/${(record as any).project_id}`)
+                } else {
+                  navigate(`/sales/leads/${record.id}`)
+                }
+              }}
+              style={{ padding: 0, color: theme.colors.success.main }}
+            >
+              Project
+            </Button>
+          )}
         </div>
       ),
     },

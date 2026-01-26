@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Form, Input, Button, Card, message, Typography, Space, Divider } from 'antd'
+import { Form, Input, Button, Card, message, Typography, Row, Col } from 'antd'
 import {
   UserOutlined,
   LockOutlined,
@@ -57,7 +57,7 @@ const Register = () => {
           border: 'none',
           overflow: 'hidden'
         }}
-        bodyStyle={{ padding: '40px' }}
+        styles={{ body: { padding: '40px' } }}
       >
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           <div style={{

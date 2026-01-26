@@ -11,6 +11,8 @@ import Vendor from '../models/Vendor'
 import PurchaseOrderItem from '../models/PurchaseOrderItem'
 import ProjectBOQ from '../models/ProjectBOQ'
 import ProjectBOQItem from '../models/ProjectBOQItem'
+import WorkOrder from '../models/WorkOrder'
+import { Op } from 'sequelize'
 
 // ...
 
@@ -45,6 +47,18 @@ export const createPurchaseOrder = async (req: AuthRequest, res: Response, next:
 
         if (!project || !vendor) {
             throw createError('Project or Vendor not found', 404)
+        }
+
+        // 1. Enforce Work Order check
+        const activeWO = await WorkOrder.findOne({
+            where: {
+                project_id,
+                status: { [Op.in]: ['approved', 'active'] }
+            }
+        })
+
+        if (!activeWO) {
+            throw createError('Cannot create Purchase Order without an approved/active Work Order for this project.', 403)
         }
 
         const finalCompanyStateCode = company_state_code || project.site_state_code || '27' // Default to Maharashtra if unknown
@@ -124,7 +138,8 @@ export const createPurchaseOrder = async (req: AuthRequest, res: Response, next:
                 tax_percentage: item.tax_percentage,
                 tax_amount: breakup.total_gst,
                 total_amount: breakup.grand_total,
-                boq_item_id: item.boq_item_id
+                boq_item_id: item.boq_item_id,
+                received_quantity: 0
             })
         })
 
@@ -336,7 +351,8 @@ export const updatePurchaseOrder = async (req: AuthRequest, res: Response, next:
                 tax_percentage: item.tax_percentage,
                 tax_amount: breakup.total_gst,
                 total_amount: breakup.grand_total,
-                boq_item_id: item.boq_item_id
+                boq_item_id: item.boq_item_id,
+                received_quantity: 0
             })
         })
 

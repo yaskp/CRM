@@ -7,7 +7,7 @@ interface DrawingAttributes {
   drawing_number?: string
   drawing_name?: string
   drawing_type?: string
-  file_url: string
+  file_url?: string
   file_type?: string
   file_size?: number
   uploaded_by: number
@@ -16,7 +16,7 @@ interface DrawingAttributes {
   is_active: boolean
 }
 
-interface DrawingCreationAttributes extends Optional<DrawingAttributes, 'id' | 'uploaded_at'> {}
+interface DrawingCreationAttributes extends Optional<DrawingAttributes, 'id' | 'uploaded_at'> { }
 
 class Drawing extends Model<DrawingAttributes, DrawingCreationAttributes> implements DrawingAttributes {
   public id!: number
@@ -24,7 +24,7 @@ class Drawing extends Model<DrawingAttributes, DrawingCreationAttributes> implem
   public drawing_number?: string
   public drawing_name?: string
   public drawing_type?: string
-  public file_url!: string
+  public file_url?: string
   public file_type?: string
   public file_size?: number
   public uploaded_by!: number
@@ -62,7 +62,7 @@ Drawing.init(
     },
     file_url: {
       type: DataTypes.STRING(500),
-      allowNull: false,
+      allowNull: true,
     },
     file_type: {
       type: DataTypes.STRING(50),

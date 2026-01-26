@@ -87,7 +87,7 @@ const MaterialRequisitionForm = () => {
     const fetchUnits = async () => {
         try {
             const response = await unitService.getUnits()
-            setUnits(response.data || [])
+            setUnits(response.data || response.units || [])
         } catch (error) {
             console.error('Failed to fetch units:', error)
         }

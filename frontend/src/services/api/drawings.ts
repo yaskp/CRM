@@ -59,6 +59,11 @@ export const drawingService = {
     return response.data
   },
 
+  bulkCreatePanels: async (drawingId: number, panels: any[]) => {
+    const response = await api.post(`/drawings/${drawingId}/panels/bulk`, { panels })
+    return response.data
+  },
+
   getPanels: async (drawingId: number) => {
     const response = await api.get(`/drawings/${drawingId}/panels`)
     return response.data

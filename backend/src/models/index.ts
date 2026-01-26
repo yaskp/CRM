@@ -54,6 +54,8 @@ import State from './State'
 import BudgetHead from './BudgetHead'
 import ProjectBudget from './ProjectBudget'
 import WorkerCategory from './WorkerCategory'
+import WorkTemplate from './WorkTemplate'
+import WorkTemplateItem from './WorkTemplateItem'
 
 // Define associations
 InventoryLedger.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
@@ -186,6 +188,8 @@ DailyProgressReport.belongsTo(ProjectBuilding, { foreignKey: 'building_id', as: 
 DailyProgressReport.belongsTo(ProjectFloor, { foreignKey: 'floor_id', as: 'floor' })
 DailyProgressReport.belongsTo(ProjectZone, { foreignKey: 'zone_id', as: 'zone' })
 DailyProgressReport.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+DailyProgressReport.belongsTo(DrawingPanel, { foreignKey: 'drawing_panel_id', as: 'panel' })
+DrawingPanel.hasMany(DailyProgressReport, { foreignKey: 'drawing_panel_id', as: 'dprRecords' })
 
 // Bar Bending Schedule
 BarBendingSchedule.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
@@ -296,6 +300,12 @@ BudgetHead.hasMany(Material, { foreignKey: 'budget_head_id', as: 'materials' })
 Expense.belongsTo(BudgetHead, { foreignKey: 'budget_head_id', as: 'budgetHead' })
 BudgetHead.hasMany(Expense, { foreignKey: 'budget_head_id', as: 'expenses' })
 
+// Work Templates
+WorkTemplate.hasMany(WorkTemplateItem, { foreignKey: 'template_id', as: 'items' })
+WorkTemplateItem.belongsTo(WorkTemplate, { foreignKey: 'template_id', as: 'template' })
+WorkTemplateItem.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+WorkItemType.hasMany(WorkTemplateItem, { foreignKey: 'work_item_type_id', as: 'templateItems' })
+
 export {
   User,
   Company,
@@ -350,6 +360,8 @@ export {
   State,
   BudgetHead,
   ProjectBudget,
-  WorkerCategory
+  WorkerCategory,
+  WorkTemplate,
+  WorkTemplateItem
 }
 

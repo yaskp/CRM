@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Card, Descriptions, Tag, Button, message, Spin, Row, Col, Typography, Divider, Modal, Select, Tabs, Empty } from 'antd'
+import { Card, Descriptions, Tag, Button, message, Spin, Row, Col, Typography, Divider, Modal, Select, Tabs, Empty, Space } from 'antd'
 import {
   ArrowLeftOutlined,
   ProjectOutlined,
@@ -21,6 +21,7 @@ import { PageContainer, PageHeader, SectionCard } from '../../components/common/
 import { getSecondaryButtonStyle, getPrimaryButtonStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 import ProjectStructure from './ProjectStructure'
+import ProjectPanels from './ProjectPanels'
 import ProjectBOQManager from './ProjectBOQ'
 import ProjectInventory from './ProjectInventory'
 
@@ -34,6 +35,7 @@ const ProjectDetails = () => {
   const [statusModalVisible, setStatusModalVisible] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [newStatus, setNewStatus] = useState('')
+  const [structureView, setStructureView] = useState<'buildings' | 'panels'>('panels')
 
   useEffect(() => {
     if (id) {
@@ -476,11 +478,38 @@ const ProjectDetails = () => {
               </span>
             ),
             children: (
-              <ProjectStructure
-                projectId={Number(id)}
-                initialHierarchy={project.buildings || []}
-                onUpdate={fetchProject}
-              />
+              <>
+                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
+                  <Space.Compact size="large">
+                    <Button
+                      type={structureView === 'panels' ? 'primary' : 'default'}
+                      onClick={() => setStructureView('panels')}
+                      icon={<ApartmentOutlined />}
+                      style={{ width: 160 }}
+                    >
+                      D-Wall Panels
+                    </Button>
+                    <Button
+                      type={structureView === 'buildings' ? 'primary' : 'default'}
+                      onClick={() => setStructureView('buildings')}
+                      icon={<BankOutlined />}
+                      style={{ width: 160 }}
+                    >
+                      Buildings
+                    </Button>
+                  </Space.Compact>
+                </div>
+
+                {structureView === 'panels' ? (
+                  <ProjectPanels projectId={Number(id)} />
+                ) : (
+                  <ProjectStructure
+                    projectId={Number(id)}
+                    initialHierarchy={project.buildings || []}
+                    onUpdate={fetchProject}
+                  />
+                )}
+              </>
             )
           },
           {

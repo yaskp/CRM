@@ -103,6 +103,7 @@ const QuotationList = () => {
       approved: 'cyan',
       rejected: 'red',
       expired: 'orange',
+      superseded: 'warning',
     }
     return colors[status] || 'default'
   }
@@ -189,7 +190,7 @@ const QuotationList = () => {
       render: (status: string, record: Quotation) => (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Tag color={getStatusColor(status)} style={{ fontWeight: 500, marginRight: 0 }}>
-            {status === 'accepted_by_party' ? 'ACCEPTED BY PARTY' : status === 'approved' ? 'APPROVED (INT)' : status.toUpperCase()}
+            {status === 'accepted_by_party' ? 'ACCEPTED BY PARTY' : status === 'approved' ? 'APPROVED (INT)' : status === 'superseded' ? 'SUPERSEDED' : status.toUpperCase()}
           </Tag>
           <Button
             type="text"
@@ -228,6 +229,7 @@ const QuotationList = () => {
               e.stopPropagation()
               navigate(`/sales/quotations/${record.id}/edit`)
             }}
+            disabled={record.status === 'superseded'}
             style={{ padding: 0 }}
           >
             Edit
@@ -239,6 +241,7 @@ const QuotationList = () => {
               e.stopPropagation()
               navigate(`/sales/quotations/new?source_id=${record.id}`)
             }}
+            disabled={record.status === 'superseded'}
             style={{ padding: 0 }}
           >
             Revise

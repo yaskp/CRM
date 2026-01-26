@@ -57,13 +57,16 @@ const WorkItemTypeList = () => {
         setIsModalVisible(true)
     }
 
-    const handleDelete = async (id: number) => {
+    const toggleStatus = async (record: any) => {
         try {
-            await workItemTypeService.deleteWorkItemType(id)
-            message.success('Work item type deleted')
+            await workItemTypeService.updateWorkItemType(record.id, {
+                ...record,
+                is_active: !record.is_active
+            })
+            message.success(record.is_active ? 'Deactivated' : 'Activated')
             fetchTypes()
         } catch (error) {
-            message.error('Failed to delete work item type')
+            message.error('Operation failed')
         }
     }
 
@@ -103,9 +106,14 @@ const WorkItemTypeList = () => {
             key: 'uom',
         },
         {
-            title: 'Description',
-            dataIndex: 'description',
-            key: 'description',
+            title: 'Status',
+            dataIndex: 'is_active',
+            key: 'is_active',
+            render: (active: boolean) => (
+                <Tag color={active ? 'green' : 'red'}>
+                    {active ? 'Active' : 'Inactive'}
+                </Tag>
+            )
         },
         {
             title: 'Actions',
@@ -120,11 +128,18 @@ const WorkItemTypeList = () => {
                             style={{ marginRight: 8, color: theme.colors.primary.main, borderColor: theme.colors.primary.main }}
                         />
                     </Tooltip>
-                    <Popconfirm title="Are you sure?" onConfirm={() => handleDelete(record.id)}>
-                        <Tooltip title="Delete">
-                            <Button icon={<DeleteOutlined />} danger />
-                        </Tooltip>
-                    </Popconfirm>
+                    <Tooltip title={record.is_active ? "Deactivate" : "Activate"}>
+                        <Popconfirm
+                            title={record.is_active ? "Deactivate this item?" : "Activate this item?"}
+                            onConfirm={() => toggleStatus(record)}
+                        >
+                            <Button
+                                icon={record.is_active ? <DeleteOutlined /> : <PlusOutlined />}
+                                danger={record.is_active}
+                                style={!record.is_active ? { color: 'green', borderColor: 'green' } : {}}
+                            />
+                        </Popconfirm>
+                    </Tooltip>
                 </>
             ),
         },
@@ -208,6 +223,14 @@ const WorkItemTypeList = () => {
                         label="Description"
                     >
                         <TextArea rows={3} />
+                    </Form.Item>
+                    <Form.Item
+                        name="is_active"
+                        label="Status"
+                        valuePropName="checked"
+                        initialValue={true}
+                    >
+                        <Select options={[{ label: 'Active', value: true }, { label: 'Inactive', value: false }]} />
                     </Form.Item>
                 </Form>
             </Modal>

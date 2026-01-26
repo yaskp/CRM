@@ -434,7 +434,7 @@ const GRNInternalForm = () => {
 
   return (
     <PageContainer maxWidth={1400}>
-      <Card loading={loading} style={{ marginBottom: '24px', borderRadius: '12px', overflow: 'hidden', padding: 0 }} bodyStyle={{ padding: 0 }}>
+      <Card loading={loading} style={{ marginBottom: '24px', borderRadius: '12px', overflow: 'hidden', padding: 0 }} styles={{ body: { padding: 0 } }}>
         {/* Top Header Area */}
         <div style={{ background: '#f8fbfc', padding: '20px 24px', borderBottom: '1px solid #e1e8ed' }}>
           <div style={flexBetweenStyle}>

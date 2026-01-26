@@ -37,5 +37,9 @@ export const quotationService = {
     })
     return response.data
   },
+  reviseQuotation: async (id: number) => {
+    const response = await api.post(`/quotations/${id}/revise`)
+    return response.data
+  },
 }
 

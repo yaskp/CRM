@@ -71,6 +71,19 @@ const WarehouseList = () => {
       ellipsis: true,
     },
     {
+      title: 'Incharge',
+      key: 'incharge',
+      width: 180,
+      render: (_: any, record: any) => (
+        record.incharge_name ? (
+          <div>
+            <Text strong style={{ fontSize: 13 }}>{record.incharge_name}</Text>
+            {record.incharge_phone && <div style={{ fontSize: 12, color: '#666' }}>{record.incharge_phone}</div>}
+          </div>
+        ) : '-'
+      )
+    },
+    {
       title: 'Scope',
       dataIndex: 'is_common',
       key: 'is_common',

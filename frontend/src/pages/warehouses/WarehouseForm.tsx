@@ -146,14 +146,21 @@ const WarehouseForm = () => {
             </Form.Item>
 
             <Form.Item
+              label={<span style={getLabelStyle()}>Pincode</span>}
+              name="pincode"
+            >
+              <Input placeholder="Enter pincode" size="large" style={largeInputStyle} maxLength={6} />
+            </Form.Item>
+          </div>
+
+          <div style={twoColumnGridStyle}>
+            <Form.Item
               label={<span style={getLabelStyle()}>GSTIN (Location Specific)</span>}
               name="gstin"
             >
               <Input placeholder="Enter GSTIN for this site" size="large" style={largeInputStyle} />
             </Form.Item>
-          </div>
 
-          <div style={twoColumnGridStyle}>
             <Form.Item
               label={<span style={getLabelStyle()}>Warehouse Category</span>}
               name="type"
@@ -167,7 +174,25 @@ const WarehouseForm = () => {
                 <Select.Option value="fabrication">⚙️ Fabrication / Yard</Select.Option>
               </Select>
             </Form.Item>
+          </div>
 
+          <div style={twoColumnGridStyle}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Site Incharge / Manager</span>}
+              name="incharge_name"
+            >
+              <Input placeholder="Person Name" size="large" style={largeInputStyle} />
+            </Form.Item>
+
+            <Form.Item
+              label={<span style={getLabelStyle()}>Incharge Phone</span>}
+              name="incharge_phone"
+            >
+              <Input placeholder="Phone Number" size="large" style={largeInputStyle} />
+            </Form.Item>
+          </div>
+
+          <div style={twoColumnGridStyle}>
             <Form.Item
               label={<span style={getLabelStyle()}>Common Warehouse (VHPT & VHSHREE)</span>}
               name="is_common"

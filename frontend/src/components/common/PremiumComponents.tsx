@@ -7,7 +7,7 @@ const { Title } = Typography
 
 interface PageHeaderProps {
     title: string
-    subtitle?: string
+    subtitle?: React.ReactNode
     icon?: React.ReactNode
     extra?: React.ReactNode
     onBack?: () => void

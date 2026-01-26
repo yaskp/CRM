@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Descriptions, Tag, Button, Space, message, Row, Col, Typography, Divider, Table, Modal, Form, Input, DatePicker, Select } from 'antd'
+import { Card, Descriptions, Tag, Button, Space, message, Row, Col, Typography, Divider, Table, Modal, Form, Input, DatePicker, Select, Switch, Radio } from 'antd'
 import {
     ArrowLeftOutlined,
     EditOutlined,
@@ -11,17 +11,19 @@ import {
     PrinterOutlined,
     CheckCircleOutlined,
     ToolOutlined,
-    ProjectOutlined
+    ProjectOutlined,
+    ShopOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { quotationService } from '../../services/api/quotations'
 import { projectService } from '../../services/api/projects'
 import { clientService } from '../../services/api/clients'
+import { warehouseService } from '../../services/api/warehouses'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import StateSelect from '../../components/common/StateSelect'
 import { theme } from '../../styles/theme'
-import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
+import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle, prefixIconStyle } from '../../styles/styleUtils'
 
 const { Text } = Typography
 const { Option } = Select;
@@ -35,8 +37,13 @@ const QuotationDetails = () => {
     // Create Project Modal State
     const [isCreateProjectModalVisible, setIsCreateProjectModalVisible] = useState(false)
     const [clients, setClients] = useState<any[]>([])
+    const [clientGroups, setClientGroups] = useState<any[]>([])
+    const [warehouses, setWarehouses] = useState<any[]>([])
     const [form] = Form.useForm()
     const [creatingProject, setCreatingProject] = useState(false)
+    const selectedClientId = Form.useWatch('client_id', form)
+    const isGstRegistered = Form.useWatch('is_gst_registered', form)
+    const warehouseAction = Form.useWatch('warehouse_action', form)
 
     useEffect(() => {
         if (id) {
@@ -47,8 +54,32 @@ const QuotationDetails = () => {
     useEffect(() => {
         if (isCreateProjectModalVisible) {
             fetchClients()
+            fetchClientGroups()
+            fetchWarehouses()
         }
     }, [isCreateProjectModalVisible])
+
+    const fetchWarehouses = async () => {
+        try {
+            if (warehouseService && warehouseService.getWarehouses) {
+                const response = await warehouseService.getWarehouses()
+                setWarehouses(response.warehouses || [])
+            }
+        } catch (error) {
+            console.error("Failed to fetch warehouses", error)
+        }
+    }
+
+    const fetchClientGroups = async () => {
+        try {
+            if (clientService && clientService.getClientGroups) {
+                const response = await clientService.getClientGroups()
+                setClientGroups(response.groups || [])
+            }
+        } catch (error) {
+            console.error("Failed to fetch client groups", error)
+        }
+    }
 
     const fetchClients = async () => {
         try {
@@ -106,12 +137,22 @@ const QuotationDetails = () => {
         // Pre-fill form
         if (quotation) {
             form.setFieldsValue({
-                proejct_name: quotation.lead?.company_name ? `${quotation.lead.company_name} Project` : `${quotation.lead?.name} Project`,
+                project_name: quotation.lead?.company_name ? `${quotation.lead.company_name} Project` : `${quotation.lead?.name} Project`,
                 location: quotation.lead?.address,
                 city: quotation.lead?.city,
                 state: quotation.lead?.state,
                 start_date: dayjs(),
-                client_id: quotation.lead?.client_id || undefined // If lead has client, select it
+                client_id: quotation.lead?.client_id || undefined, // If lead has client, select it
+                warehouse_action: 'create_new',
+                warehouse_type: 'site',
+                warehouse_name: quotation.lead?.company_name ? `Site Store - ${quotation.lead.company_name}` : `Site Store - ${quotation.lead?.name}`,
+                warehouse_address: quotation.lead?.address,
+                warehouse_city: quotation.lead?.city,
+                warehouse_state: quotation.lead?.state,
+                warehouse_pincode: quotation.lead?.pincode,
+                warehouse_gstin: quotation.lead?.gstin || (quotation.lead?.client?.gstin),
+                warehouse_incharge_name: quotation.lead?.name,
+                warehouse_incharge_phone: quotation.lead?.phone
             })
         }
         setIsCreateProjectModalVisible(true)
@@ -122,31 +163,24 @@ const QuotationDetails = () => {
             const values = await form.validateFields()
             setCreatingProject(true)
 
-            const payload = {
-                name: values.proejct_name,
-                location: values.location,
-                city: values.city,
-                state: values.state,
-                start_date: values.start_date?.format('YYYY-MM-DD'),
-                client_id: values.client_selection === 'existing' ? values.client_id : null
-                // Note: My backend API uses `client_id` directly. 
-                // If user selected "Create New", we send null/undefined so backend creates it. 
-                // If user selected "Existing", we send the ID.
-            }
-            // Adjust logic: If User selects a client from dropdown, send it. 
-            // If user wants to auto-create, send null.
             const apiPayload = {
-                ...payload,
+                ...values,
+                name: values.project_name,
+                start_date: values.start_date?.format('YYYY-MM-DD'),
                 client_id: values.client_id // The form will control this
             }
 
             const response = await projectService.createProjectFromQuotation(Number(id), apiPayload)
 
-            message.success('Project created successfully!')
+            message.success(quotation.lead?.project_id ? 'Project synced successfully!' : 'Project created successfully!')
             setIsCreateProjectModalVisible(false)
 
             if (response.project && response.project.id) {
-                navigate(`/sales/projects/${response.project.id}`)
+                if (!quotation.lead?.project_id) {
+                    navigate(`/sales/projects/${response.project.id}`)
+                } else {
+                    fetchQuotation() // Reload data if it was just a sync
+                }
             } else {
                 navigate('/sales/projects')
             }
@@ -170,6 +204,19 @@ const QuotationDetails = () => {
         }
     }
 
+    const handleReviseQuotation = async () => {
+        try {
+            setLoading(true)
+            const response = await quotationService.reviseQuotation(Number(id))
+            message.success(`New revision (v${response.quotation.version_number}) created!`)
+            navigate(`/sales/quotations/${response.quotation.id}/edit`)
+        } catch (error: any) {
+            message.error(error.response?.data?.message || 'Failed to revise quotation')
+        } finally {
+            setLoading(false)
+        }
+    }
+
     const getStatusColor = (status: string) => {
         const colors: Record<string, string> = {
             draft: 'default',
@@ -177,6 +224,7 @@ const QuotationDetails = () => {
             accepted: 'green',
             rejected: 'red',
             expired: 'orange',
+            superseded: 'warning',
         }
         return colors[status] || 'default'
     }
@@ -248,11 +296,54 @@ const QuotationDetails = () => {
         <PageContainer maxWidth={1200}>
             <PageHeader
                 title={`Quotation: ${quotation.quotation_number}`}
-                subtitle={`Version ${quotation.version_number} • Created on ${dayjs(quotation.created_at).format('DD MMM YYYY')}`}
+                subtitle={
+                    <Space>
+                        <span>Version {quotation.version_number} • Created on {dayjs(quotation.created_at).format('DD MMM YYYY')}</span>
+                        {quotation.status === 'superseded' && (
+                            <Tag color="orange" icon={<InfoCircleOutlined />}>SUPERSEDED BY NEWER VERSION</Tag>
+                        )}
+                    </Space>
+                }
                 icon={<FileTextOutlined />}
                 extra={[
-                    <Button key="back" icon={<ArrowLeftOutlined />} onClick={() => navigate('/sales/quotations')} style={getSecondaryButtonStyle()}>Back</Button>,
-                    <Button key="edit" type="primary" icon={<EditOutlined />} onClick={() => navigate(`/sales/quotations/${id}/edit`)} style={getPrimaryButtonStyle()}>Edit</Button>
+                    <Space key="actions" wrap>
+                        <Button key="back" icon={<ArrowLeftOutlined />} onClick={() => navigate('/sales/quotations')} style={getSecondaryButtonStyle()}>Back</Button>
+                        <Button
+                            key="revise"
+                            icon={<FileTextOutlined />}
+                            onClick={handleReviseQuotation}
+                            style={getSecondaryButtonStyle()}
+                            loading={loading}
+                            disabled={quotation.status === 'superseded'}
+                        >
+                            Revise Quote
+                        </Button>
+                        <Button
+                            key="edit"
+                            type="primary"
+                            icon={<EditOutlined />}
+                            onClick={() => navigate(`/sales/quotations/${id}/edit`)}
+                            style={getPrimaryButtonStyle()}
+                            disabled={quotation.status === 'superseded'}
+                        >
+                            Edit
+                        </Button>
+                        {['accepted', 'accepted_by_party', 'approved'].includes(quotation.status) && (
+                            <Button
+                                key="project"
+                                type="primary"
+                                icon={<ProjectOutlined />}
+                                onClick={openCreateProjectModal}
+                                style={{
+                                    ...getPrimaryButtonStyle(),
+                                    background: quotation.lead?.project_id ? theme.colors.success.main : theme.colors.primary.main,
+                                    borderColor: quotation.lead?.project_id ? theme.colors.success.main : theme.colors.primary.main
+                                }}
+                            >
+                                {quotation.lead?.project_id ? 'Sync with Project' : 'Create Project'}
+                            </Button>
+                        )}
+                    </Space>
                 ]}
             />
 
@@ -482,10 +573,14 @@ const QuotationDetails = () => {
                                         type="primary"
                                         icon={<ProjectOutlined />}
                                         loading={loading}
-                                        style={{ width: '100%' }}
+                                        style={{
+                                            width: '100%',
+                                            background: quotation.lead?.project_id ? theme.colors.success.main : theme.colors.primary.main,
+                                            borderColor: quotation.lead?.project_id ? theme.colors.success.main : theme.colors.primary.main
+                                        }}
                                         onClick={openCreateProjectModal}
                                     >
-                                        Create Project
+                                        {quotation.lead?.project_id ? 'Sync with Project' : 'Create Project'}
                                     </Button>
                                 )}
                             </div>
@@ -495,14 +590,21 @@ const QuotationDetails = () => {
             </Row>
             {/* Create Project Modal */}
             <Modal
-                title="Create Project from Quotation"
+                title={quotation.lead?.project_id ? "Sync Quotation with Project" : "Create Project from Quotation"}
                 open={isCreateProjectModalVisible}
                 onOk={handleConfirmCreateProject}
                 onCancel={() => setIsCreateProjectModalVisible(false)}
                 confirmLoading={creatingProject}
-                width={600}
-                okText="Create Project"
+                width={800}
+                okText={quotation.lead?.project_id ? "Sync & Update Project" : "Create Project"}
             >
+                {quotation.lead?.project_id && (
+                    <div style={{ marginBottom: 16, padding: '12px', background: '#e6f7ff', border: '1px solid #91d5ff', borderRadius: 4 }}>
+                        <Text type="secondary">
+                            <InfoCircleOutlined /> A project <b>{quotation.lead.project?.name}</b> already exists for this lead. Syncing will update the project's contract value and BOQ materials to match this revision.
+                        </Text>
+                    </div>
+                )}
                 <Form
                     form={form}
                     layout="vertical"
@@ -510,13 +612,28 @@ const QuotationDetails = () => {
                         start_date: dayjs(),
                         client_action: 'create_new'
                     }}
+                    onValuesChange={(changedValues, allValues) => {
+                        // Sync logic: If Store creation is enabled, auto-fill details from Project/Client section if they are empty
+                        if (allValues.warehouse_action === 'create_new' && (changedValues.warehouse_type || changedValues.warehouse_action || changedValues.location || changedValues.city || changedValues.state || changedValues.gstin || changedValues.pincode)) {
+                            const updates: any = {};
+                            if (!allValues.warehouse_address) updates.warehouse_address = allValues.location;
+                            if (!allValues.warehouse_city) updates.warehouse_city = allValues.city;
+                            if (!allValues.warehouse_state) updates.warehouse_state = allValues.state;
+                            if (!allValues.warehouse_pincode) updates.warehouse_pincode = allValues.pincode;
+                            if (!allValues.warehouse_gstin) updates.warehouse_gstin = allValues.gstin;
+
+                            if (Object.keys(updates).length > 0) {
+                                form.setFieldsValue(updates);
+                            }
+                        }
+                    }}
                 >
                     <InfoCard
                         title="Project Details"
                         style={{ marginBottom: 16, border: '1px solid #f0f0f0', borderRadius: 8 }}
                     >
                         <Form.Item
-                            name="proejct_name"
+                            name="project_name"
                             label="Project Name"
                             rules={[{ required: true, message: 'Please enter project name' }]}
                         >
@@ -556,11 +673,6 @@ const QuotationDetails = () => {
                             <Input.TextArea rows={2} placeholder="Enter Site Address" />
                         </Form.Item>
 
-                        import StateSelect from '../../components/common/StateSelect'
-
-                        // ... existing imports
-
-                        // ... inside the component
                         <Row gutter={16}>
                             <Col span={12}>
                                 <Form.Item name="city" label="City">
@@ -601,26 +713,229 @@ const QuotationDetails = () => {
                                     (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                                 }
                                 options={[
-                                    ...(quotation?.lead?.client_id ? [] : []), // If lead already has client, maybe show it?
                                     ...clients.map(c => ({ label: `${c.company_name} (${c.client_code})`, value: c.id }))
                                 ]}
                             />
                         </Form.Item>
 
-                        {!form.getFieldValue('client_id') && (
-                            <div style={{ padding: '8px 12px', background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 4 }}>
-                                <Text type="success" style={{ fontSize: 13 }}>
-                                    <CheckCircleOutlined /> A new client <b>{quotation?.lead?.company_name || quotation?.lead?.name}</b> will be created.
+                        {!selectedClientId && (
+                            <>
+                                <div style={{ marginBottom: 16 }}>
+                                    <Text strong style={{ color: theme.colors.primary.main }}>New Client Details</Text>
+                                    <Divider style={{ margin: '8px 0' }} />
+                                </div>
+
+                                <Form.Item
+                                    name="client_group_id"
+                                    label="Client Group (Optional)"
+                                >
+                                    <Select
+                                        showSearch
+                                        placeholder="Select Client Group"
+                                        optionFilterProp="children"
+                                    >
+                                        {clientGroups.map(g => (
+                                            <Option key={g.id} value={g.id}>{g.group_name}</Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
+
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="client_type"
+                                            label="Client Type"
+                                            initialValue="company"
+                                        >
+                                            <Select>
+                                                <Option value="company">Company</Option>
+                                                <Option value="individual">Individual</Option>
+                                                <Option value="government">Government</Option>
+                                            </Select>
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="is_gst_registered"
+                                            label="GST Registered?"
+                                            valuePropName="checked"
+                                            initialValue={true}
+                                        >
+                                            <Switch checkedChildren="Yes" unCheckedChildren="No" />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+
+                                {isGstRegistered && (
+                                    <Form.Item
+                                        name="gstin"
+                                        label="GSTIN"
+                                        rules={[
+                                            { required: true, message: 'GSTIN is required' },
+                                            { pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, message: 'Invalid GSTIN' }
+                                        ]}
+                                    >
+                                        <Input placeholder="Enter GSTIN" />
+                                    </Form.Item>
+                                )}
+
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="pan"
+                                            label="PAN Number"
+                                            rules={[{ pattern: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, message: 'Invalid PAN' }]}
+                                        >
+                                            <Input placeholder="Enter PAN" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item name="pincode" label="Pincode">
+                                            <Input placeholder="Pincode" maxLength={6} />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item name="credit_limit" label="Credit Limit">
+                                            <Input placeholder="Credit Limit" type="number" prefix="₹" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item name="payment_terms" label="Client Payment Terms">
+                                            <Input placeholder="e.g. Net 30" />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+
+                                <div style={{ padding: '8px 12px', background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 4, marginBottom: 16 }}>
+                                    <Text type="success" style={{ fontSize: 13 }}>
+                                        <CheckCircleOutlined /> A new client <b>{quotation?.lead?.company_name || quotation?.lead?.name}</b> will be created.
+                                    </Text>
+                                </div>
+                            </>
+                        )}
+
+                        {quotation?.lead?.client_id && selectedClientId === quotation.lead.client_id && (
+                            <div style={{ padding: '8px 12px', background: '#e6f7ff', border: '1px solid #91d5ff', borderRadius: 4, marginTop: 8 }}>
+                                <Text type="secondary" style={{ fontSize: 13 }}>
+                                    <InfoCircleOutlined /> Lead is already linked to this client.
                                 </Text>
                             </div>
                         )}
+                    </InfoCard>
 
-                        {quotation?.lead?.client_id && (
-                            <div style={{ padding: '8px 12px', background: '#e6f7ff', border: '1px solid #91d5ff', borderRadius: 4, marginTop: 8 }}>
-                                <Text type="secondary" style={{ fontSize: 13 }}>
-                                    <InfoCircleOutlined /> Lead is already linked to a client.
-                                </Text>
-                            </div>
+                    <InfoCard
+                        title="Site / Store Configuration"
+                        style={{ border: '1px solid #f0f0f0', borderRadius: 8, marginTop: 16 }}
+                        icon={<ShopOutlined />}
+                    >
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <Form.Item name="warehouse_action" label="Store Setup Strategy">
+                                    <Select placeholder="Select action">
+                                        <Option value="none">Don't create or link store</Option>
+                                        <Option value="create_new">Create New Store</Option>
+                                        <Option value="link_existing">Link Existing Store</Option>
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+                            {warehouseAction === 'create_new' && (
+                                <Col span={12}>
+                                    <Form.Item name="warehouse_type" label="Store Category">
+                                        <Select placeholder="Select category">
+                                            <Option value="site">🏗️ Site Store</Option>
+                                            <Option value="regional">📍 Regional Store</Option>
+                                            <Option value="fabrication">⚙️ Fabrication Yard</Option>
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                            )}
+                        </Row>
+
+                        {warehouseAction === 'link_existing' ? (
+                            <Form.Item
+                                name="warehouse_id"
+                                label="Select Existing Store"
+                                rules={[{ required: true, message: 'Please select an existing store' }]}
+                            >
+                                <Select
+                                    showSearch
+                                    placeholder="Select store"
+                                    optionFilterProp="children"
+                                    options={warehouses.map(w => ({ label: `${w.name} (${w.code})`, value: w.id }))}
+                                />
+                            </Form.Item>
+                        ) : (
+                            <>
+                                <Row gutter={16}>
+                                    <Col span={14}>
+                                        <Form.Item
+                                            name="warehouse_name"
+                                            label="Store Name"
+                                            rules={[{ required: true, message: 'Please enter store name' }]}
+                                        >
+                                            <Input placeholder="e.g. Site Store - Mumbai Project" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={10}>
+                                        <Form.Item
+                                            name="warehouse_code"
+                                            label="Store Code (Optional)"
+                                        >
+                                            <Input placeholder="Auto-generated if empty" />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+
+                                <Form.Item
+                                    name="warehouse_address"
+                                    label="Site Store Address"
+                                >
+                                    <Input.TextArea rows={1} placeholder="Site Office Address" />
+                                </Form.Item>
+
+                                <Row gutter={16}>
+                                    <Col span={8}>
+                                        <Form.Item name="warehouse_city" label="City">
+                                            <Input placeholder="City" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={8}>
+                                        <Form.Item name="warehouse_state" label="State">
+                                            <StateSelect
+                                                onChange={(val, code) => {
+                                                    form.setFieldsValue({ warehouse_state: val, warehouse_state_code: code })
+                                                }}
+                                            />
+                                        </Form.Item>
+                                        <Form.Item name="warehouse_state_code" hidden><Input /></Form.Item>
+                                    </Col>
+                                    <Col span={8}>
+                                        <Form.Item name="warehouse_pincode" label="Pincode">
+                                            <Input placeholder="Pincode" maxLength={6} />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item name="warehouse_incharge_name" label="Site Incharge Name">
+                                            <Input placeholder="Incharge Name" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item name="warehouse_incharge_phone" label="Incharge Phone">
+                                            <Input placeholder="Incharge Phone" />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+
+                                <Form.Item name="warehouse_gstin" label="Store GSTIN (If different from client)">
+                                    <Input placeholder="Enter GSTIN" maxLength={15} />
+                                </Form.Item>
+                            </>
                         )}
                     </InfoCard>
                 </Form>

@@ -51,7 +51,7 @@ import MaterialList from '../pages/materials/MaterialList'
 import MaterialForm from '../pages/materials/MaterialForm'
 import BranchList from '../pages/master/BranchList'
 import BranchForm from '../pages/master/BranchForm'
-import WorkItemTypeList from '../pages/master/WorkItemTypeList'
+import WorkMaster from '../pages/master/WorkMaster'
 import UnitList from '../pages/master/UnitList'
 import AnnexureList from '../pages/master/AnnexureList'
 
@@ -163,7 +163,7 @@ const AppRoutes = () => {
         <Route path="master/equipment" element={<EquipmentList />} />
         <Route path="master/equipment/new" element={<EquipmentForm />} />
         <Route path="master/equipment/:id" element={<EquipmentForm />} />
-        <Route path="master/work-item-types" element={<WorkItemTypeList />} />
+        <Route path="master/work-templates" element={<WorkMaster />} />
         <Route path="master/units" element={<UnitList />} />
         <Route path="master/branches" element={<BranchList />} />
         <Route path="master/branches/new" element={<BranchForm />} />
@@ -233,9 +233,6 @@ const AppRoutes = () => {
         <Route path="operations/equipment/new" element={<EquipmentForm />} />
         <Route path="operations/equipment/:id/edit" element={<EquipmentForm />} />
 
-        import BudgetDashboard from '../pages/finance/BudgetDashboard'
-
-        // ...
 
         {/* Finance - Expenses */}
         <Route path="finance/expenses" element={<ExpenseList />} />
@@ -243,13 +240,13 @@ const AppRoutes = () => {
         <Route path="finance/budget" element={<BudgetDashboard />} />
         <Route path="finance/project-consumption" element={<ProjectConsumptionReport />} />
 
+
         {/* Reports */}
         <Route path="reports/project" element={<ProjectConsumptionReport />} />
         <Route path="reports/procurement-status" element={<ProcurementStatusReport />} />
 
         {/* Drawings */}
         <Route path="drawings" element={<DrawingList />} />
-        <Route path="drawings/new" element={<DrawingForm />} />
         <Route path="drawings/new" element={<DrawingForm />} />
         <Route path="drawings/:id" element={<DrawingForm />} />
 

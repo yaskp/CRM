@@ -6,7 +6,7 @@ import { Op } from 'sequelize'
 
 export const createWarehouse = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { name, code, type, address, company_id, is_common, warehouse_manager_id, project_id, city, state, state_code, pincode, gstin } = req.body
+    const { name, code, type, address, company_id, is_common, warehouse_manager_id, project_id, city, state, state_code, pincode, gstin, incharge_name, incharge_phone } = req.body
 
     if (!name || !code) {
       throw createError('Warehouse name and code are required', 400)
@@ -25,7 +25,9 @@ export const createWarehouse = async (req: AuthRequest, res: Response, next: Nex
       state,
       state_code,
       pincode,
-      gstin
+      gstin,
+      incharge_name,
+      incharge_phone
     })
 
     res.status(201).json({
@@ -113,7 +115,7 @@ export const getWarehouse = async (req: AuthRequest, res: Response, next: NextFu
 export const updateWarehouse = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params
-    const { name, type, address, is_common, warehouse_manager_id, project_id, city, state, state_code, pincode, gstin } = req.body
+    const { name, type, address, is_common, warehouse_manager_id, project_id, city, state, state_code, pincode, gstin, incharge_name, incharge_phone } = req.body
 
     const warehouse = await Warehouse.findByPk(id)
     if (!warehouse) {
@@ -131,7 +133,9 @@ export const updateWarehouse = async (req: AuthRequest, res: Response, next: Nex
       state,
       state_code,
       pincode,
-      gstin
+      gstin,
+      incharge_name,
+      incharge_phone
     })
 
     res.json({

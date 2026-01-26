@@ -20,7 +20,7 @@ interface QuotationAttributes {
   contractor_scope?: string
   terms_conditions?: string
   remarks?: string
-  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'approved' | 'accepted_by_party'
+  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'approved' | 'accepted_by_party' | 'superseded'
   pdf_url?: string
   created_by: number
   project_id?: number
@@ -53,8 +53,10 @@ class Quotation extends Model<QuotationAttributes, QuotationCreationAttributes> 
   public pdf_url?: string
   public created_by!: number
   public project_id?: number
+  public billing_unit_id?: number
   public items?: any[]
   public readonly created_at!: Date
+  public readonly updated_at!: Date
 }
 
 Quotation.init(
@@ -143,7 +145,7 @@ Quotation.init(
       allowNull: true,
     },
     status: {
-      type: DataTypes.ENUM('draft', 'sent', 'accepted', 'rejected', 'approved', 'accepted_by_party'),
+      type: DataTypes.ENUM('draft', 'sent', 'accepted', 'rejected', 'approved', 'accepted_by_party', 'superseded'),
       defaultValue: 'draft',
     },
     pdf_url: {

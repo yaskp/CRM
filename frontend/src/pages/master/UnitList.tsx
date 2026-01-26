@@ -10,7 +10,7 @@ import {
 } from '@ant-design/icons'
 import { unitService } from '../../services/api/units'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
-import { theme } from '../../styles/theme'
+
 
 const UnitList = () => {
     const [loading, setLoading] = useState(false)
@@ -28,7 +28,7 @@ const UnitList = () => {
         setLoading(true)
         try {
             const response = await unitService.getUnits()
-            setUnits(response.data || [])
+            setUnits(response.units || response.data || [])
         } catch (error) {
             message.error('Failed to fetch units')
         } finally {
@@ -42,13 +42,16 @@ const UnitList = () => {
         setIsModalVisible(true)
     }
 
-    const handleDelete = async (id: number) => {
+    const toggleStatus = async (record: any) => {
         try {
-            await unitService.deleteUnit(id)
-            message.success('Unit deleted')
+            await unitService.updateUnit(record.id, {
+                ...record,
+                is_active: !record.is_active
+            })
+            message.success(record.is_active ? 'Deactivated' : 'Activated')
             fetchUnits()
         } catch (error) {
-            message.error('Failed to delete unit')
+            message.error('Operation failed')
         }
     }
 
@@ -102,6 +105,16 @@ const UnitList = () => {
             )
         },
         {
+            title: 'Status',
+            dataIndex: 'is_active',
+            key: 'is_active',
+            render: (active: boolean) => (
+                <Tag color={active ? 'green' : 'red'}>
+                    {active ? 'Active' : 'Inactive'}
+                </Tag>
+            )
+        },
+        {
             title: 'Actions',
             key: 'actions',
             width: 150,
@@ -111,14 +124,21 @@ const UnitList = () => {
                         <Button
                             icon={<EditOutlined />}
                             onClick={() => handleEdit(record)}
-                            style={{ marginRight: 8, color: theme.colors.primary.main, borderColor: theme.colors.primary.main }}
+                            style={{ marginRight: 8, color: '#1677ff', borderColor: '#1677ff' }}
                         />
                     </Tooltip>
-                    <Popconfirm title="Are you sure?" onConfirm={() => handleDelete(record.id)}>
-                        <Tooltip title="Delete">
-                            <Button icon={<DeleteOutlined />} danger />
-                        </Tooltip>
-                    </Popconfirm>
+                    <Tooltip title={record.is_active ? "Deactivate" : "Activate"}>
+                        <Popconfirm
+                            title={record.is_active ? "Deactivate this unit?" : "Activate this unit?"}
+                            onConfirm={() => toggleStatus(record)}
+                        >
+                            <Button
+                                icon={record.is_active ? <DeleteOutlined /> : <PlusOutlined />}
+                                danger={record.is_active}
+                                style={!record.is_active ? { color: 'green', borderColor: 'green' } : {}}
+                            />
+                        </Popconfirm>
+                    </Tooltip>
                 </>
             ),
         },
@@ -206,6 +226,13 @@ const UnitList = () => {
                         tooltip="How many Base Units are in 1 of this unit? (e.g. 1 MT = 1000 KG, so Factor is 1000)"
                     >
                         <InputNumber style={{ width: '100%' }} step={0.0001} min={0} />
+                    </Form.Item>
+                    <Form.Item
+                        name="is_active"
+                        label="Status"
+                        initialValue={true}
+                    >
+                        <Select options={[{ label: 'Active', value: true }, { label: 'Inactive', value: false }]} />
                     </Form.Item>
                 </Form>
             </Modal>

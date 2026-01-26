@@ -389,3 +389,87 @@ export const downloadPdf = async (req: AuthRequest, res: Response, next: NextFun
     next(error)
   }
 }
+export const reviseQuotation = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const transaction = await sequelize.transaction()
+  try {
+    const { id } = req.params
+
+    // 1. Fetch original quotation with all items
+    const original = await Quotation.findByPk(id, {
+      include: [{ association: 'items' }],
+      transaction
+    })
+
+    if (!original) {
+      await transaction.rollback()
+      throw createError('Original quotation not found', 404)
+    }
+
+    // 2. Determine new version number (latest + 1)
+    const latest = await Quotation.findOne({
+      where: { lead_id: original.lead_id },
+      order: [['version_number', 'DESC']],
+      transaction
+    })
+    const nextVersion = (latest?.version_number || original.version_number) + 1
+
+    // 3. Prepare unique quotation number for this version
+    // Standard: QT-101 becomes QT-101-R2, then QT-101-R3, etc.
+    const baseNumber = original.quotation_number.split('-R')[0]
+    const newQuotationNumber = `${baseNumber}-R${nextVersion}`
+
+    // 4. Create new quotation clone
+    const revision = await Quotation.create({
+      lead_id: original.lead_id,
+      quotation_number: newQuotationNumber,
+      version_number: nextVersion,
+      billing_unit_id: original.billing_unit_id,
+      total_amount: original.total_amount,
+      discount_percentage: original.discount_percentage,
+      gst_type: original.gst_type,
+      cgst_amount: original.cgst_amount,
+      sgst_amount: original.sgst_amount,
+      igst_amount: original.igst_amount,
+      final_amount: original.final_amount,
+      payment_terms: original.payment_terms,
+      valid_until: original.valid_until,
+      annexure_id: original.annexure_id,
+      client_scope: original.client_scope,
+      contractor_scope: original.contractor_scope,
+      terms_conditions: original.terms_conditions,
+      status: 'draft', // Revision starts as draft
+      created_by: req.user!.id,
+    }, { transaction })
+
+    // 4. Mark the original as superseded
+    await original.update({ status: 'superseded' }, { transaction })
+
+    // 5. Clone line items
+    if (original.items && original.items.length > 0) {
+      const newItems = original.items.map((item: any) => ({
+        quotation_id: revision.id,
+        item_type: item.item_type,
+        reference_id: item.reference_id,
+        description: item.description,
+        quantity: item.quantity,
+        unit: item.unit,
+        rate: item.rate,
+        amount: item.amount,
+        work_item_type_id: item.work_item_type_id
+      }))
+      await QuotationItem.bulkCreate(newItems, { transaction })
+    }
+
+    await transaction.commit()
+
+    res.status(201).json({
+      success: true,
+      message: `Quotation revised to version ${nextVersion}`,
+      quotation: revision
+    })
+
+  } catch (error) {
+    if (transaction) await transaction.rollback()
+    next(error)
+  }
+}

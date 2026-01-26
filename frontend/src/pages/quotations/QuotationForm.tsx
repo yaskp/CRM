@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Form, Input, Button, Card, Row, Col, Space, InputNumber, Table, DatePicker, Select, Typography, message, Tabs } from 'antd'
-import { PlusOutlined, DeleteOutlined, SaveOutlined, ArrowLeftOutlined, CalculatorOutlined, InfoCircleOutlined, UserOutlined, CalendarOutlined, ToolOutlined, ShoppingCartOutlined } from '@ant-design/icons'
+import { PlusOutlined, DeleteOutlined, SaveOutlined, ArrowLeftOutlined, CalculatorOutlined, InfoCircleOutlined, UserOutlined, CalendarOutlined, ToolOutlined, ShoppingCartOutlined, LayoutOutlined } from '@ant-design/icons'
 import { quotationService } from '../../services/api/quotations'
 import { leadService } from '../../services/api/leads'
 import { annexureService } from '../../services/api/annexures'
 import { materialService } from '../../services/api/materials'
 import { unitService } from '../../services/api/units'
+import { workTemplateService } from '../../services/api/workTemplates'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
 const { Option } = Select
-const { TabPane } = Tabs
 
 import { workItemTypeService } from '../../services/api/workItemTypes'
 import { masterService } from '../../services/api/master'
@@ -27,6 +27,7 @@ const QuotationForm = () => {
     const [annexures, setAnnexures] = useState<any[]>([])
     const [materials, setMaterials] = useState<any[]>([])
     const [units, setUnits] = useState<any[]>([])
+    const [templates, setTemplates] = useState<any[]>([])
     const [items, setItems] = useState<any[]>([{
         key: Date.now(),
         item_type: 'material',
@@ -56,13 +57,14 @@ const QuotationForm = () => {
 
     const fetchInitialData = async () => {
         try {
-            const [leadsRes, annexRes, matsRes, unitsRes, workTypesRes, branchRes] = await Promise.all([
+            const [leadsRes, annexRes, matsRes, unitsRes, workTypesRes, branchRes, templatesRes] = await Promise.all([
                 leadService.getLeads({ limit: 100 }),
                 annexureService.getAnnexures(),
                 materialService.getMaterials({ limit: 500 }),
                 unitService.getUnits(),
                 workItemTypeService.getWorkItemTypes(),
-                masterService.getBranches()
+                masterService.getBranches(),
+                workTemplateService.getTemplates()
             ])
 
             setWorkItemTypes(workTypesRes.data || [])
@@ -79,6 +81,7 @@ const QuotationForm = () => {
             setAnnexures(annexRes.annexures || [])
             setMaterials(matsRes.materials || [])
             setUnits(unitsRes.units || [])
+            setTemplates(templatesRes.templates || [])
 
             // Auto-populate lead if coming from Lead page
             if (leadIdFromUrl && !isEdit) {
@@ -250,7 +253,7 @@ const QuotationForm = () => {
                 items: items.map(({ description, quantity, unit, rate, amount, item_type, reference_id, work_item_type_id }) => ({
                     description,
                     quantity,
-                    unit: Array.isArray(unit) ? unit[0] : unit,
+                    unit: (Array.isArray(unit) ? unit[0] : unit) || 'LS',
                     rate,
                     amount,
                     item_type,
@@ -531,7 +534,6 @@ const QuotationForm = () => {
                             <Form.Item
                                 name="billing_unit_id"
                                 label="Billing From (VHSHRI Unit)"
-                                rules={[{ required: true, message: 'Please select billing unit' }]}
                             >
                                 <Select
                                     size="large"
@@ -563,21 +565,7 @@ const QuotationForm = () => {
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
-                            <Form.Item name="gst_type" label="GST Treatment">
-                                <Select
-                                    size="large"
-                                    onChange={(val) => {
-                                        setGstType(val)
-                                        calculateTotals(items, form.getFieldValue('discount_percentage'), val as any)
-                                    }}
-                                    value={gstType}
-                                >
-                                    <Option value="intra_state">Intra-State (CGST + SGST)</Option>
-                                    <Option value="inter_state">Inter-State (IGST)</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
+                        {/* GST Treatment Hidden as per user request */}
                     </Row>
 
                 </Card>
@@ -618,6 +606,45 @@ const QuotationForm = () => {
                     )}
                 </Card>
 
+                {/* WORK TEMPLATE SELECTOR */}
+                <Card
+                    style={{ marginBottom: 24, borderRadius: 12, border: '1px dashed #14b8a6', background: '#f0fdfa' }}
+                    styles={{ body: { padding: '12px 24px' } }}
+                >
+                    <Space size="large">
+                        <Text strong><LayoutOutlined /> Quick Load Template:</Text>
+                        <Select
+                            placeholder="Select Work Template (e.g. D-Wall)"
+                            style={{ width: 300 }}
+                            onChange={(templateId) => {
+                                const template = templates.find(t => t.id === templateId);
+                                if (template && template.items) {
+                                    const templateItems = template.items.map((it: any) => ({
+                                        key: Math.random(),
+                                        description: it.description || it.workItemType?.name || 'Item',
+                                        quantity: 1,
+                                        unit: it.unit || it.workItemType?.uom || 'Nos',
+                                        rate: 0,
+                                        item_type: it.item_type,
+                                        work_item_type_id: it.work_item_type_id
+                                    }));
+
+                                    // Append or Replace? Append is usually safer but Replace is what User implied "just user add qty".
+                                    // Let's Replace the placeholder if it's the only one.
+                                    const filteredItems = items.filter(it => it.description || it.work_item_type_id);
+                                    setItems([...filteredItems, ...templateItems]);
+                                    message.success(`Loaded ${templateItems.length} items from ${template.name}`);
+                                }
+                            }}
+                        >
+                            {templates.map(t => (
+                                <Option key={t.id} value={t.id}>{t.name}</Option>
+                            ))}
+                        </Select>
+                        <Text type="secondary" style={{ fontSize: 12 }}>Selecting a template will auto-add all pre-defined work items to the tables below.</Text>
+                    </Space>
+                </Card>
+
                 {/* LABOUR / CONTRACT WORK SECTION */}
                 <Card
                     variant="borderless"
@@ -629,44 +656,59 @@ const QuotationForm = () => {
                         </Space>
                     }
                 >
-                    <Tabs defaultActiveKey="labour">
-                        <TabPane tab="Labour Work" key="labour">
-                            <Table
-                                columns={getItemColumns('labour')}
-                                dataSource={labourItems}
-                                pagination={false}
-                                rowKey="key"
-                                size="small"
-                            />
-                            <Button
-                                type="dashed"
-                                block
-                                icon={<PlusOutlined />}
-                                onClick={() => addItem('labour')}
-                                style={{ marginTop: 16, height: 40 }}
-                            >
-                                Add Labour Row
-                            </Button>
-                        </TabPane>
-                        <TabPane tab="Contract Work" key="contract">
-                            <Table
-                                columns={getItemColumns('contract')}
-                                dataSource={contractItems}
-                                pagination={false}
-                                rowKey="key"
-                                size="small"
-                            />
-                            <Button
-                                type="dashed"
-                                block
-                                icon={<PlusOutlined />}
-                                onClick={() => addItem('contract')}
-                                style={{ marginTop: 16, height: 40 }}
-                            >
-                                Add Contract Row
-                            </Button>
-                        </TabPane>
-                    </Tabs>
+                    <Tabs
+                        defaultActiveKey="labour"
+                        items={[
+                            {
+                                key: 'labour',
+                                label: 'Labour Work',
+                                children: (
+                                    <>
+                                        <Table
+                                            columns={getItemColumns('labour')}
+                                            dataSource={labourItems}
+                                            pagination={false}
+                                            rowKey="key"
+                                            size="small"
+                                        />
+                                        <Button
+                                            type="dashed"
+                                            block
+                                            icon={<PlusOutlined />}
+                                            onClick={() => addItem('labour')}
+                                            style={{ marginTop: 16, height: 40 }}
+                                        >
+                                            Add Labour Row
+                                        </Button>
+                                    </>
+                                )
+                            },
+                            {
+                                key: 'contract',
+                                label: 'Contract Work',
+                                children: (
+                                    <>
+                                        <Table
+                                            columns={getItemColumns('contract')}
+                                            dataSource={contractItems}
+                                            pagination={false}
+                                            rowKey="key"
+                                            size="small"
+                                        />
+                                        <Button
+                                            type="dashed"
+                                            block
+                                            icon={<PlusOutlined />}
+                                            onClick={() => addItem('contract')}
+                                            style={{ marginTop: 16, height: 40 }}
+                                        >
+                                            Add Contract Row
+                                        </Button>
+                                    </>
+                                )
+                            }
+                        ]}
+                    />
                 </Card>
 
                 {/* SCOPE SECTIONS */}
@@ -819,16 +861,10 @@ const QuotationForm = () => {
                                         <Text style={{ color: '#ffd666', fontSize: 12 }}>- ₹{totals.discount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text>
                                     )}
                                 </Col>
-                                <Col span={7}>
+                                <Col span={14}>
                                     <div style={{ marginBottom: 8, borderLeft: '1px solid rgba(255,255,255,0.2)', paddingLeft: 16 }}>
-                                        <Text style={{ color: 'white', fontWeight: 600, fontSize: 12 }}>Net Total (Excl. GST)</Text>
-                                        <div><Text strong style={{ color: '#fff', fontSize: 18 }}>₹{totals.final.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text></div>
-                                    </div>
-                                </Col>
-                                <Col span={7}>
-                                    <div style={{ marginBottom: 8 }}>
-                                        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>GST @ 18%</Text>
-                                        <div><Text strong style={{ color: '#95de64', fontSize: 18 }}>+ ₹{totals.gst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text></div>
+                                        <Text style={{ color: 'white', fontWeight: 600, fontSize: 12 }}>Total Quotation value (Excl. GST)</Text>
+                                        <div><Text strong style={{ color: '#fff', fontSize: 24 }}>₹{totals.final.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text></div>
                                     </div>
                                 </Col>
                             </Row>

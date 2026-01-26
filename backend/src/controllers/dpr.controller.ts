@@ -2,6 +2,8 @@ import { Response, NextFunction } from 'express'
 import { AuthRequest } from '../middleware/auth.middleware'
 import DailyProgressReport from '../models/DailyProgressReport'
 import ManpowerReport from '../models/ManpowerReport'
+import WorkOrder from '../models/WorkOrder'
+import DrawingPanel from '../models/DrawingPanel'
 import { createError } from '../middleware/errorHandler'
 import { Op } from 'sequelize'
 
@@ -30,11 +32,37 @@ export const createDPR = async (req: AuthRequest, res: Response, next: NextFunct
       throw createError('Project ID and report date are required', 400)
     }
 
+    // 1. Enforce Work Order check
+    const activeWO = await WorkOrder.findOne({
+      where: {
+        project_id,
+        status: { [Op.in]: ['approved', 'active'] }
+      }
+    })
+
+    if (!activeWO) {
+      throw createError('Cannot start work or create DPR without an approved/active Work Order for this project.', 403)
+    }
+
+    // 2. Resolve panel link if panel_number is provided
+    let drawing_panel_id: number | undefined = undefined
+    if (panel_number) {
+      const panel = await DrawingPanel.findOne({
+        where: { panel_identifier: panel_number },
+        include: [{
+          association: 'drawing',
+          where: { project_id }
+        }]
+      })
+      if (panel) drawing_panel_id = panel.id
+    }
+
     const dpr = await DailyProgressReport.create({
       project_id,
       report_date,
       site_location,
       panel_number,
+      drawing_panel_id,
       building_id,
       floor_id,
       zone_id,
@@ -237,7 +265,7 @@ export const updateDPR = async (req: AuthRequest, res: Response, next: NextFunct
       await ManpowerReport.destroy({ where: { dpr_id: id } })
       await ManpowerReport.bulkCreate(
         manpower.map((mp: any) => ({
-          dpr_id: id,
+          dpr_id: Number(id),
           worker_type: mp.worker_type,
           count: mp.count,
           hajri: mp.hajri,

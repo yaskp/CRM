@@ -254,7 +254,7 @@ const PurchaseOrderList = () => {
                     boxShadow: theme.shadows.base,
                     border: `1px solid ${theme.colors.neutral.gray100}`,
                 }}
-                bodyStyle={{ padding: 0 }}
+                styles={{ body: { padding: 0 } }}
             >
                 <Table
                     columns={columns}

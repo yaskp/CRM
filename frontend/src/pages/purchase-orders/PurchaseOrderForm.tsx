@@ -608,7 +608,7 @@ const PurchaseOrderForm = () => {
                                         key={key}
                                         size="small"
                                         style={{ marginBottom: 16, background: '#f9f9f9', border: '1px solid #eee' }}
-                                        bodyStyle={{ padding: '12px' }}
+                                        styles={{ body: { padding: '12px' } }}
                                     >
                                         <Row gutter={16} align="middle">
                                             <Col span={1} style={{ textAlign: 'center' }}>

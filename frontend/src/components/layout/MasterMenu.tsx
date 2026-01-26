@@ -16,7 +16,8 @@ import {
   ContainerOutlined,
   ShopOutlined,
   TeamOutlined,
-  NumberOutlined
+  NumberOutlined,
+  LayoutOutlined
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -42,6 +43,7 @@ const menuPermissions: Record<string, string[]> = {
   '/master/vendors': ['Admin', 'Operation Manager', 'Store Manager'],
   '/master/equipment': ['Admin', 'Operation Manager'],
   '/master/work-item-types': ['Admin', 'Operation Manager'],
+  '/master/work-templates': ['Admin', 'Operation Manager'],
   '/master/units': ['Admin', 'Operation Manager', 'Store Manager'],
   '/master/branches': ['Admin'],
   '/master/users': ['Admin'],
@@ -135,9 +137,19 @@ const MasterMenu = () => {
       label: 'Equipment Master',
     },
     {
-      key: '/master/work-item-types',
-      icon: <FileTextOutlined />,
-      label: 'Work Item Types',
+      key: 'work-master-group',
+      icon: <LayoutOutlined />,
+      label: 'Work Master',
+      children: filterMenuItems([
+        {
+          key: '/master/work-templates',
+          label: 'Work Templates',
+        },
+        {
+          key: '/master/work-item-types',
+          label: 'Work Item Types',
+        }
+      ])
     },
     {
       key: '/master/units',

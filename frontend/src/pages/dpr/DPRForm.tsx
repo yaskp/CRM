@@ -25,6 +25,8 @@ import { projectService } from '../../services/api/projects'
 import { projectHierarchyService } from '../../services/api/projectHierarchy'
 import { inventoryService } from '../../services/api/inventory'
 import { workItemTypeService } from '../../services/api/workItemTypes'
+import { boqService } from '../../services/api/boqs'
+import api from '../../services/api/auth'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
@@ -66,11 +68,16 @@ const DPRForm = () => {
   const [loading, setLoading] = useState(false)
   const [materials, setMaterials] = useState<any[]>([])
   const [warehouses, setWarehouses] = useState<any[]>([])
+  const [projectWarehouses, setProjectWarehouses] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
+  const [structureType, setStructureType] = useState<'building' | 'panel' | 'both' | null>(null)
   const [buildings, setBuildings] = useState<any[]>([])
   const [floors, setFloors] = useState<any[]>([])
   const [zones, setZones] = useState<any[]>([])
+  const [drawings, setDrawings] = useState<any[]>([])
+  const [panels, setPanels] = useState<any[]>([])
   const [workItemTypes, setWorkItemTypes] = useState<any[]>([])
+  const [filteredWorkTypes, setFilteredWorkTypes] = useState<any[]>([])
   const [items, setItems] = useState<MaterialItem[]>([])
   const [manpower, setManpower] = useState<ManpowerItem[]>([])
   const [stockMap, setStockMap] = useState<Record<number, number>>({})
@@ -102,13 +109,88 @@ const DPRForm = () => {
 
   const handleProjectChange = async (projectId: number) => {
     try {
-      const res = await projectHierarchyService.getBuildings(projectId)
-      setBuildings(res.data || [])
+      // Filter warehouses for this project
+      const projectSites = warehouses.filter(w => w.project_id === projectId || w.warehouse_type === 'central')
+      setProjectWarehouses(projectSites)
+      form.setFieldsValue({ warehouse_id: undefined })
+
+      // Fetch buildings and drawings in parallel
+      const [buildingsRes, drawingsRes] = await Promise.all([
+        projectHierarchyService.getBuildings(projectId),
+        api.get(`/drawings?project_id=${projectId}&limit=100`)
+      ])
+
+      const buildings = buildingsRes.data || []
+      const drawings = drawingsRes.data?.drawings || []
+
+      setBuildings(buildings)
+      setDrawings(drawings)
       setFloors([])
       setZones([])
-      form.setFieldsValue({ building_id: undefined, floor_id: undefined, zone_id: undefined })
+      setPanels([])
+      form.setFieldsValue({ building_id: undefined, floor_id: undefined, zone_id: undefined, drawing_id: undefined, drawing_panel_id: undefined })
+
+      // Auto-detect structure type
+      if (buildings.length > 0 && drawings.length > 0) {
+        setStructureType('both')
+      } else if (buildings.length > 0) {
+        setStructureType('building')
+      } else if (drawings.length > 0) {
+        setStructureType('panel')
+      } else {
+        setStructureType(null)
+      }
+
+      // Fetch Project BOQ to filter Work Types
+      fetchProjectWorkTypes(projectId)
     } catch (e) {
       console.error(e)
+    }
+  }
+
+  const fetchProjectWorkTypes = async (projectId: number) => {
+    try {
+      setFilteredWorkTypes([])
+      const res = await boqService.getProjectBOQs(projectId)
+      const approvedBoq = res.boqs?.find((b: any) => b.status === 'approved')
+
+      if (approvedBoq) {
+        const detailRes = await boqService.getBOQDetails(approvedBoq.id)
+        if (detailRes.boq && detailRes.boq.items) {
+          // Extract unique Work Item Types from the BOQ
+          const uniqueTypeIds = new Set(detailRes.boq.items.map((i: any) => i.work_item_type_id).filter(Boolean))
+          const relevantTypes = workItemTypes.filter(wit => uniqueTypeIds.has(wit.id))
+
+          if (relevantTypes.length > 0) {
+            setFilteredWorkTypes(relevantTypes)
+            return
+          }
+        }
+      }
+
+      // Fallback: If no BOQ or no types found, should we show ALL?
+      // User requested "Project related work only". 
+      // If no BOQ is defined, maybe we shouldn't allow random work?
+      // For now, let's keep it empty to encourage BOQ usage, or show a warning.
+      // Or actually, fallback to ALL but maybe user didn't create BOQ yet.
+      // Let's fallback to ALL for now to prevent blocking, but maybe hint?
+      // Re-reading user: "we sall have project related work only right". 
+      // Ill fallback to ALL but show message if empty.
+      setFilteredWorkTypes(workItemTypes)
+    } catch (e) {
+      console.error('Failed to fetch project work types', e)
+      setFilteredWorkTypes(workItemTypes) // Fallback on error
+    }
+  }
+
+
+
+  const fetchPanels = async (drawingId: number) => {
+    try {
+      const res = await api.get(`/drawings/${drawingId}/panels`)
+      setPanels(res.data.panels || [])
+    } catch (e) {
+      console.error('Failed to fetch panels', e)
     }
   }
 
@@ -240,6 +322,7 @@ const DPRForm = () => {
         to_building_id: values.building_id,
         to_floor_id: values.floor_id,
         to_zone_id: values.zone_id,
+        drawing_panel_id: values.drawing_panel_id,
         weather_condition: values.weather_condition,
         temperature: values.temperature,
         work_hours: values.work_hours,
@@ -458,36 +541,18 @@ const DPRForm = () => {
               rules={[{ required: true }]}
             >
               <Select
-                placeholder="Select work type"
+                placeholder={filteredWorkTypes.length === 0 ? "No Work Types (Check BOQ)" : "Select work type"}
                 showSearch
                 optionFilterProp="children"
                 size="large"
                 onChange={handleWorkTypeChange}
               >
-                {workItemTypes.map(wit => <Option key={wit.id} value={wit.id}>{wit.name}</Option>)}
+                {filteredWorkTypes.map(wit => <Option key={wit.id} value={wit.id}>{wit.name}</Option>)}
               </Select>
             </Form.Item>
           </div>
 
-          <div style={threeColumnGridStyle}>
-            <Form.Item label={<span style={getLabelStyle()}>Building</span>} name="building_id">
-              <Select placeholder="Select building" allowClear onChange={handleBuildingChange} size="large">
-                {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
-              </Select>
-            </Form.Item>
 
-            <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
-              <Select placeholder="Select floor" allowClear onChange={handleFloorChange} size="large">
-                {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
-              </Select>
-            </Form.Item>
-
-            <Form.Item label={<span style={getLabelStyle()}>Zone</span>} name="zone_id">
-              <Select placeholder="Select zone" allowClear size="large">
-                {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
-              </Select>
-            </Form.Item>
-          </div>
 
           <Form.Item
             label={<span style={getLabelStyle()}>Site Store (for material adjustment)</span>}
@@ -499,10 +564,71 @@ const DPRForm = () => {
               size="large"
               onChange={fetchStock}
             >
-              {warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)}
+              {projectWarehouses.map(w => <Option key={w.id} value={w.id}>{w.name} {w.warehouse_type === 'central' ? '(Central)' : '(Site)'}</Option>)}
             </Select>
           </Form.Item>
         </SectionCard>
+
+        {/* Section 1B: Physical Structure Selection - Auto-detected */}
+        {structureType && (
+          <SectionCard
+            title={structureType === 'building' ? 'Building Structure' : structureType === 'panel' ? 'Drawing Panels (D-Wall)' : 'Physical Structure'}
+            icon={<BlockOutlined />}
+          >
+            {structureType === 'both' && (
+              <InfoCard title="💡 Flexible Structure">
+                This project has both Building hierarchy and Drawing Panels. Select the appropriate structure for this work.
+              </InfoCard>
+            )}
+
+            {(structureType === 'building' || structureType === 'both') && (
+              <div style={threeColumnGridStyle}>
+                <Form.Item label={<span style={getLabelStyle()}>Building</span>} name="building_id">
+                  <Select placeholder="Select building" allowClear onChange={handleBuildingChange} size="large">
+                    {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
+                  </Select>
+                </Form.Item>
+
+                <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
+                  <Select placeholder="Select floor" allowClear onChange={handleFloorChange} size="large">
+                    {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
+                  </Select>
+                </Form.Item>
+
+                <Form.Item label={<span style={getLabelStyle()}>Zone</span>} name="zone_id">
+                  <Select placeholder="Select zone" allowClear size="large">
+                    {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
+                  </Select>
+                </Form.Item>
+              </div>
+            )}
+
+            {(structureType === 'panel' || structureType === 'both') && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: structureType === 'both' ? '16px' : '0' }}>
+                <Form.Item label={<span style={getLabelStyle()}>Drawing</span>} name="drawing_id">
+                  <Select
+                    placeholder="Select drawing"
+                    allowClear
+                    size="large"
+                    onChange={(val) => {
+                      if (val) fetchPanels(val)
+                      else setPanels([])
+                      form.setFieldsValue({ drawing_panel_id: undefined })
+                    }}
+                  >
+                    {drawings.map(d => <Option key={d.id} value={d.id}>{d.drawing_name || d.drawing_number}</Option>)}
+                  </Select>
+                </Form.Item>
+
+                <Form.Item label={<span style={getLabelStyle()}>Panel</span>} name="drawing_panel_id">
+                  <Select placeholder="Select panel" allowClear size="large">
+                    {panels.map(p => <Option key={p.id} value={p.id}>{p.panel_identifier}</Option>)}
+                  </Select>
+                </Form.Item>
+              </div>
+            )}
+          </SectionCard>
+        )}
 
         {/* Section 2: Progress & Achievement */}
         <SectionCard

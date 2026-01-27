@@ -4,6 +4,7 @@ import Inventory from '../models/Inventory'
 import Material from '../models/Material'
 import Warehouse from '../models/Warehouse'
 import { Op, QueryTypes } from 'sequelize'
+import { sequelize } from '../database/connection'
 
 export const getInventory = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
@@ -34,21 +35,32 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                     m.category,
                     COALESCE(SUM(CASE 
                         WHEN t.transaction_type = 'STN' AND t.to_project_id = :pId THEN ti.quantity 
-                        WHEN t.transaction_type = 'GRN' AND t.to_project_id = :pId THEN ti.quantity
+                        WHEN t.transaction_type = 'GRN' AND t.to_project_id = :pId THEN 
+                            CASE WHEN ti.item_status = 'Defective' THEN 0 ELSE ti.accepted_quantity END
                         ELSE 0 
                     END), 0) -
                     COALESCE(SUM(CASE 
                         WHEN t.transaction_type = 'SRN' AND t.from_project_id = :pId THEN ti.quantity
                         WHEN t.transaction_type = 'CONSUMPTION' AND t.project_id = :pId THEN ti.quantity
+                        WHEN t.transaction_type = 'STN' AND t.from_project_id = :pId THEN ti.quantity
                         ELSE 0 
-                    END), 0) as quantity
+                    END), 0) as quantity,
+                    COALESCE(SUM(CASE 
+                        WHEN t.transaction_type = 'GRN' AND t.to_project_id = :pId THEN 
+                             CASE 
+                                WHEN ti.rejected_quantity > 0 THEN ti.rejected_quantity 
+                                WHEN ti.item_status = 'Defective' THEN ti.quantity 
+                                ELSE 0 
+                             END
+                        ELSE 0 
+                    END), 0) as defective_quantity
                 FROM materials m
                 LEFT JOIN store_transaction_items ti ON ti.material_id = m.id
                 LEFT JOIN store_transactions t ON t.id = ti.transaction_id AND t.status = 'approved'
                 WHERE (t.to_project_id = :pId OR t.from_project_id = :pId OR t.project_id = :pId)
                 ${search ? `AND (m.name LIKE :search OR m.material_code LIKE :search)` : ''}
                 GROUP BY m.id
-                HAVING quantity > 0
+                HAVING quantity > 0 OR defective_quantity > 0
             `, {
                 replacements: {
                     pId,
@@ -63,6 +75,7 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                 warehouse_id: null,
                 material_id: row.material_id,
                 quantity: Number(row.quantity),
+                defective_quantity: Number(row.defective_quantity), // New Field
                 reserved_quantity: 0,
                 material: {
                     id: row.material_id,
@@ -85,7 +98,142 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
             })
         }
 
-        // WAREHOUSE INVENTORY (STANDARD TABLE)
+        // WAREHOUSE INVENTORY (CALCULATED FROM TRANSACTIONS)
+        // WAREHOUSE INVENTORY (CALCULATED FROM TRANSACTIONS)
+        if (warehouse_id) {
+            const wId = Number(warehouse_id)
+
+            // Get warehouse details first to check for linked project
+            const warehouse = await Warehouse.findByPk(wId, {
+                attributes: ['id', 'name', 'code', 'project_id']
+            })
+
+            if (!warehouse) {
+                return res.status(404).json({ success: false, message: 'Warehouse not found' })
+            }
+
+            let results: any[] = []
+
+            // IF SITE STORE (Linked to Project): Use Project ID for Transactions logic
+            if (warehouse.project_id) {
+                const pId = warehouse.project_id
+                results = await sequelize.query(`
+                    SELECT 
+                        m.id as material_id,
+                        m.name as material_name,
+                        m.material_code,
+                        m.unit,
+                        m.category,
+                        /* Good Quantity = Accepted In - All Out */
+                        COALESCE(SUM(CASE 
+                            WHEN t.transaction_type = 'GRN' AND t.to_project_id = :pId THEN ti.accepted_quantity
+                            WHEN t.transaction_type = 'STN' AND t.to_project_id = :pId THEN ti.quantity
+                            ELSE 0 
+                        END), 0) -
+                        COALESCE(SUM(CASE 
+                            WHEN t.transaction_type = 'SRN' AND t.from_project_id = :pId THEN ti.quantity
+                            WHEN t.transaction_type = 'CONSUMPTION' AND t.project_id = :pId THEN ti.quantity
+                            WHEN t.transaction_type = 'STN' AND t.from_project_id = :pId THEN ti.quantity
+                            ELSE 0 
+                        END), 0) as quantity,
+                        /* Defective = (Total - Accepted - Rejected) aka Held Defective */
+                        COALESCE(SUM(CASE 
+                            WHEN t.transaction_type = 'GRN' AND t.to_project_id = :pId THEN 
+                                (ti.quantity - ti.accepted_quantity - ti.rejected_quantity)
+                            ELSE 0 
+                        END), 0) as defective_quantity
+                    FROM materials m
+                    LEFT JOIN store_transaction_items ti ON ti.material_id = m.id
+                    LEFT JOIN store_transactions t ON t.id = ti.transaction_id AND t.status = 'approved'
+                    WHERE (t.to_project_id = :pId OR t.from_project_id = :pId OR t.project_id = :pId)
+                    ${search ? `AND (m.name LIKE :search OR m.material_code LIKE :search)` : ''}
+                    GROUP BY m.id
+                    HAVING quantity > 0 OR defective_quantity > 0
+                    ORDER BY m.name ASC
+                `, {
+                    replacements: {
+                        pId,
+                        search: search ? `%${search}%` : undefined
+                    },
+                    type: QueryTypes.SELECT
+                })
+            }
+            // ELSE CENTRAL WAREHOUSE: Use Warehouse ID logic
+            else {
+                results = await sequelize.query(`
+                    SELECT 
+                        m.id as material_id,
+                        m.name as material_name,
+                        m.material_code,
+                        m.unit,
+                        m.category,
+                        COALESCE(SUM(CASE 
+                            WHEN t.transaction_type = 'GRN' AND t.to_warehouse_id = :wId THEN ti.accepted_quantity
+                            WHEN t.transaction_type = 'STN' AND t.to_warehouse_id = :wId THEN ti.quantity
+                            WHEN t.transaction_type = 'SRN' AND t.to_warehouse_id = :wId THEN ti.quantity
+                            ELSE 0 
+                        END), 0) -
+                        COALESCE(SUM(CASE 
+                            WHEN t.transaction_type = 'STN' AND t.warehouse_id = :wId THEN ti.quantity
+                            WHEN t.transaction_type = 'SRN' AND t.warehouse_id = :wId THEN ti.quantity
+                            ELSE 0 
+                        END), 0) as quantity,
+                        COALESCE(SUM(CASE 
+                            WHEN t.transaction_type = 'GRN' AND t.to_warehouse_id = :wId THEN 
+                                (ti.quantity - ti.accepted_quantity - ti.rejected_quantity)
+                            ELSE 0 
+                        END), 0) as defective_quantity
+                    FROM materials m
+                    LEFT JOIN store_transaction_items ti ON ti.material_id = m.id
+                    LEFT JOIN store_transactions t ON t.id = ti.transaction_id AND t.status = 'approved'
+                    WHERE (t.to_warehouse_id = :wId OR t.warehouse_id = :wId)
+                    ${search ? `AND (m.name LIKE :search OR m.material_code LIKE :search)` : ''}
+                    GROUP BY m.id
+                    HAVING quantity > 0 OR defective_quantity > 0
+                    ORDER BY m.name ASC
+                `, {
+                    replacements: {
+                        wId,
+                        search: search ? `%${search}%` : undefined
+                    },
+                    type: QueryTypes.SELECT
+                })
+            }
+
+            const inventory = results.map((row: any) => ({
+                id: row.material_id,
+                warehouse_id: wId,
+                project_id: warehouse.project_id || null,
+                material_id: row.material_id,
+                quantity: Number(row.quantity),
+                defective_quantity: Number(row.defective_quantity),
+                reserved_quantity: 0,
+                min_stock_level: null,
+                max_stock_level: null,
+                last_updated: new Date(),
+                warehouse: warehouse,
+                material: {
+                    id: row.material_id,
+                    name: row.material_name,
+                    material_code: row.material_code,
+                    unit: row.unit,
+                    category: row.category
+                }
+            }))
+
+            return res.json({
+                success: true,
+                inventory,
+                pagination: {
+                    total: inventory.length,
+                    page: 1,
+                    limit: 1000,
+                    pages: 1
+                }
+            })
+        }
+
+        // FALLBACK: ALL WAREHOUSES (Use Inventory Table)
         const offset = (Number(page) - 1) * Number(limit)
 
         const where: any = {}
@@ -283,5 +431,3 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
         next(error)
     }
 }
-
-import { sequelize } from '../database/connection'

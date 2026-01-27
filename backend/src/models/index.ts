@@ -168,6 +168,7 @@ StoreTransaction.belongsTo(PurchaseOrder, { foreignKey: 'purchase_order_id', as:
 StoreTransaction.belongsTo(Vendor, { foreignKey: 'vendor_id', as: 'vendor' })
 StoreTransaction.belongsTo(Project, { foreignKey: 'from_project_id', as: 'source_project' })
 StoreTransaction.belongsTo(Project, { foreignKey: 'to_project_id', as: 'destination_project' })
+StoreTransaction.belongsTo(DrawingPanel, { foreignKey: 'drawing_panel_id', as: 'drawingPanel' })
 
 // Material Requisitions
 MaterialRequisition.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
@@ -219,6 +220,7 @@ Drawing.belongsTo(User, { foreignKey: 'uploaded_by', as: 'uploader' })
 Drawing.hasMany(DrawingPanel, { foreignKey: 'drawing_id', as: 'panels' })
 DrawingPanel.belongsTo(Drawing, { foreignKey: 'drawing_id', as: 'drawing' })
 DrawingPanel.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
+DrawingPanel.hasMany(StoreTransaction, { foreignKey: 'drawing_panel_id', as: 'consumptions' })
 DrawingPanel.hasMany(PanelProgress, { foreignKey: 'panel_id', as: 'progress' })
 PanelProgress.belongsTo(DrawingPanel, { foreignKey: 'panel_id', as: 'panel' })
 PanelProgress.belongsTo(User, { foreignKey: 'updated_by', as: 'updater' })

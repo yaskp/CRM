@@ -233,6 +233,13 @@ export const getPanels = async (req: AuthRequest, res: Response, next: NextFunct
           association: 'dprRecords',
           order: [['report_date', 'DESC']],
         },
+        {
+          association: 'consumptions', // The new StoreTransaction association
+          where: { transaction_type: 'CONSUMPTION' },
+          required: false,
+          include: [{ association: 'items' }], // Include items to see quantities
+          order: [['transaction_date', 'DESC']],
+        }
       ],
     })
 

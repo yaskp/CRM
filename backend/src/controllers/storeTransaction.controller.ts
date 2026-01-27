@@ -375,6 +375,7 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       to_building_id,
       to_floor_id,
       to_zone_id,
+      drawing_panel_id: req.body.drawing_panel_id,
       transaction_date,
       status: 'draft',
       remarks,
@@ -577,6 +578,10 @@ export const getTransaction = async (req: AuthRequest, res: Response, next: Next
         { association: 'toBuilding' },
         { association: 'toFloor' },
         { association: 'toZone' },
+        {
+          association: 'drawingPanel',
+          include: [{ association: 'drawing' }]
+        },
         {
           model: StoreTransactionItem,
           as: 'items',

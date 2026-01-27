@@ -136,9 +136,43 @@ const DPRDetails = () => {
             <SectionCard title="Project & Location Overview" icon={<EnvironmentOutlined />}>
               <Descriptions bordered column={2} size="small">
                 <Descriptions.Item label="Project" span={2}><b>{log.project?.name}</b></Descriptions.Item>
-                <Descriptions.Item label="Building">{log.toBuilding?.name || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Floor">{log.toFloor?.name || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Zone">{log.toZone?.name || 'N/A'}</Descriptions.Item>
+
+                {log.drawingPanel ? (
+                  <>
+                    <Descriptions.Item label="Drawing">{log.drawingPanel.drawing?.drawing_number || 'N/A'}</Descriptions.Item>
+                    <Descriptions.Item label="Panel"><b>{log.drawingPanel.panel_identifier}</b></Descriptions.Item>
+                    <Descriptions.Item label="Dimensions" span={2}>
+                      {(() => {
+                        try {
+                          const dims = JSON.parse(log.drawingPanel.coordinates_json || '{}')
+                          const length = Number(dims.length || 0)
+                          const depth = Number(dims.depth || dims.height || 0)
+                          const width = Number(dims.width || 0)
+                          const areaSqm = length * depth
+                          const areaSqft = areaSqm * 10.764
+
+                          return (
+                            <Space direction="vertical" size={0}>
+                              <Text>L: {length}m | D: {depth}m | W: {width}m</Text>
+                              <Text type="secondary" style={{ fontSize: '12px' }}>
+                                Area: {areaSqm.toFixed(2)} m² ({areaSqft.toFixed(2)} sqft)
+                              </Text>
+                            </Space>
+                          )
+                        } catch (e) {
+                          return 'N/A'
+                        }
+                      })()}
+                    </Descriptions.Item>
+                  </>
+                ) : (
+                  <>
+                    <Descriptions.Item label="Building">{log.toBuilding?.name || 'N/A'}</Descriptions.Item>
+                    <Descriptions.Item label="Floor">{log.toFloor?.name || 'N/A'}</Descriptions.Item>
+                    <Descriptions.Item label="Zone">{log.toZone?.name || 'N/A'}</Descriptions.Item>
+                  </>
+                )}
+
                 <Descriptions.Item label="Reporting Date">{dayjs(log.transaction_date).format('DD-MMM-YYYY')}</Descriptions.Item>
                 <Descriptions.Item label="Status">
                   <Tag color={log.status === 'approved' ? 'success' : 'processing'}>{log.status.toUpperCase()}</Tag>

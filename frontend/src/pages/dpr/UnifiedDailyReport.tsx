@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography, Upload, Card, Tag, Statistic, Switch, message as antdMessage } from 'antd'
+import { Form, Input, Button, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography, Upload, Card, Tag, Statistic, Switch, message as antdMessage, Modal } from 'antd'
 import {
     SaveOutlined,
     PlusOutlined,
@@ -22,6 +22,7 @@ import { projectHierarchyService } from '../../services/api/projectHierarchy'
 import { inventoryService } from '../../services/api/inventory'
 import { boqService } from '../../services/api/boqs'
 import { workItemTypeService } from '../../services/api/workItemTypes'
+import api from '../../services/api/auth'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
 import {
@@ -62,10 +63,14 @@ const UnifiedDailyReport = () => {
     const [filteredMaterials, setFilteredMaterials] = useState<any[]>([])
     const [boqItems, setBoqItems] = useState<any[]>([])
     const [warehouses, setWarehouses] = useState<any[]>([])
+    const [projectWarehouses, setProjectWarehouses] = useState<any[]>([])
     const [projects, setProjects] = useState<any[]>([])
+    const [structureType, setStructureType] = useState<'building' | 'panel' | 'both' | null>(null)
     const [buildings, setBuildings] = useState<any[]>([])
     const [floors, setFloors] = useState<any[]>([])
     const [zones, setZones] = useState<any[]>([])
+    const [drawings, setDrawings] = useState<any[]>([])
+    const [panels, setPanels] = useState<any[]>([])
     const [workItemTypes, setWorkItemTypes] = useState<any[]>([])
     const [workerCategories, setWorkerCategories] = useState<any[]>([])
     const [items, setItems] = useState<MaterialItem[]>([])
@@ -73,6 +78,7 @@ const UnifiedDailyReport = () => {
     const [stockMap, setStockMap] = useState<Record<number, number>>({})
     const [photoList, setPhotoList] = useState<UploadFile[]>([])
     const [selectedWorkType, setSelectedWorkType] = useState<any>(null)
+    const [selectedPanel, setSelectedPanel] = useState<any>(null)
 
     const navigate = useNavigate()
 
@@ -98,24 +104,6 @@ const UnifiedDailyReport = () => {
         } catch (error) {
             antdMessage.error('Failed to load metadata')
         }
-    }
-
-    const handleWarehouseChange = async (warehouseId: number) => {
-        const warehouse = warehouses.find(w => w.id === warehouseId)
-        if (warehouse?.project_id) {
-            form.setFieldsValue({ project_id: warehouse.project_id })
-            handleProjectChange(warehouse.project_id)
-
-            if (warehouse.building_id) {
-                form.setFieldsValue({ building_id: warehouse.building_id })
-                handleBuildingChange(warehouse.building_id)
-            }
-            if (warehouse.floor_id) {
-                form.setFieldsValue({ floor_id: warehouse.floor_id })
-                handleFloorChange(warehouse.floor_id)
-            }
-        }
-        fetchStock(warehouseId)
     }
 
     const fetchStock = async (warehouseId: number) => {
@@ -162,17 +150,58 @@ const UnifiedDailyReport = () => {
 
     const handleProjectChange = async (projectId: number) => {
         try {
-            const res = await projectHierarchyService.getBuildings(projectId)
-            setBuildings(res.buildings || [])
+            // Filter warehouses for this project
+            const projectSites = warehouses.filter(w => w.project_id === projectId || w.warehouse_type === 'central')
+            setProjectWarehouses(projectSites)
+
+            // Fetch buildings and drawings in parallel
+            const [buildingsRes, drawingsRes] = await Promise.all([
+                projectHierarchyService.getBuildings(projectId),
+                api.get(`/drawings?project_id=${projectId}&limit=100`)
+            ])
+
+            const buildings = buildingsRes.buildings || []
+            const drawings = drawingsRes.data?.drawings || []
+
+            setBuildings(buildings)
+            setDrawings(drawings)
             setFloors([])
             setZones([])
-            form.setFieldsValue({ building_id: undefined, floor_id: undefined, zone_id: undefined })
+            setPanels([])
+            form.setFieldsValue({ building_id: undefined, floor_id: undefined, zone_id: undefined, drawing_id: undefined, drawing_panel_id: undefined })
+
+            // Auto-detect structure type
+            if (buildings.length > 0 && drawings.length > 0) {
+                setStructureType('both')
+            } else if (buildings.length > 0) {
+                setStructureType('building')
+            } else if (drawings.length > 0) {
+                setStructureType('panel')
+            } else {
+                setStructureType(null)
+            }
 
             // Load Project BOQ for material filtering
             fetchBOQData(projectId)
         } catch (e) {
             console.error(e)
         }
+    }
+
+    const fetchPanels = async (drawingId: number) => {
+        try {
+            const res = await api.get(`/drawings/${drawingId}/panels`)
+            setPanels(res.data.panels || [])
+            setSelectedPanel(null)
+            form.setFieldsValue({ drawing_panel_id: undefined })
+        } catch (e) {
+            console.error('Failed to fetch panels', e)
+        }
+    }
+
+    const handlePanelChange = (panelId: number) => {
+        const panel = panels.find(p => p.id === panelId)
+        setSelectedPanel(panel)
     }
 
     const handleBuildingChange = async (buildingId: number) => {
@@ -319,6 +348,7 @@ const UnifiedDailyReport = () => {
                 to_building_id: values.building_id,
                 to_floor_id: values.floor_id,
                 to_zone_id: values.zone_id,
+                drawing_panel_id: values.drawing_panel_id,
                 weather_condition: values.weather_condition,
                 temperature: values.temperature,
                 work_hours: values.work_hours,
@@ -337,12 +367,68 @@ const UnifiedDailyReport = () => {
                 }))
             }
 
-            await storeTransactionService.createConsumption(payload)
-            antdMessage.success('Daily Site Report submitted successfully!')
-            navigate('/operations/dpr')
+            const submitReport = async () => {
+                setLoading(true)
+                try {
+                    await storeTransactionService.createConsumption(payload)
+                    antdMessage.success('Daily Site Report submitted successfully!')
+                    navigate('/operations/dpr')
+                } catch (error: any) {
+                    antdMessage.error(error.response?.data?.message || 'Failed to submit report')
+                    setLoading(false)
+                }
+            }
+
+            // Validation: Check if work done exceeds panel area
+            if (selectedPanel && values.drawing_panel_id) {
+                let dims = { length: 0, width: 0, depth: 0 }
+                try {
+                    dims = typeof selectedPanel.coordinates_json === 'string' ? JSON.parse(selectedPanel.coordinates_json) : (selectedPanel.coordinates_json || {})
+                } catch (e) { }
+
+                const totalArea = Number(dims.length || 0) * Number(dims.depth || 0)
+
+                // Determine the max work done reported in this session (e.g. max of Concrete or Excavation)
+                const currentSessionWork = Math.max(...items.map(i => Number(i.work_done_quantity || 0)))
+
+                // Calculate previous work
+                let previousWork = 0
+                if (selectedPanel.consumptions && Array.isArray(selectedPanel.consumptions)) {
+                    // We need to sum up previous CONSUMPTION transactions
+                    selectedPanel.consumptions.forEach((c: any) => {
+                        if (c.items && Array.isArray(c.items)) {
+                            previousWork += Math.max(...c.items.map((i: any) => Number(i.work_done_quantity || 0)))
+                        }
+                    })
+                }
+
+                if (totalArea > 0 && (previousWork + currentSessionWork) > totalArea) {
+                    Modal.confirm({
+                        title: 'Work Done Exceeds Panel Area',
+                        content: (
+                            <div>
+                                <p>You are reporting <b>{currentSessionWork} m²</b> of work.</p>
+                                <p>Previous Cumulative: <b>{previousWork} m²</b></p>
+                                <p>Total (New + Previous): <b>{(previousWork + currentSessionWork).toFixed(2)} m²</b></p>
+                                <p style={{ color: 'red' }}>Total Panel Area: <b>{totalArea.toFixed(2)} m²</b></p>
+                                <br />
+                                <p>Do you still want to proceed?</p>
+                            </div>
+                        ),
+                        okText: 'Yes, Submit Anyway',
+                        cancelText: 'Cancel & Review',
+                        onOk: submitReport,
+                        onCancel: () => setLoading(false)
+                    })
+                    return; // Stop here, wait for modal
+                }
+            }
+
+            // If valid or no panel selected
+            await submitReport()
+
         } catch (error: any) {
             antdMessage.error(error.response?.data?.message || 'Failed to submit report')
-        } finally {
             setLoading(false)
         }
     }
@@ -449,16 +535,21 @@ const UnifiedDailyReport = () => {
                 <SectionCard title="Basic Site Details" icon={<ProjectOutlined />}>
                     <Row gutter={24}>
                         <Col xs={24} md={12}>
-                            <Form.Item label={<span style={getLabelStyle()}>Site Store (START HERE)</span>} name="warehouse_id" rules={[{ required: true }]}>
-                                <Select placeholder="Select store" size="large" onChange={handleWarehouseChange}>
-                                    {warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)}
+                            <Form.Item label={<span style={getLabelStyle()}>Project Selection</span>} name="project_id" rules={[{ required: true }]}>
+                                <Select placeholder="Select project" onChange={handleProjectChange} size="large">
+                                    {projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
                                 </Select>
                             </Form.Item>
                         </Col>
                         <Col xs={24} md={12}>
-                            <Form.Item label={<span style={getLabelStyle()}>Project Selection</span>} name="project_id" rules={[{ required: true }]}>
-                                <Select placeholder="Select project" onChange={handleProjectChange} size="large">
-                                    {projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
+                            <Form.Item label={<span style={getLabelStyle()}>Site Store</span>} name="warehouse_id" rules={[{ required: true }]}>
+                                <Select
+                                    placeholder={projectWarehouses.length === 0 ? "Select project first" : "Select store"}
+                                    size="large"
+                                    onChange={fetchStock}
+                                    disabled={projectWarehouses.length === 0}
+                                >
+                                    {projectWarehouses.map(w => <Option key={w.id} value={w.id}>{w.name} {w.warehouse_type === 'central' ? '(Central)' : '(Site)'}</Option>)}
                                 </Select>
                             </Form.Item>
                         </Col>
@@ -478,31 +569,152 @@ const UnifiedDailyReport = () => {
                             </Form.Item>
                         </Col>
                     </Row>
-
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item label={<span style={getLabelStyle()}>Building</span>} name="building_id">
-                                <Select placeholder="Bldg" allowClear onChange={handleBuildingChange} size="large">
-                                    {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
-                                <Select placeholder="Floor" allowClear onChange={handleFloorChange} size="large">
-                                    {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item label={<span style={getLabelStyle()}>Zone</span>} name="zone_id">
-                                <Select placeholder="Zone" allowClear size="large">
-                                    {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
                 </SectionCard>
+
+                {/* 1B. Physical Structure - Auto-detected */}
+                {structureType && (
+                    <SectionCard
+                        title={structureType === 'building' ? 'Building Structure' : structureType === 'panel' ? 'Drawing Panels (D-Wall)' : 'Physical Structure'}
+                        icon={<BlockOutlined />}
+                    >
+                        {structureType === 'both' && (
+                            <div style={{ padding: '8px 12px', background: '#fef3c7', borderRadius: '8px', marginBottom: '16px', fontSize: '13px' }}>
+                                💡 This project has both Building hierarchy and Drawing Panels. Select the appropriate structure for this work.
+                            </div>
+                        )}
+
+                        {(structureType === 'building' || structureType === 'both') && (
+                            <Row gutter={16}>
+                                <Col span={8}>
+                                    <Form.Item label={<span style={getLabelStyle()}>Building</span>} name="building_id">
+                                        <Select placeholder="Bldg" allowClear onChange={handleBuildingChange} size="large">
+                                            {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                                <Col span={8}>
+                                    <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
+                                        <Select placeholder="Floor" allowClear onChange={handleFloorChange} size="large">
+                                            {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                                <Col span={8}>
+                                    <Form.Item label={<span style={getLabelStyle()}>Zone</span>} name="zone_id">
+                                        <Select placeholder="Zone" allowClear size="large">
+                                            {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                        )}
+
+                        {(structureType === 'panel' || structureType === 'both') && (
+                            <Row gutter={16} style={{ marginTop: structureType === 'both' ? '16px' : '0' }}>
+                                <Col span={12}>
+                                    <Form.Item label={<span style={getLabelStyle()}>Drawing</span>} name="drawing_id">
+                                        <Select
+                                            placeholder="Select drawing"
+                                            allowClear
+                                            size="large"
+                                            onChange={(val) => {
+                                                if (val) fetchPanels(val)
+                                                else setPanels([])
+                                                form.setFieldsValue({ drawing_panel_id: undefined })
+                                            }}
+                                        >
+                                            {drawings.map(d => <Option key={d.id} value={d.id}>{d.drawing_name || d.drawing_number}</Option>)}
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item label={<span style={getLabelStyle()}>Panel</span>} name="drawing_panel_id">
+                                        <Select placeholder="Select panel" allowClear size="large" onChange={handlePanelChange}>
+                                            {panels.map(p => <Option key={p.id} value={p.id}>{p.panel_identifier}</Option>)}
+                                        </Select>
+
+                                        {selectedPanel && (
+                                            <div style={{ marginTop: 8, padding: '12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+                                                {(() => {
+                                                    let dims = { length: 0, width: 0, depth: 0, height: 0 }
+                                                    try {
+                                                        dims = JSON.parse(selectedPanel.coordinates_json || '{}')
+                                                    } catch (e) { }
+
+                                                    const length = Number(dims.length || 0)
+                                                    const depth = Number(dims.depth || dims.height || 0)
+                                                    const width = Number(dims.width || 0)
+
+                                                    // Area (Face) = Length * Depth
+                                                    const areaSqm = length * depth
+                                                    const areaSqft = areaSqm * 10.764
+                                                    const volCum = areaSqm * width
+
+                                                    // Calculate Previous Progress
+                                                    let totalDone = 0
+                                                    if (selectedPanel.consumptions && Array.isArray(selectedPanel.consumptions)) {
+                                                        selectedPanel.consumptions.forEach((c: any) => {
+                                                            if (c.items && Array.isArray(c.items)) {
+                                                                // Find the 'work done' item. Usually the first item or max work_done?
+                                                                // We sum up the MAX work_done recorded in that transaction (assuming one main work item per transaction)
+                                                                // Or sum all work_done quantities if they are additive.
+                                                                // For D-Wall, usually we look at the Concrete or Excavation Quantity.
+                                                                // Let's sum up 'work_done_quantity' of visible items.
+                                                                const txMaxWork = Math.max(...c.items.map((i: any) => Number(i.work_done_quantity || 0)))
+                                                                totalDone += txMaxWork
+                                                            }
+                                                        })
+                                                    }
+
+                                                    const percentDone = areaSqm > 0 ? (totalDone / areaSqm) * 100 : 0
+
+                                                    return (
+                                                        <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                                                                <Typography.Text type="secondary">Dimensions:</Typography.Text>
+                                                                <Typography.Text strong>L: {length}m | D: {depth}m | W: {width}m</Typography.Text>
+                                                            </div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: 4 }}>
+                                                                <Typography.Text type="secondary">Total Area:</Typography.Text>
+                                                                <Typography.Text strong style={{ color: theme.colors.primary.main }}>
+                                                                    {areaSqm.toFixed(2)} m² ({areaSqft.toFixed(2)} sqft)
+                                                                </Typography.Text>
+                                                            </div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: 2 }}>
+                                                                <Typography.Text type="secondary">Completed:</Typography.Text>
+                                                                <Typography.Text strong style={{ color: percentDone >= 100 ? '#10b981' : '#f59e0b' }}>
+                                                                    {totalDone.toFixed(2)} m² ({Math.min(percentDone, 100).toFixed(0)}%)
+                                                                </Typography.Text>
+                                                            </div>
+                                                            <div style={{ marginTop: 6, height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                                                                <div style={{
+                                                                    width: `${Math.min(percentDone, 100)}%`,
+                                                                    height: '100%',
+                                                                    background: percentDone >= 100 ? '#10b981' : theme.colors.primary.main,
+                                                                    transition: 'width 0.3s ease'
+                                                                }} />
+                                                            </div>
+
+                                                            {volCum > 0 && (
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: 4 }}>
+                                                                    <Typography.Text type="secondary">Est. Volume:</Typography.Text>
+                                                                    <Typography.Text>{volCum.toFixed(2)} m³</Typography.Text>
+                                                                </div>
+                                                            )}
+                                                            <div style={{ marginTop: 8, fontSize: '12px', color: '#64748b', fontStyle: 'italic' }}>
+                                                                * Recorded work done is cumulative.
+                                                            </div>
+                                                        </Space>
+                                                    )
+                                                })()}
+                                            </div>
+                                        )}
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                        )}
+                    </SectionCard>
+                )}
 
                 {/* 2. Progress & Materials */}
                 <SectionCard

@@ -238,29 +238,68 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
             }
         },
         {
-            title: 'Progress (from DPR)',
+            title: 'Progress (Unified DPR)',
             key: 'progress',
             width: 250,
             render: (_: any, record: any) => {
-                const latest = record.dprRecords?.[0]
-                const percentage = latest?.work_completion_percentage || 0
+                // 1. Calculate Total Area (Face Area)
+                let dims = { length: 0, width: 0, depth: 0 }
+                try {
+                    dims = typeof record.coordinates_json === 'string' ? JSON.parse(record.coordinates_json) : (record.coordinates_json || {})
+                } catch (e) { }
+
+                const totalArea = Number(dims.length || 0) * Number(dims.depth || 0)
+
+                // 2. Calculate Total Work Done from Consumptions
+                let totalWorkDone = 0
+                let lastUpdateDate: Date | null = null
+
+                // Process new Unified DPR (Consumptions)
+                if (record.consumptions && Array.isArray(record.consumptions)) {
+                    record.consumptions.forEach((c: any) => {
+                        if (c.transaction_date) {
+                            const tDate = new Date(c.transaction_date)
+                            if (!lastUpdateDate || tDate > lastUpdateDate) {
+                                lastUpdateDate = tDate
+                            }
+                        }
+                        if (c.items && Array.isArray(c.items)) {
+                            const txWork = Math.max(...c.items.map((i: any) => Number(i.work_done_quantity || 0)))
+                            if (txWork > 0) totalWorkDone += txWork
+                        }
+                    })
+                }
+
+                // Fallback to legacy DPR
+                let percentage = 0;
+                if (totalWorkDone === 0 && record.dprRecords?.[0]) {
+                    const legacy = record.dprRecords[0]
+                    if (legacy.work_completion_percentage) {
+                        percentage = Number(legacy.work_completion_percentage)
+                        lastUpdateDate = new Date(legacy.report_date)
+                    }
+                } else {
+                    // Calculate % based on work done
+                    percentage = totalArea > 0 ? (totalWorkDone / totalArea) * 100 : 0
+                }
+
                 const status = percentage >= 100 ? 'completed' : (percentage > 0 ? 'in_progress' : 'not_started')
 
                 return (
                     <div style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                             {getStatusTag(status)}
-                            <Text type="secondary" style={{ fontSize: 12 }}>{percentage}%</Text>
+                            <Text type="secondary" style={{ fontSize: 12 }}>{percentage.toFixed(0)}%</Text>
                         </div>
                         <Progress
-                            percent={Number(percentage)}
+                            percent={Number(percentage.toFixed(0))}
                             size="small"
                             status={status === 'completed' ? 'success' : 'active'}
                             showInfo={false}
                         />
-                        {latest && (
+                        {lastUpdateDate && (
                             <div style={{ fontSize: 10, color: theme.colors.neutral.gray500, marginTop: 4 }}>
-                                Last Update: {new Date(latest.report_date).toLocaleDateString()}
+                                Last Update: {(lastUpdateDate as Date).toLocaleDateString()}
                             </div>
                         )}
                     </div>

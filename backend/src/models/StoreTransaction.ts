@@ -28,6 +28,7 @@ interface StoreTransactionAttributes {
   to_building_id?: number
   to_floor_id?: number
   to_zone_id?: number
+  drawing_panel_id?: number
 
   transaction_date: Date
   status: 'draft' | 'pending' | 'approved' | 'rejected'
@@ -81,6 +82,7 @@ class StoreTransaction extends Model<StoreTransactionAttributes, StoreTransactio
   public to_building_id?: number
   public to_floor_id?: number
   public to_zone_id?: number
+  public drawing_panel_id?: number
 
   public transaction_date!: Date
   public status!: StoreTransactionAttributes['status']
@@ -212,6 +214,14 @@ StoreTransaction.init(
       allowNull: true,
       references: {
         model: 'project_zones',
+        key: 'id',
+      },
+    },
+    drawing_panel_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'drawing_panels',
         key: 'id',
       },
     },

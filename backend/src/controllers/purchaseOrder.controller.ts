@@ -13,6 +13,7 @@ import ProjectBOQ from '../models/ProjectBOQ'
 import ProjectBOQItem from '../models/ProjectBOQItem'
 import WorkOrder from '../models/WorkOrder'
 import { Op } from 'sequelize'
+import CompanyBranch from '../models/CompanyBranch'
 
 // ...
 
@@ -29,51 +30,57 @@ export const createPurchaseOrder = async (req: AuthRequest, res: Response, next:
             notes,
             warehouse_id,
             delivery_type,
-            company_state_code, // maybe provided from frontend or calculated
+            company_state_code,
             vendor_state_code,
             annexure_id,
-            boq_id
+            boq_id,
+            billing_unit_id
         } = req.body
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             throw createError('Purchase Order must have at least one item', 400)
         }
 
-        // Fetch Project and Vendor to get state codes if not provided
-        const [project, vendor] = await Promise.all([
-            Project.findByPk(project_id),
-            Vendor.findByPk(vendor_id)
+        // Fetch Project, Vendor and Branch
+        const [project, vendor, branch] = await Promise.all([
+            project_id ? Project.findByPk(project_id) : null,
+            Vendor.findByPk(vendor_id),
+            billing_unit_id ? CompanyBranch.findByPk(billing_unit_id) : null
         ])
 
-        if (!project || !vendor) {
-            throw createError('Project or Vendor not found', 404)
+        if (!vendor) {
+            throw createError('Vendor not found', 404)
         }
 
-        // 1. Enforce Work Order check
-        const activeWO = await WorkOrder.findOne({
-            where: {
-                project_id,
-                status: { [Op.in]: ['approved', 'active'] }
+        // 1. Enforce Work Order check (Only if project is linked)
+        if (project_id) {
+            const activeWO = await WorkOrder.findOne({
+                where: {
+                    project_id,
+                    status: { [Op.in]: ['approved', 'active'] }
+                }
+            })
+
+            if (!activeWO) {
+                throw createError('Cannot create Purchase Order without an approved/active Work Order for this project.', 403)
             }
-        })
-
-        if (!activeWO) {
-            throw createError('Cannot create Purchase Order without an approved/active Work Order for this project.', 403)
         }
 
-        const finalCompanyStateCode = company_state_code || project.site_state_code || '27' // Default to Maharashtra if unknown
+        const finalCompanyStateCode = company_state_code || branch?.state_code || project?.site_state_code || '27'
         const finalVendorStateCode = vendor_state_code || vendor.state_code
 
         const gst_type = detectGSTType(finalVendorStateCode || '', finalCompanyStateCode || '')
 
         // BOQ Validation: If a BOQ ID is provided, verify against it
         let activeBOQ = null
-        if (boq_id) {
-            activeBOQ = await ProjectBOQ.findOne({ where: { id: boq_id, project_id, status: 'approved' } })
-            if (!activeBOQ) throw createError('Specified BOQ is not approved or belongs to a different project', 400)
-        } else {
-            // Find current active BOQ
-            activeBOQ = await ProjectBOQ.findOne({ where: { project_id, status: 'approved' } })
+        if (project_id) {
+            if (boq_id) {
+                activeBOQ = await ProjectBOQ.findOne({ where: { id: boq_id, project_id, status: 'approved' } })
+                if (!activeBOQ) throw createError('Specified BOQ is not approved or belongs to a different project', 400)
+            } else {
+                // Find current active BOQ
+                activeBOQ = await ProjectBOQ.findOne({ where: { project_id, status: 'approved' } })
+            }
         }
 
         // Calculate GST breakup from items
@@ -107,7 +114,8 @@ export const createPurchaseOrder = async (req: AuthRequest, res: Response, next:
             notes,
             warehouse_id,
             annexure_id,
-            boq_id: activeBOQ?.id
+            boq_id: activeBOQ?.id,
+            billing_unit_id
         })
 
         const itemPromises = items.map(async (item: any) => {
@@ -281,7 +289,8 @@ export const updatePurchaseOrder = async (req: AuthRequest, res: Response, next:
             delivery_type,
             company_state_code,
             vendor_state_code,
-            annexure_id
+            annexure_id,
+            billing_unit_id
         } = req.body
 
         const po = await PurchaseOrder.findByPk(id)
@@ -297,13 +306,14 @@ export const updatePurchaseOrder = async (req: AuthRequest, res: Response, next:
             throw createError('Purchase Order must have at least one item', 400)
         }
 
-        const [project, vendor] = await Promise.all([
-            Project.findByPk(project_id),
-            Vendor.findByPk(vendor_id)
+        const [project, vendor, branch] = await Promise.all([
+            project_id ? Project.findByPk(project_id) : null,
+            Vendor.findByPk(vendor_id),
+            billing_unit_id ? CompanyBranch.findByPk(billing_unit_id) : null
         ])
-        if (!project || !vendor) throw createError('Project or Vendor not found', 404)
+        if (!vendor) throw createError('Vendor not found', 404)
 
-        const finalCompanyStateCode = company_state_code || project.site_state_code || '27'
+        const finalCompanyStateCode = company_state_code || branch?.state_code || project?.site_state_code || '27'
         const finalVendorStateCode = vendor_state_code || vendor.state_code
         const gst_type = detectGSTType(finalVendorStateCode || '', finalCompanyStateCode || '')
 
@@ -319,7 +329,8 @@ export const updatePurchaseOrder = async (req: AuthRequest, res: Response, next:
             shipping_address,
             payment_terms: Array.isArray(payment_terms) ? payment_terms.join(', ') : payment_terms,
             notes,
-            annexure_id
+            annexure_id,
+            billing_unit_id
         })
 
         await PurchaseOrderItem.destroy({ where: { po_id: id } })

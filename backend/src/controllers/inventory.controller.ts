@@ -178,15 +178,31 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
                     AND (:wId IS NULL OR po.warehouse_id = :wId)
                     AND (:pId IS NULL OR po.project_id = :pId)
                 ), 0) as po_qty,
-                -- Received Quantity (GRN Approved)
+                -- Received Quantity (GRN Approved - Good Stock)
                 COALESCE((
-                    SELECT SUM(ti.accepted_quantity) 
+                    SELECT SUM(CASE 
+                        WHEN ti.item_status = 'Defective' THEN 0 -- Exclude legacy defective items from Good Stock
+                        ELSE ti.accepted_quantity 
+                    END) 
                     FROM store_transaction_items ti 
                     JOIN store_transactions t ON t.id = ti.transaction_id 
                     WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'GRN'
                     AND (:wId IS NULL OR t.warehouse_id = :wId)
                     AND (:pId IS NULL OR t.to_project_id = :pId)
                 ), 0) as received_qty,
+                -- Rejected Quantity (GRN Approved - Defective/Returned immediately or held)
+                COALESCE((
+                    SELECT SUM(CASE 
+                        WHEN ti.rejected_quantity > 0 THEN ti.rejected_quantity 
+                        WHEN ti.item_status = 'Defective' THEN ti.quantity -- Catch legacy defective items
+                        ELSE 0 
+                    END) 
+                    FROM store_transaction_items ti 
+                    JOIN store_transactions t ON t.id = ti.transaction_id 
+                    WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'GRN'
+                    AND (:wId IS NULL OR t.warehouse_id = :wId)
+                    AND (:pId IS NULL OR t.to_project_id = :pId)
+                ), 0) as rejected_qty,
                 -- Used Quantity (Consumption Approved)
                 COALESCE((
                     SELECT SUM(ti.quantity) 
@@ -213,11 +229,29 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
                     WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'STN'
                     AND (:wId IS NULL OR t.to_warehouse_id = :wId)
                     AND (:pId IS NULL OR t.to_project_id = :pId)
-                ), 0) as transfer_in
+                ), 0) as transfer_in,
+                -- SRN Out (Returned FROM this location)
+                COALESCE((
+                    SELECT SUM(ti.quantity) 
+                    FROM store_transaction_items ti 
+                    JOIN store_transactions t ON t.id = ti.transaction_id 
+                    WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'SRN'
+                    AND (:wId IS NULL OR t.warehouse_id = :wId)
+                    AND (:pId IS NULL OR t.from_project_id = :pId OR (t.source_type='project' AND t.project_id = :pId))
+                ), 0) as srn_out,
+                -- SRN In (Returned TO this location)
+                COALESCE((
+                    SELECT SUM(ti.quantity) 
+                    FROM store_transaction_items ti 
+                    JOIN store_transactions t ON t.id = ti.transaction_id 
+                    WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'SRN'
+                    AND (:wId IS NULL OR t.to_warehouse_id = :wId)
+                    AND (:pId IS NULL OR t.to_project_id = :pId) -- Added explicit pId check
+                ), 0) as srn_in
             FROM materials m
             WHERE 1=1
             ${search ? `AND (m.name LIKE :searchPattern OR m.material_code LIKE :searchPattern)` : ''}
-            HAVING po_qty > 0 OR received_qty > 0 OR used_qty > 0 OR transfer_out > 0 OR transfer_in > 0
+            HAVING po_qty > 0 OR received_qty > 0 OR rejected_qty > 0 OR used_qty > 0 OR transfer_out > 0 OR transfer_in > 0 OR srn_out > 0 OR srn_in > 0
             ORDER BY m.name ASC
         `
 
@@ -235,10 +269,13 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
             ...row,
             po_qty: Number(row.po_qty),
             received_qty: Number(row.received_qty),
+            rejected_qty: Number(row.rejected_qty),
             used_qty: Number(row.used_qty),
             transfer_out: Number(row.transfer_out),
             transfer_in: Number(row.transfer_in),
-            balance_qty: Number(row.received_qty) + Number(row.transfer_in) - Number(row.used_qty) - Number(row.transfer_out)
+            srn_out: Number(row.srn_out),
+            srn_in: Number(row.srn_in),
+            balance_qty: (Number(row.received_qty) + Number(row.transfer_in) + Number(row.srn_in)) - (Number(row.used_qty) + Number(row.transfer_out) + Number(row.srn_out))
         }))
 
         return res.json({ success: true, statement })

@@ -15,6 +15,7 @@ import { warehouseService } from '../../services/api/warehouses'
 import { projectService } from '../../services/api/projects'
 import { vendorService } from '../../services/api/vendors'
 import { purchaseOrderService } from '../../services/api/purchaseOrders'
+import { workOrderService } from '../../services/api/workOrders'
 import { uploadService } from '../../services/api/upload'
 import { grnSchema, GRNFormData } from '../../utils/validationSchemas'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -58,9 +59,14 @@ const GRNInternalForm = () => {
   // Master Data
   const [materials, setMaterials] = useState<any[]>([])
   const [, setWarehouses] = useState<any[]>([])
-  const [, setProjects] = useState<any[]>([])
+  const [projects, setProjects] = useState<any[]>([])
   const [vendors, setVendors] = useState<any[]>([])
   const [purchaseOrders, setPurchaseOrders] = useState<any[]>([])
+  const [workOrders, setWorkOrders] = useState<any[]>([])
+
+  // Filters
+  const [filterProjectId, setFilterProjectId] = useState<number | null>(null)
+  const [filterWorkOrderId, setFilterWorkOrderId] = useState<number | null>(null)
 
   const [items, setItems] = useState<GRNItem[]>([])
 
@@ -92,14 +98,25 @@ const GRNInternalForm = () => {
     }
   }, [id])
 
+  // Sync Project Filter when PO is loaded/selected (especially on Edit)
+  useEffect(() => {
+    if (po_id_val && !filterProjectId && purchaseOrders.length > 0) {
+      const po = purchaseOrders.find(p => p.id === po_id_val)
+      if (po?.project_id) {
+        setFilterProjectId(po.project_id)
+      }
+    }
+  }, [po_id_val, purchaseOrders, filterProjectId])
+
   const fetchMetadata = async () => {
     try {
-      const [matRes, whRes, projRes, vendRes, poRes] = await Promise.all([
+      const [matRes, whRes, projRes, vendRes, poRes, woRes] = await Promise.all([
         materialService.getMaterials(),
         warehouseService.getWarehouses(),
         projectService.getProjects(),
         vendorService.getVendors(),
         purchaseOrderService.getPurchaseOrders(),
+        workOrderService.getWorkOrders(),
       ])
 
       setMaterials(matRes.materials || [])
@@ -107,6 +124,7 @@ const GRNInternalForm = () => {
       setProjects(projRes.projects || [])
       setVendors(vendRes.vendors || [])
       setPurchaseOrders(poRes.purchaseOrders || poRes || [])
+      setWorkOrders(woRes.workOrders || woRes || [])
     } catch (error) {
       message.error('Failed to load metadata')
     }
@@ -129,7 +147,26 @@ const GRNInternalForm = () => {
       setValue('supplier_invoice_number', grn.supplier_invoice_number)
       setValue('lorry_receipt_number', grn.lorry_receipt_number)
       setValue('eway_bill_number', grn.eway_bill_number)
-      setValue('po_id', grn.po_id || undefined)
+
+      const existingPOId = grn.po_id || undefined
+      setValue('po_id', existingPOId)
+
+      // Attempt to infer filters from existing PO
+      if (existingPOId && purchaseOrders.length > 0) {
+        const po = purchaseOrders.find(p => p.id === existingPOId)
+        if (po && po.project_id) {
+          setFilterProjectId(po.project_id)
+          // We can't know the exact WO, but we set it to valid to show the PO if needed, 
+          // or leave null. The user requirement is mostly for NEW selection. 
+          // But to see the PO in the dropdown, we need to pass the filter logic.
+          // Let's rely on the fact that if a PO is already set, we display it name in the value,
+          // but the list might be filtered.
+          // To be safe, let's try to find a WO for this project.
+          // const wo = workOrders.find(w => w.project_id === po.project_id)
+          // if (wo) setFilterWorkOrderId(wo.id)
+        }
+      }
+
       setValue('truck_number', grn.truck_number)
       setValue('driver_name', grn.driver_name)
       setValue('driver_phone', grn.driver_phone)
@@ -314,7 +351,9 @@ const GRNInternalForm = () => {
               {materials.map((m) => <Option key={m.id} value={m.id}>{m.name}</Option>)}
             </Select>
           )}
-          {record.item_status === 'Defective-Accepted' && <Tag color="orange" style={{ margin: 0, fontSize: '10px' }}>Quality Issue</Tag>}
+          {record.item_status === 'Defective' && <Tag color="orange" style={{ margin: 0, fontSize: '10px' }}>Quality Issue</Tag>}
+          {record.item_status === 'Shortage' && <Tag color="red" style={{ margin: 0, fontSize: '10px' }}>Short Receipt</Tag>}
+          {record.item_status === 'Excess' && <Tag color="cyan" style={{ margin: 0, fontSize: '10px' }}>Extra Recd</Tag>}
         </Space>
       ),
     },
@@ -336,15 +375,16 @@ const GRNInternalForm = () => {
     },
     {
       title: 'Inv Qty',
-      key: 'quantity',
-      width: 120,
+      key: 'inv_qty',
+      width: 100,
       render: (_: any, record: GRNItem, index: number) => (
         <InputNumber
           style={{ width: '100%' }}
           value={record.quantity}
           min={0}
-          onChange={(value) => {
-            const qty = value || 0
+          onChange={(val) => {
+            const qty = val || 0
+            // Default logic: If inv qty changes, reset accepted to match, rejected 0
             updateItem(index, {
               quantity: qty,
               accepted_quantity: qty,
@@ -355,45 +395,77 @@ const GRNInternalForm = () => {
       ),
     },
     {
-      title: 'Status',
-      key: 'status',
-      width: 150,
+      title: 'Accepted (Good)',
+      key: 'accepted',
+      width: 100,
       render: (_: any, record: GRNItem, index: number) => (
-        <Select
-          style={{ width: '100%' }}
-          value={record.item_status}
-          onChange={v => updateItem(index, { item_status: v })}
-        >
-          <Option value="Good">Good</Option>
-          <Option value="Defective-Accepted">Defective-Accepted</Option>
-        </Select>
+        <InputNumber
+          style={{ width: '100%', borderColor: '#52c41a' }}
+          value={record.accepted_quantity}
+          min={0}
+          onChange={(val) => {
+            const acc = val || 0
+            // Don't auto-calculate rejected here to allow explicit control. 
+            // User enters Good Qty manually.
+            updateItem(index, { accepted_quantity: acc })
+          }}
+        />
       )
     },
     {
-      title: 'Received Quantity',
-      key: 'received',
-      width: 200,
+      title: 'Rejected (Bad)',
+      key: 'rejected',
+      width: 100,
       render: (_: any, record: GRNItem, index: number) => (
-        <Space.Compact style={{ width: '100%' }}>
-          <InputNumber
-            style={{ width: '60%' }}
-            value={record.accepted_quantity}
-            onChange={(val) => {
-              const acc = val || 0
-              updateItem(index, {
-                accepted_quantity: acc,
-                rejected_quantity: record.quantity - acc
-              })
-            }}
-          />
-          <Select
-            style={{ width: '40%' }}
-            value={record.unit}
-            onChange={u => updateItem(index, { unit: u })}
-          >
-            {record.material_units?.map(u => <Option key={u} value={u}>{u}</Option>)}
-          </Select>
-        </Space.Compact>
+        <InputNumber
+          style={{ width: '100%', borderColor: '#ff4d4f' }}
+          value={record.rejected_quantity}
+          min={0}
+          onChange={(val) => {
+            const rej = val || 0
+            updateItem(index, { rejected_quantity: rej })
+          }}
+        />
+      )
+    },
+    {
+      title: 'Status / Variance',
+      key: 'status_calc',
+      width: 180,
+      render: (_: any, record: GRNItem) => {
+        const totalReceived = (record.accepted_quantity || 0) + (record.rejected_quantity || 0)
+        const invQty = record.quantity || 0
+        const diff = totalReceived - invQty // Excess (+), Shortage (-)
+        const hasDefective = (record.rejected_quantity || 0) > 0
+
+        return (
+          <Space direction="vertical" size={0}>
+            {hasDefective && <Tag color="orange">Defective: {record.rejected_quantity}</Tag>}
+
+            {diff < 0 && <Tag color="red">Shortage: {Math.abs(diff)}</Tag>}
+            {diff > 0 && <Tag color="purple">Excess: {diff}</Tag>}
+
+            {diff === 0 && !hasDefective && <Tag color="success">Perfect Match</Tag>}
+
+            <Text type="secondary" style={{ fontSize: '10px' }}>
+              Physical Recd: {totalReceived}
+            </Text>
+          </Space>
+        )
+      }
+    },
+    {
+      title: 'Unit',
+      key: 'unit',
+      width: 100,
+      render: (_: any, record: GRNItem, index: number) => (
+        <Select
+          style={{ width: '100%' }}
+          value={record.unit}
+          onChange={u => updateItem(index, { unit: u })}
+        >
+          {record.material_units?.map(u => <Option key={u} value={u}>{u}</Option>)}
+        </Select>
       )
     },
     {
@@ -414,21 +486,48 @@ const GRNInternalForm = () => {
         beforeUpload={f => { handleFileUpload(f, fieldName); return false; }}
       >
         <div style={{
-          width: '60px',
-          height: '60px',
-          border: '2px dashed #d9d9d9',
+          width: '100px',
+          height: '100px',
+          border: '1px dashed #d9d9d9',
           borderRadius: '8px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
-          background: currentUrl ? '#f6ffed' : '#fff',
-          margin: '0 auto'
+          background: '#fafafa',
+          margin: '0 auto',
+          overflow: 'hidden',
+          position: 'relative'
         }}>
-          {uploadingField === fieldName ? <LoadingOutlined /> : currentUrl ? <CheckCircleOutlined style={{ color: '#52c41a' }} /> : <CloudUploadOutlined />}
+          {uploadingField === fieldName ? (
+            <LoadingOutlined style={{ fontSize: 24 }} />
+          ) : currentUrl ? (
+            <img
+              src={currentUrl.startsWith('http') ? currentUrl : `http://localhost:5000${currentUrl}`}
+              alt={title}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#999' }}>
+              <CloudUploadOutlined style={{ fontSize: '24px', marginBottom: 4 }} />
+              <span style={{ fontSize: '10px' }}>Click to Upload</span>
+            </div>
+          )}
         </div>
       </Upload>
-      {currentUrl && <Text type="success" style={{ fontSize: '10px' }}>Uploaded</Text>}
+      {currentUrl ? (
+        <Button
+          type="link"
+          size="small"
+          onClick={() => {
+            const url = currentUrl.startsWith('http') ? currentUrl : `http://localhost:5000${currentUrl}`;
+            window.open(url, '_blank');
+          }}
+          style={{ fontSize: '11px', padding: '4px 0' }}
+        >
+          View Full
+        </Button>
+      ) : <div style={{ height: 24 }}></div>}
     </div>
   )
 
@@ -457,6 +556,51 @@ const GRNInternalForm = () => {
               <div style={{ background: '#edf4ff', padding: '20px', borderRadius: '8px', height: '100%' }}>
                 <Row gutter={[16, 16]}>
                   <Col span={24}>
+                    <Text type="secondary" style={{ fontSize: '11px' }}>PROJECT (Filter)</Text>
+                    <Select
+                      style={{ width: '100%', marginTop: '4px' }}
+                      placeholder="Select Project..."
+                      value={filterProjectId}
+                      onChange={(val) => {
+                        setFilterProjectId(val)
+                        setFilterWorkOrderId(null)
+                        setValue('po_id', undefined) // Reset PO when project changes
+                        setItems([])
+                      }}
+                      showSearch
+                      optionFilterProp="children"
+                    >
+                      {/* Only show projects that have at least one Work Order? 
+                            User said: "list of project for hwom wokrorder is created" 
+                        */}
+                      {projects.filter(p => workOrders.some(wo => wo.project_id === p.id)).map(p => (
+                        <Option key={p.id} value={p.id}>{p.name}</Option>
+                      ))}
+                    </Select>
+                  </Col>
+
+                  <Col span={24}>
+                    <Text type="secondary" style={{ fontSize: '11px' }}>WORK ORDER (Required)</Text>
+                    <Select
+                      style={{ width: '100%', marginTop: '4px' }}
+                      placeholder={filterProjectId ? "Select Work Order..." : "Select Project First"}
+                      value={filterWorkOrderId}
+                      onChange={(val) => {
+                        setFilterWorkOrderId(val)
+                        setValue('po_id', undefined) // Reset PO when WO changes
+                        setItems([])
+                      }}
+                      disabled={!filterProjectId}
+                    >
+                      {workOrders
+                        .filter(wo => wo.project_id === filterProjectId && (wo.status === 'active' || wo.status === 'approved' || wo.status === 'completed'))
+                        .map(wo => (
+                          <Option key={wo.id} value={wo.id}>{wo.work_order_number}</Option>
+                        ))}
+                    </Select>
+                  </Col>
+
+                  <Col span={24}>
                     <Text type="secondary" style={{ fontSize: '11px' }}>PO NUMBER</Text>
                     <Controller
                       name="po_id"
@@ -465,14 +609,24 @@ const GRNInternalForm = () => {
                         <Select
                           {...field}
                           style={{ width: '100%', marginTop: '4px' }}
-                          placeholder="Select PO..."
+                          placeholder={filterWorkOrderId ? "Select PO..." : "Select Work Order First"}
+                          disabled={!filterWorkOrderId && !id} // Disabled if no WO selected, unless editing
                           onChange={(val) => { field.onChange(val); handlePOSelect(val); }}
                           allowClear
                           showSearch
                         >
-                          {purchaseOrders.filter(po => po.status === 'approved' || po.status === 'Approved').map(po => (
-                            <Option key={po.id} value={po.id}>{po.po_number || po.temp_number}</Option>
-                          ))}
+                          {purchaseOrders
+                            .filter(po => {
+                              // If editing and this is the selected PO, show it regardless of filters
+                              if (id && po.id === po_id_val) return true;
+
+                              // Otherwise apply strict filters
+                              if (!filterProjectId) return false;
+                              return po.project_id === filterProjectId && (po.status === 'approved' || po.status === 'Approved');
+                            })
+                            .map(po => (
+                              <Option key={po.id} value={po.id}>{po.po_number || po.temp_number}</Option>
+                            ))}
                         </Select>
                       )}
                     />

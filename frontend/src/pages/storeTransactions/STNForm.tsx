@@ -83,6 +83,12 @@ const STNForm = () => {
   }, [id])
 
   useEffect(() => {
+    // Clear items when source changes to prevent invalid transfers
+    if (items.length > 0 && !id) { // Only clear if not in 'edit' mode (loading initial data)
+      setItems([])
+      setValue('items', [])
+    }
+
     if (fromId) {
       fetchSourceStock(fromType, fromId)
     } else {
@@ -345,18 +351,36 @@ const STNForm = () => {
     {
       title: 'Quantity',
       key: 'quantity',
-      render: (_: any, record: STNFormItem) => (
-        <InputNumber
-          style={{ width: '100%' }}
-          placeholder="Transfer Qty"
-          value={record.quantity}
-          min={0}
-          step={0.01}
-          status={(stockMap[record.material_id] || 0) < record.quantity ? 'warning' : ''}
-          onChange={(value) => updateItem(record.tempKey, 'quantity', value || 0)}
-          size="large"
-        />
-      ),
+      render: (_: any, record: STNFormItem) => {
+        const available = stockMap[record.material_id] || 0
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <InputNumber
+              style={{ width: '100%' }}
+              placeholder="Transfer Qty"
+              value={record.quantity}
+              min={0}
+              max={available} // Enforce max at input level
+              step={0.01}
+              status={available < record.quantity ? 'error' : ''}
+              onChange={(value) => updateItem(record.tempKey, 'quantity', value || 0)}
+              size="large"
+            />
+            {available > 0 && (
+              <div style={{ textAlign: 'right', marginTop: 2 }}>
+                <Button
+                  type="link"
+                  size="small"
+                  style={{ padding: 0, height: 'auto', fontSize: '11px' }}
+                  onClick={() => updateItem(record.tempKey, 'quantity', available)}
+                >
+                  Max: {available}
+                </Button>
+              </div>
+            )}
+          </div>
+        )
+      },
     },
     {
       title: 'Batch Code',
@@ -545,7 +569,7 @@ const STNForm = () => {
                     onClick={loadSourceItems}
                     disabled={!fromId}
                   >
-                    Load All Available Stock
+                    Auto-Fill All Stock Items
                   </Button>
                   <Button type="dashed" icon={<PlusOutlined />} onClick={addItem} style={{ borderRadius: '6px' }}>
                     Add Item Row

@@ -4,7 +4,7 @@ export interface PurchaseOrder {
     id: number
     temp_number: string
     po_number?: string
-    project_id: number
+    project_id?: number
     vendor_id: number
     total_amount: number
     status: 'draft' | 'pending_approval' | 'approved' | 'rejected'
@@ -16,6 +16,7 @@ export interface PurchaseOrder {
     company_state_code?: string
     vendor_state_code?: string
     delivery_type?: 'direct_to_site' | 'central_warehouse' | 'mixed'
+    billing_unit_id?: number
     created_at: string
     project?: {
         name: string
@@ -35,7 +36,7 @@ export interface PurchaseOrder {
 }
 
 export interface CreatePurchaseOrderData {
-    project_id: number
+    project_id?: number
     vendor_id: number
     total_amount: number
     items?: any[]
@@ -49,6 +50,7 @@ export interface CreatePurchaseOrderData {
     company_state_code?: string
     vendor_state_code?: string
     annexure_id?: number
+    billing_unit_id?: number
 }
 
 export const purchaseOrderService = {

@@ -11,6 +11,8 @@ import {
 } from '@ant-design/icons'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { purchaseOrderService } from '../../services/api/purchaseOrders'
+import { workOrderService } from '../../services/api/workOrders'
+import { quotationService } from '../../services/api/quotations'
 import { materialRequisitionService } from '../../services/api/materialRequisitions'
 import { projectService } from '../../services/api/projects'
 import { vendorService } from '../../services/api/vendors'
@@ -29,7 +31,7 @@ import {
     actionCardStyle,
     flexBetweenStyle
 } from '../../styles/styleUtils'
-import { detectGSTType, calculateGSTBreakup, getStateNameFromCode, getStateCodeFromGST, GSTType } from '../../utils/gstUtils'
+import { detectGSTType, calculateGSTBreakup, getStateNameFromCode, getStateCodeFromGST, GSTType, INDIA_STATE_CODES } from '../../utils/gstUtils'
 import dayjs from 'dayjs'
 import { InfoCard } from '../../components/common/PremiumComponents'
 
@@ -49,6 +51,9 @@ const PurchaseOrderForm = () => {
     const [materials, setMaterials] = useState<any[]>([])
     const [warehouses, setWarehouses] = useState<any[]>([])
     const [annexures, setAnnexures] = useState<Annexure[]>([])
+    const [paymentTermsTemplates, setPaymentTermsTemplates] = useState<Annexure[]>([])
+    const [clientQuotations, setClientQuotations] = useState<any[]>([])
+    const [workOrderProjectIds, setWorkOrderProjectIds] = useState<Set<number>>(new Set())
     const [boqItems, setBoqItems] = useState<BOQItem[]>([])
     const [showBoqOnly, setShowBoqOnly] = useState(true) // Default to true
     const [branches, setBranches] = useState<any[]>([])
@@ -62,9 +67,14 @@ const PurchaseOrderForm = () => {
     const selectedWarehouseId = Form.useWatch('warehouse_id', form)
     const selectedDeliveryType = Form.useWatch('delivery_type', form)
     const selectedBillingUnitId = Form.useWatch('billing_unit_id', form)
+    const procurementFor = Form.useWatch('procurement_for', form)
+    const [lastPopulatedProjectId, setLastPopulatedProjectId] = useState<number | null>(null)
 
     const [gstType, setGstType] = useState<GSTType>('intra_state')
     const [shippingLocation, setShippingLocation] = useState({ code: '', name: '' })
+
+    // Address sub-fields
+    const shippingStateCode = Form.useWatch('shipping_state', form)
 
     useEffect(() => {
         fetchMetadata()
@@ -133,9 +143,20 @@ const PurchaseOrderForm = () => {
 
             // Annexures needs special filtering
             const allTerms = getValue(termsRes, 'annexures')
-            setAnnexures(Array.isArray(allTerms) ? allTerms.filter((a: any) => a.type === 'purchase_order') : [])
+            setAnnexures(Array.isArray(allTerms) ? allTerms.filter((a: any) => a.type === 'purchase_order' || a.name.includes('PO Terms')) : [])
+            setPaymentTermsTemplates(Array.isArray(allTerms) ? allTerms.filter((a: any) => a.type === 'payment_terms') : [])
 
             setBranches(getValue(branchesRes, 'branches'))
+
+            // Fetch Work Orders to filter projects
+            try {
+                const woRes = await workOrderService.getWorkOrders()
+                const wos = woRes.workOrders || []
+                const validProjectIds = new Set(wos.map((wo: any) => wo.project_id))
+                setWorkOrderProjectIds(validProjectIds as Set<number>)
+            } catch (e) {
+                console.error('Failed to fetch Work Orders for filtering projects', e)
+            }
 
         } catch (error) {
             console.error('Failed to fetch metadata', error)
@@ -158,7 +179,9 @@ const PurchaseOrderForm = () => {
                 expected_delivery_date: po.expected_delivery_date ? dayjs(po.expected_delivery_date) : undefined,
                 payment_terms: po.payment_terms ? (po.payment_terms.includes(',') ? po.payment_terms.split(', ') : [po.payment_terms]) : [],
                 annexure_id: po.annexure_id,
-                shipping_address: po.shipping_address,
+                // Parse address if possible, else put all in street
+                shipping_street: po.shipping_address, // Default full text
+                // shipping_address: po.shipping_address, // We don't bind this directly anymore
                 notes: po.notes,
                 items: po.items.map((item: any) => ({
                     ...item,
@@ -172,6 +195,12 @@ const PurchaseOrderForm = () => {
                 }))
             })
 
+            // Try to extract state from the address if it matches known patterns or if we can infer it? 
+            // Better to rely on the side-effect logic to set state, OR if we saved it structured...
+            // Since we didn't save structured, we rely on user re-selecting or auto-detection.
+            // For now, let's leave state empty or auto-derived.
+
+
             // Trigger side effects manually if needed (like GST type)
             // GST Effect will run automatically due to form watch
         } catch (error) {
@@ -184,7 +213,7 @@ const PurchaseOrderForm = () => {
     }
 
     useEffect(() => {
-        if (selectedVendorId && (selectedDeliveryType || selectedWarehouseId || selectedProjectId || selectedBillingUnitId)) {
+        if (selectedVendorId && (selectedDeliveryType || selectedWarehouseId || selectedProjectId || selectedBillingUnitId || shippingStateCode)) {
             const vendor = vendors.find(v => v.id === selectedVendorId)
             const warehouse = warehouses.find(w => w.id === selectedWarehouseId)
             const project = projects.find(p => p.id === selectedProjectId)
@@ -194,10 +223,12 @@ const PurchaseOrderForm = () => {
                 // 1. Determine Vendor State Code (Prioritize GSTIN)
                 const vendorStateCode = getStateCodeFromGST(vendor.gst_number) || vendor.state_code || ''
 
-                // 2. Determine Delivery State Code (Prioritize GSTIN if Warehouse)
+                // 2. Determine Delivery State Code (Prioritize Manual Selection -> GSTIN if Warehouse -> Project)
                 let deliveryStateCode = ''
 
-                if (selectedDeliveryType === 'direct_to_site') {
+                if (shippingStateCode) {
+                    deliveryStateCode = shippingStateCode
+                } else if (selectedDeliveryType === 'direct_to_site') {
                     // For projects, we rely on site_state_code (unless we have a specific project_gstin field)
                     deliveryStateCode = project?.site_state_code || ''
                 } else if (warehouse) {
@@ -214,6 +245,10 @@ const PurchaseOrderForm = () => {
                     deliveryStateCode = project.site_state_code
                 }
 
+                // If we have a derived code but form state is empty, maybe sync form state?
+                // Only if NOT currently editing manual fields to avoiding loops.
+                // For now, let's just use the code for calc.
+
                 const name = getStateNameFromCode(deliveryStateCode)
                 setShippingLocation({ code: deliveryStateCode, name: name || (deliveryStateCode ? `State Code ${deliveryStateCode}` : '') })
 
@@ -221,13 +256,92 @@ const PurchaseOrderForm = () => {
                 setGstType(type)
             }
         }
-    }, [selectedProjectId, selectedVendorId, selectedWarehouseId, selectedDeliveryType, selectedBillingUnitId, projects, vendors, warehouses, branches])
+    }, [selectedProjectId, selectedVendorId, selectedWarehouseId, selectedDeliveryType, selectedBillingUnitId, projects, vendors, warehouses, branches, shippingStateCode])
 
     useEffect(() => {
-        if (selectedProjectId) {
+        if (selectedProjectId && procurementFor === 'project') {
+            if (selectedProjectId !== lastPopulatedProjectId && !isEditMode) {
+                handleProjectAutoPopulate(selectedProjectId)
+            }
             fetchProjectBOQ(selectedProjectId)
+            fetchClientQuotations(selectedProjectId)
+        } else if (selectedProjectId) {
+            fetchProjectBOQ(selectedProjectId)
+            fetchClientQuotations(selectedProjectId)
+        } else {
+            setBoqItems([])
+            setClientQuotations([])
+            setLastPopulatedProjectId(null)
         }
-    }, [selectedProjectId])
+    }, [selectedProjectId, procurementFor])
+
+    const fetchClientQuotations = async (projectId: number) => {
+        try {
+            const res = await quotationService.getQuotations()
+            const allQuotes = res.quotations || []
+
+            // Filter quotes:
+            // 1. Must belong to the selected project (directly or via Lead)
+            // 2. Must be in a "Final" state (Approved, Accepted, etc.)
+            // 3. MUST NOT be Superseded, Draft, or Rejected
+            const validStatuses = ['approved', 'accepted', 'accepted_by_party']
+
+            const filtered = allQuotes.filter((q: any) => {
+                const belongsToProject = q.project_id === projectId || q.lead?.project_id === projectId
+                const isFinalStatus = validStatuses.includes(q.status)
+
+                return belongsToProject && isFinalStatus
+            })
+
+            // Sort by ID descending to show latest first
+            filtered.sort((a: any, b: any) => b.id - a.id)
+
+            setClientQuotations(filtered)
+        } catch (e) {
+            console.error('Failed to fetch client quotations', e)
+        }
+    }
+
+    const handleProjectAutoPopulate = async (projectId: number) => {
+        try {
+            setLoading(true)
+            const res = await boqService.getProjectBOQs(projectId)
+            if (res.boqs && res.boqs.length > 0) {
+                const approved = res.boqs.find((b: any) => b.status === 'approved')
+                if (approved) {
+                    const details = await boqService.getBOQDetails(approved.id)
+                    const items = details.boq.items || []
+                    setBoqItems(items)
+
+                    if (items.length > 0) {
+                        const formItems = items.map((bi: any) => ({
+                            material_id: bi.material_id,
+                            boq_item_id: bi.id,
+                            description: bi.material?.name || bi.remarks,
+                            quantity: Number(bi.quantity) - Number(bi.ordered_quantity || 0),
+                            unit: bi.unit,
+                            unit_price: Number(bi.estimated_rate) || 0,
+                            tax_percentage: Number(bi.material?.gst_rate) || 0
+                        })).filter(item => item.quantity > 0)
+
+                        if (formItems.length > 0) {
+                            form.setFieldsValue({ items: formItems })
+                            setLastPopulatedProjectId(projectId)
+                            message.success(`Auto-populated ${formItems.length} items from Project BOQ`)
+                        }
+                    }
+                } else {
+                    setBoqItems([])
+                    message.info('No approved BOQ found for this project to auto-populate items.')
+                }
+            }
+        } catch (error) {
+            console.error('Failed to auto-populate items', error)
+            message.error('Failed to load project items')
+        } finally {
+            setLoading(false)
+        }
+    }
 
     const fetchProjectBOQ = async (projectId: number) => {
         try {
@@ -269,8 +383,11 @@ const PurchaseOrderForm = () => {
                 }
 
                 if (address) {
+                    // Simple parse attempt or just dump in street
                     form.setFieldsValue({
-                        shipping_address: address
+                        shipping_street: address,
+                        // Try to infer state if we can
+                        shipping_state: warehouse.state_code || getStateCodeFromGST(warehouse.gstin)
                     })
                 }
             }
@@ -378,6 +495,15 @@ const PurchaseOrderForm = () => {
                 }
             })
 
+            // Concatenate Address
+            const street = values.shipping_street || ''
+            const city = values.shipping_city || ''
+            const stateCode = values.shipping_state || ''
+            const pincode = values.shipping_pincode || ''
+            const stateName = getStateNameFromCode(stateCode)
+
+            const fullAddress = [street, city, stateName, pincode ? `ZIP: ${pincode}` : ''].filter(Boolean).join(', ')
+
             const payload = {
                 project_id: values.project_id,
                 vendor_id: values.vendor_id,
@@ -390,7 +516,7 @@ const PurchaseOrderForm = () => {
                 expected_delivery_date: values.expected_delivery_date ? values.expected_delivery_date.format('YYYY-MM-DD') : undefined,
                 payment_terms: Array.isArray(values.payment_terms) ? values.payment_terms.join(', ') : values.payment_terms,
                 annexure_id: values.annexure_id,
-                shipping_address: values.shipping_address,
+                shipping_address: fullAddress,
                 notes: values.notes
             }
 
@@ -428,6 +554,50 @@ const PurchaseOrderForm = () => {
                 <SectionCard title="PO Header Details" icon={<FileDoneOutlined />}>
                     <div style={twoColumnGridStyle}>
                         <Form.Item
+                            label={<span style={getLabelStyle()}>Procurement For</span>}
+                            name="procurement_for"
+                            initialValue="project"
+                            rules={[{ required: true, message: 'Please select procurement type' }]}
+                        >
+                            <Select
+                                size="large"
+                                style={largeInputStyle}
+                                onChange={(val) => {
+                                    if (val === 'general') {
+                                        form.setFieldsValue({ project_id: undefined })
+                                    }
+                                }}
+                            >
+                                <Option value="project">Project Procurement (Link to BOQ/Quote)</Option>
+                                <Option value="general">General / Stock / Safe Side</Option>
+                            </Select>
+                        </Form.Item>
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Project</span>}
+                            name="project_id"
+                            rules={[{ required: procurementFor === 'project', message: 'Please select a project' }]}
+                        >
+                            <Select
+                                placeholder="Select Project (with Work Order)"
+                                size="large"
+                                style={largeInputStyle}
+                                showSearch
+                                optionFilterProp="children"
+                                suffixIcon={<ProjectOutlined />}
+                                allowClear={procurementFor === 'general'}
+                            >
+                                {projects
+                                    .filter(p => !procurementFor || procurementFor === 'general' || workOrderProjectIds.has(p.id))
+                                    .map((p: any) => (
+                                        <Option key={p.id} value={p.id}>{p.name} ({p.project_code})</Option>
+                                    ))}
+                            </Select>
+                        </Form.Item>
+                    </div>
+
+                    <div style={twoColumnGridStyle}>
+                        <Form.Item
                             label={
                                 <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                                     <span style={getLabelStyle()}>Billing Unit (Buyer Branch)</span>
@@ -455,27 +625,6 @@ const PurchaseOrderForm = () => {
                             </Select>
                         </Form.Item>
 
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Project</span>}
-                            name="project_id"
-                            rules={[{ required: true, message: 'Please select a project' }]}
-                        >
-                            <Select
-                                placeholder="Select Project"
-                                size="large"
-                                style={largeInputStyle}
-                                showSearch
-                                optionFilterProp="children"
-                                suffixIcon={<ProjectOutlined />}
-                            >
-                                {projects.map((p: any) => (
-                                    <Option key={p.id} value={p.id}>{p.name} ({p.project_code})</Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
-                    </div>
-
-                    <div style={twoColumnGridStyle}>
                         <Form.Item
                             label={
                                 <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
@@ -567,36 +716,7 @@ const PurchaseOrderForm = () => {
                         </Form.Item>
                     </div>
 
-                    {/* Floor/Pour Selection for Direct to Site */}
-                    {selectedDeliveryType === 'direct_to_site' && (
-                        <div style={{ marginBottom: 24, padding: 16, background: '#fafafa', borderRadius: 8, border: '1px dashed #d9d9d9' }}>
-                            <Text strong style={{ display: 'block', marginBottom: 12 }}>Detailed Delivery Location (Optional)</Text>
-                            <Row gutter={16}>
-                                <Col span={8}>
-                                    <Form.Item name="building_id" label="Building / Block">
-                                        <Select placeholder="Select Building" allowClear>
-                                            {/* We would need to fetch buildings for project. Placeholder for UI. */}
-                                            <Option value={1}>Block A</Option>
-                                            <Option value={2}>Block B</Option>
-                                        </Select>
-                                    </Form.Item>
-                                </Col>
-                                <Col span={8}>
-                                    <Form.Item name="floor_id" label="Floor / Level">
-                                        <Select placeholder="Select Floor" allowClear>
-                                            <Option value={1}>Ground Floor</Option>
-                                            <Option value={2}>1st Floor</Option>
-                                        </Select>
-                                    </Form.Item>
-                                </Col>
-                                <Col span={8}>
-                                    <Form.Item name="zone_id" label="Zone / Pour / Flat">
-                                        <Input placeholder="e.g. Slab 1, Flat 101" />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
-                        </div>
-                    )}
+
                 </SectionCard>
 
                 <SectionCard title="Order Items" icon={<ShopOutlined />}>
@@ -622,7 +742,7 @@ const PurchaseOrderForm = () => {
                                                     label={
                                                         <Space>
                                                             <span>Material</span>
-                                                            {selectedProjectId && (
+                                                            {selectedProjectId && procurementFor === 'project' && (
                                                                 <Checkbox
                                                                     checked={showBoqOnly}
                                                                     onChange={(e) => setShowBoqOnly(e.target.checked)}
@@ -642,13 +762,14 @@ const PurchaseOrderForm = () => {
                                                         showSearch
                                                         optionFilterProp="children"
                                                     >
-                                                        {(showBoqOnly && selectedProjectId && boqItems.length > 0
+                                                        {(showBoqOnly && selectedProjectId && procurementFor === 'project' && boqItems.length > 0
                                                             ? materials.filter(m => boqItems.some(bi => bi.material_id === m.id))
                                                             : materials
                                                         ).map(m => (
                                                             <Option key={m.id} value={m.id}>
                                                                 {m.name} ({m.material_code})
-                                                                {showBoqOnly && boqItems.find(bi => bi.material_id === m.id) && (
+                                                                {/* Only show BOQ tag if we have BOQ items loaded, relevant for project procurement */}
+                                                                {procurementFor === 'project' && boqItems.find(bi => bi.material_id === m.id) && (
                                                                     <Tag color="blue" style={{ marginLeft: 8 }}>BOQ</Tag>
                                                                 )}
                                                             </Option>
@@ -756,12 +877,26 @@ const PurchaseOrderForm = () => {
 
                                             <Col span={3} style={{ textAlign: 'right' }}>
                                                 <div style={{ padding: '30px 0 0 0' }}>
-                                                    <Text strong>
-                                                        {items[index] ?
-                                                            '₹' + ((items[index].quantity || 0) * (items[index].unit_price || 0) * (1 + (items[index].tax_percentage || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                                                            : '₹0.00'
-                                                        }
-                                                    </Text>
+                                                    {items[index] ? (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                                            <Text strong>
+                                                                {'₹' + ((items[index].quantity || 0) * (items[index].unit_price || 0) * (1 + (items[index].tax_percentage || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                            </Text>
+                                                            <Text type="secondary" style={{ fontSize: '11px' }}>
+                                                                {(() => {
+                                                                    const base = (items[index].quantity || 0) * (items[index].unit_price || 0)
+                                                                    const tax = base * (items[index].tax_percentage || 0) / 100
+                                                                    if (gstType === 'intra_state') {
+                                                                        return `CGST: ₹${(tax / 2).toFixed(2)} | SGST: ₹${(tax / 2).toFixed(2)}`
+                                                                    } else {
+                                                                        return `IGST: ₹${tax.toFixed(2)}`
+                                                                    }
+                                                                })()}
+                                                            </Text>
+                                                        </div>
+                                                    ) : (
+                                                        <Text strong>₹0.00</Text>
+                                                    )}
                                                 </div>
                                             </Col>
 
@@ -830,15 +965,14 @@ const PurchaseOrderForm = () => {
                                 placeholder="Select or Type Payment Terms"
                                 size="large"
                                 mode="tags" // Allows custom input
-                                options={[
-                                    { value: 'Net 30', label: 'Net 30 Days' },
-                                    { value: 'Net 45', label: 'Net 45 Days' },
-                                    { value: 'Net 60', label: 'Net 60 Days' },
-                                    { value: '100% Advance', label: '100% Advance' },
-                                    { value: '50% Adv, 50% Delivery', label: '50% Adv, 50% Delivery' },
-                                    { value: 'Cash on Delivery', label: 'Cash on Delivery' },
-                                ]}
-                            />
+                            >
+                                {paymentTermsTemplates.map(t => (
+                                    <Option key={t.id} value={t.name}>{t.name}</Option>
+                                ))}
+                                <Option value="Net 30">Net 30 Days</Option>
+                                <Option value="Net 45">Net 45 Days</Option>
+                                <Option value="100% Advance">100% Advance</Option>
+                            </Select>
                         </Form.Item>
 
                         <Form.Item label="Terms & Conditions Master" name="annexure_id">
@@ -863,8 +997,9 @@ const PurchaseOrderForm = () => {
 
                         <Form.Item label="Reference Quotation (Sales)" name="sales_quotation_id">
                             <Select placeholder="Link to Client Quote (Optional)" allowClear size="large">
-                                {/* Placeholder: Fetch Sales Quotes if project selected */}
-                                <Option value={1}>QT-2026/001 (Accepted)</Option>
+                                {clientQuotations.map((q: any) => (
+                                    <Option key={q.id} value={q.id}>{q.quotation_number} (v{q.version_number}) - ₹{Number(q.final_amount).toLocaleString()}</Option>
+                                ))}
                             </Select>
                         </Form.Item>
 
@@ -872,9 +1007,29 @@ const PurchaseOrderForm = () => {
                             <Input placeholder="e.g. Q-99 from Supplier" size="large" />
                         </Form.Item>
                     </div>
-                    <Form.Item label="Shipping Address / Delivery Location" name="shipping_address">
-                        <Input.TextArea rows={2} placeholder="Enter delivery address..." />
-                    </Form.Item>
+
+                    <div style={{ marginTop: '16px', padding: '16px', background: '#f9f9f9', borderRadius: '8px', border: '1px solid #eee' }}>
+                        <Text strong style={{ display: 'block', marginBottom: '12px' }}>Shipping / Delivery Address Details</Text>
+                        <Form.Item label="Address Line / Street" name="shipping_street" rules={[{ required: true, message: 'Street Address is required' }]}>
+                            <Input.TextArea rows={2} placeholder="Building, Street, Area..." />
+                        </Form.Item>
+                        <div style={twoColumnGridStyle}>
+                            <Form.Item label="City / District" name="shipping_city">
+                                <Input placeholder="City" size="large" />
+                            </Form.Item>
+                            <Form.Item label="State" name="shipping_state" rules={[{ required: true, message: 'State is required for GST' }]}>
+                                <Select placeholder="Select State" showSearch optionFilterProp="children" size="large">
+                                    {Object.entries(INDIA_STATE_CODES).map(([code, name]) => (
+                                        <Option key={code} value={code}>{name} ({code})</Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                            <Form.Item label="Pincode" name="shipping_pincode">
+                                <Input placeholder="000000" maxLength={6} size="large" />
+                            </Form.Item>
+                        </div>
+                    </div>
+
                     <Form.Item label="Notes / Terms & Conditions" name="notes">
                         <Input.TextArea rows={4} placeholder="Additional terms..." />
                     </Form.Item>

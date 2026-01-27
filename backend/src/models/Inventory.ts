@@ -4,6 +4,7 @@ import { sequelize } from '../database/connection'
 interface InventoryAttributes {
   id: number
   warehouse_id: number
+  project_id?: number
   material_id: number
   quantity: number
   reserved_quantity: number
@@ -12,11 +13,12 @@ interface InventoryAttributes {
   last_updated?: Date
 }
 
-interface InventoryCreationAttributes extends Optional<InventoryAttributes, 'id' | 'last_updated'> {}
+interface InventoryCreationAttributes extends Optional<InventoryAttributes, 'id' | 'last_updated'> { }
 
 class Inventory extends Model<InventoryAttributes, InventoryCreationAttributes> implements InventoryAttributes {
   public id!: number
   public warehouse_id!: number
+  public project_id?: number
   public material_id!: number
   public quantity!: number
   public reserved_quantity!: number
@@ -37,6 +39,14 @@ Inventory.init(
       allowNull: false,
       references: {
         model: 'warehouses',
+        key: 'id',
+      },
+    },
+    project_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'projects',
         key: 'id',
       },
     },

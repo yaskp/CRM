@@ -703,11 +703,25 @@ export const approveTransaction = async (req: AuthRequest, res: Response, next: 
 
         if (targetWarehouseId) {
           // Increase Inventory
+          // Identify Project ID if available (either from transaction or found siteWh)
+          const targetProjectId = storeTransaction.to_project_id || storeTransaction.project_id || (await Warehouse.findByPk(targetWarehouseId))?.project_id;
+
           const [inv] = await Inventory.findOrCreate({
             where: { warehouse_id: targetWarehouseId, material_id: item.material_id },
-            defaults: { warehouse_id: targetWarehouseId, material_id: item.material_id, quantity: 0, reserved_quantity: 0 },
+            defaults: {
+              warehouse_id: targetWarehouseId,
+              project_id: targetProjectId,
+              material_id: item.material_id,
+              quantity: 0,
+              reserved_quantity: 0
+            },
             transaction
           });
+
+          // Ensure project_id is set if it was missing (e.g. legacy data)
+          if (targetProjectId && !inv.project_id) {
+            await inv.update({ project_id: targetProjectId }, { transaction });
+          }
 
           const newQty = Number(inv.quantity) + Number(item.quantity);
           await inv.update({ quantity: newQty }, { transaction });
@@ -753,11 +767,24 @@ export const approveTransaction = async (req: AuthRequest, res: Response, next: 
         }
 
         if (sourceWhId) {
+          const sourceProjectId = storeTransaction.from_project_id || (await Warehouse.findByPk(sourceWhId))?.project_id;
+
           const [invSource] = await Inventory.findOrCreate({
             where: { warehouse_id: sourceWhId, material_id: item.material_id },
-            defaults: { warehouse_id: sourceWhId, material_id: item.material_id, quantity: 0, reserved_quantity: 0 },
+            defaults: {
+              warehouse_id: sourceWhId,
+              project_id: sourceProjectId,
+              material_id: item.material_id,
+              quantity: 0,
+              reserved_quantity: 0
+            },
             transaction
           });
+
+          if (sourceProjectId && !invSource.project_id) {
+            await invSource.update({ project_id: sourceProjectId }, { transaction });
+          }
+
           const currQty = Number(invSource.quantity);
           const newQty = currQty - Number(item.quantity);
 
@@ -786,11 +813,23 @@ export const approveTransaction = async (req: AuthRequest, res: Response, next: 
         }
 
         if (destWhId) {
+          const destProjectId = storeTransaction.to_project_id || (await Warehouse.findByPk(destWhId))?.project_id;
+
           const [inv] = await Inventory.findOrCreate({
             where: { warehouse_id: destWhId, material_id: item.material_id },
-            defaults: { warehouse_id: destWhId, material_id: item.material_id, quantity: 0, reserved_quantity: 0 },
+            defaults: {
+              warehouse_id: destWhId,
+              project_id: destProjectId,
+              material_id: item.material_id,
+              quantity: 0,
+              reserved_quantity: 0
+            },
             transaction
           });
+
+          if (destProjectId && !inv.project_id) {
+            await inv.update({ project_id: destProjectId }, { transaction });
+          }
 
           const newQty = Number(inv.quantity) + Number(item.quantity);
           await inv.update({ quantity: newQty }, { transaction });

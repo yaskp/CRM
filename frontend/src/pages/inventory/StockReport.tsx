@@ -86,61 +86,86 @@ const StockReport = () => {
             title: <Tooltip title="Total Quantity ever ordered via POs (Approved/Pending)">PO QTY</Tooltip>,
             dataIndex: 'po_qty',
             key: 'po_qty',
-            width: 120,
+            width: 100,
             align: 'right' as const,
             render: (val: number, record: any) => <Text strong>{Number(val).toLocaleString()} {record.unit}</Text>
         },
         {
-            title: <Tooltip title="Total Quantity received and approved at site (GRN)">RECVD QTY</Tooltip>,
+            title: <Tooltip title="Good Stock physically received & accepted (GRN)">RECVD (GOOD)</Tooltip>,
             dataIndex: 'received_qty',
             key: 'received_qty',
-            width: 130,
+            width: 120,
             align: 'right' as const,
             render: (val: number) => <Text strong type="success">{Number(val).toLocaleString()}</Text>
         },
         {
-            title: <Tooltip title="Total inward transfers from other sites (STN In)">TRANS. IN</Tooltip>,
+            title: <Tooltip title="Defective/Rejected Quantity (Not in Stock)">REJECTED</Tooltip>,
+            dataIndex: 'rejected_qty',
+            key: 'rejected_qty',
+            width: 100,
+            align: 'right' as const,
+            render: (val: number) => Number(val) > 0 ? <Text type="danger" code>{Number(val).toLocaleString()}</Text> : <Text type="secondary">-</Text>
+        },
+        {
+            title: <Tooltip title="Stock Transferred IN from other sites (STN)">TRANS. IN</Tooltip>,
             dataIndex: 'transfer_in',
             key: 'transfer_in',
-            width: 130,
+            width: 110,
             align: 'right' as const,
-            render: (val: number) => Number(val) > 0 ? <Text strong style={{ color: '#faad14' }}>{Number(val).toLocaleString()}</Text> : <Text type="secondary">0</Text>
+            render: (val: number) => Number(val) > 0 ? <Text>{Number(val).toLocaleString()}</Text> : <Text type="secondary">-</Text>
         },
         {
-            title: <Tooltip title="Total Quantity consumed/issued at site (Approved Consumption)">USED QTY</Tooltip>,
+            title: <Tooltip title="Returns Received BACK from Vendor/Site (SRN In)">RET. IN</Tooltip>,
+            dataIndex: 'srn_in',
+            key: 'srn_in',
+            width: 100,
+            align: 'right' as const,
+            render: (val: number) => Number(val) > 0 ? <Text>{Number(val).toLocaleString()}</Text> : <Text type="secondary">-</Text>
+        },
+        {
+            title: <Tooltip title="Total Quantity consumed/issued at site">USED QTY</Tooltip>,
             dataIndex: 'used_qty',
             key: 'used_qty',
-            width: 130,
+            width: 120,
             align: 'right' as const,
-            render: (val: number) => Number(val) > 0 ? <Text strong type="danger">{Number(val).toLocaleString()}</Text> : <Text type="secondary">0</Text>
+            render: (val: number) => Number(val) > 0 ? <Text strong type="warning" style={{ color: '#d46b08' }}>{Number(val).toLocaleString()}</Text> : <Text type="secondary">-</Text>
         },
         {
-            title: <Tooltip title="Total outward transfers to other sites (STN Out)">TRANS. OUT</Tooltip>,
+            title: <Tooltip title="Stock Transferred OUT to other sites (STN)">TRANS. OUT</Tooltip>,
             dataIndex: 'transfer_out',
             key: 'transfer_out',
-            width: 140,
+            width: 110,
             align: 'right' as const,
-            render: (val: number) => Number(val) > 0 ? <Text strong type="danger" style={{ opacity: 0.7 }}>{Number(val).toLocaleString()}</Text> : <Text type="secondary">0</Text>
+            render: (val: number) => Number(val) > 0 ? <Text type="secondary">{Number(val).toLocaleString()}</Text> : <Text type="secondary">-</Text>
         },
         {
-            title: <Tooltip title="Final Balance (Recvd + Trans In - Used - Trans Out)">BALANCE</Tooltip>,
+            title: <Tooltip title="Stock Returned OUT to Vendor/Warehouse (SRN)">RET. OUT</Tooltip>,
+            dataIndex: 'srn_out',
+            key: 'srn_out',
+            width: 110,
+            align: 'right' as const,
+            render: (val: number) => Number(val) > 0 ? <Text type="danger">{Number(val).toLocaleString()}</Text> : <Text type="secondary">-</Text>
+        },
+        {
+            title: <Tooltip title="Final Balance (Good + Transfers + Returns - Used - Out)">BALANCE</Tooltip>,
             dataIndex: 'balance_qty',
             key: 'balance_qty',
-            width: 160,
+            width: 140,
             align: 'right' as const,
             fixed: 'right' as const,
             render: (val: number, record: any) => (
                 <div style={{ textAlign: 'right' }}>
                     <div style={{
-                        fontSize: '18px',
+                        fontSize: '16px',
                         fontWeight: 700,
                         color: Number(val) <= 0 ? theme.colors.error.main : theme.colors.success.main,
                         background: Number(val) <= 0 ? '#fff1f0' : '#f6ffed',
                         padding: '4px 8px',
                         borderRadius: '4px',
-                        display: 'inline-block'
+                        display: 'inline-block',
+                        minWidth: '80px'
                     }}>
-                        {Number(val).toLocaleString()} <span style={{ fontSize: '12px', fontWeight: 400 }}>{record.unit}</span>
+                        {Number(val).toLocaleString()} <span style={{ fontSize: '10px', fontWeight: 400 }}>{record.unit}</span>
                     </div>
                 </div>
             )
@@ -266,7 +291,7 @@ const StockReport = () => {
                             dataSource={statement}
                             loading={loading}
                             rowKey="material_id"
-                            scroll={{ x: 1200 }}
+                            scroll={{ x: 1600 }}
                             bordered
                             pagination={{
                                 pageSize: 15,
@@ -275,18 +300,24 @@ const StockReport = () => {
                             summary={(pageData) => {
                                 let totalPo = 0;
                                 let totalRec = 0;
+                                let totalRej = 0;
                                 let totalIn = 0;
+                                let totalSrnIn = 0;
                                 let totalUsed = 0;
                                 let totalOut = 0;
+                                let totalSrnOut = 0;
                                 let totalBal = 0;
 
-                                pageData.forEach(({ po_qty, received_qty, used_qty, transfer_in, transfer_out, balance_qty }) => {
-                                    totalPo += Number(po_qty);
-                                    totalRec += Number(received_qty);
-                                    totalIn += Number(transfer_in);
-                                    totalUsed += Number(used_qty);
-                                    totalOut += Number(transfer_out);
-                                    totalBal += Number(balance_qty);
+                                pageData.forEach((row: any) => {
+                                    totalPo += Number(row.po_qty);
+                                    totalRec += Number(row.received_qty);
+                                    totalRej += Number(row.rejected_qty);
+                                    totalIn += Number(row.transfer_in);
+                                    totalSrnIn += Number(row.srn_in);
+                                    totalUsed += Number(row.used_qty);
+                                    totalOut += Number(row.transfer_out);
+                                    totalSrnOut += Number(row.srn_out);
+                                    totalBal += Number(row.balance_qty);
                                 });
 
                                 return (
@@ -295,10 +326,13 @@ const StockReport = () => {
                                             <Table.Summary.Cell index={0}><Text strong>TOTALS</Text></Table.Summary.Cell>
                                             <Table.Summary.Cell index={1} align="right"><Text strong>{totalPo.toLocaleString()}</Text></Table.Summary.Cell>
                                             <Table.Summary.Cell index={2} align="right"><Text strong type="success">{totalRec.toLocaleString()}</Text></Table.Summary.Cell>
-                                            <Table.Summary.Cell index={3} align="right"><Text strong style={{ color: '#faad14' }}>{totalIn.toLocaleString()}</Text></Table.Summary.Cell>
-                                            <Table.Summary.Cell index={4} align="right"><Text strong type="danger">{totalUsed.toLocaleString()}</Text></Table.Summary.Cell>
-                                            <Table.Summary.Cell index={5} align="right"><Text strong type="danger" style={{ opacity: 0.7 }}>{totalOut.toLocaleString()}</Text></Table.Summary.Cell>
-                                            <Table.Summary.Cell index={6} align="right"><Text strong style={{ fontSize: '16px' }}>{totalBal.toLocaleString()}</Text></Table.Summary.Cell>
+                                            <Table.Summary.Cell index={3} align="right"><Text type="danger" code>{totalRej.toLocaleString()}</Text></Table.Summary.Cell>
+                                            <Table.Summary.Cell index={4} align="right"><Text strong>{totalIn.toLocaleString()}</Text></Table.Summary.Cell>
+                                            <Table.Summary.Cell index={5} align="right"><Text strong>{totalSrnIn.toLocaleString()}</Text></Table.Summary.Cell>
+                                            <Table.Summary.Cell index={6} align="right"><Text strong type="warning" style={{ color: '#d46b08' }}>{totalUsed.toLocaleString()}</Text></Table.Summary.Cell>
+                                            <Table.Summary.Cell index={7} align="right"><Text type="secondary">{totalOut.toLocaleString()}</Text></Table.Summary.Cell>
+                                            <Table.Summary.Cell index={8} align="right"><Text strong type="danger">{totalSrnOut.toLocaleString()}</Text></Table.Summary.Cell>
+                                            <Table.Summary.Cell index={9} align="right"><Text strong style={{ fontSize: '16px' }}>{totalBal.toLocaleString()}</Text></Table.Summary.Cell>
                                         </Table.Summary.Row>
                                     </Table.Summary>
                                 );

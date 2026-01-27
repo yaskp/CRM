@@ -99,8 +99,9 @@ const WorkOrderForm = () => {
 
         if (q.items && q.items.length > 0) {
           const woItems = q.items.map((item: any) => ({
-            item_type: item.item_type || 'Other', // Preserve the actual item type from quotation
-            category: item.item_type === 'material' ? 'material' : 'labour', // Set category based on type
+            work_item_type_id: item.work_item_type_id, // Map the work item type ID
+            item_type: item.item_type || 'Other',
+            category: item.item_type === 'material' ? 'material' : 'labour',
             description: item.description,
             quantity: Number(item.quantity),
             unit: item.unit,
@@ -113,11 +114,11 @@ const WorkOrderForm = () => {
         }
 
         // Also load scopes and terms from quotation if available
-        if (q.client_scope || q.contractor_scope || q.annexure) {
+        if (q.client_scope || q.contractor_scope || q.terms_conditions || q.annexure) {
           form.setFieldsValue({
             client_scope: q.client_scope,
             contractor_scope: q.contractor_scope,
-            terms_conditions: q.annexure?.clauses?.join('\n') || ''
+            terms_conditions: q.terms_conditions || (q.annexure?.clauses?.join('\n') || '')
           })
         }
       }

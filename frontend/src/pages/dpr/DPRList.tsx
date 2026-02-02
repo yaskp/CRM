@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react'
-import { Table, Card, Button, Tag, Space, Input, Select, DatePicker, message, Row, Col, Statistic, Typography, Tooltip } from 'antd'
+import { Table, Card, Button, Tag, Space, Input, Select, DatePicker, Row, Col, Statistic, Typography, Tooltip } from 'antd'
 import {
   PlusOutlined,
   EyeOutlined,
   EditOutlined,
   DashboardOutlined,
-  ProjectOutlined,
   CalendarOutlined,
-  SearchOutlined,
   FileTextOutlined,
-  BarChartOutlined,
   EnvironmentOutlined,
   CheckCircleOutlined,
   SyncOutlined,
@@ -21,7 +18,7 @@ import { storeTransactionService } from '../../services/api/storeTransactions'
 import { projectService } from '../../services/api/projects'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
-import { getPrimaryButtonStyle, getSecondaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { getPrimaryButtonStyle, largeInputStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
 const { Search } = Input
@@ -110,12 +107,19 @@ const DPRList = () => {
       ),
     },
     {
-      title: 'Work Type',
-      key: 'work_type',
-      width: 150,
+      title: 'Work Type & Panel',
+      key: 'work_type_panel',
+      width: 200,
       render: (_: any, record: any) => {
         const workType = record.items?.[0]?.workItemType?.name || 'Multiple'
-        return <Tag color="cyan">{workType}</Tag>
+        const panel = record.drawingPanel?.panel_identifier
+        return (
+          <Space direction="vertical" size={2}>
+            <Tag color="cyan">{workType}</Tag>
+            {panel && <Tag color="orange" style={{ fontSize: '10px' }}>PANEL: {panel}</Tag>}
+            {(!panel && record.items?.some((it: any) => it.drawing_panel_id)) && <Tag color="orange" style={{ fontSize: '10px' }}>Multiple Panels</Tag>}
+          </Space>
+        )
       }
     },
     {

@@ -56,6 +56,9 @@ import ProjectBudget from './ProjectBudget'
 import WorkerCategory from './WorkerCategory'
 import WorkTemplate from './WorkTemplate'
 import WorkTemplateItem from './WorkTemplateItem'
+import DPRRmcLog from './DPRRmcLog'
+import FinancialTransaction from './FinancialTransaction'
+import PaymentAllocation from './PaymentAllocation'
 
 // Define associations
 InventoryLedger.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
@@ -113,6 +116,10 @@ Quotation.hasMany(QuotationItem, { foreignKey: 'quotation_id', as: 'items' })
 WorkOrder.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 Project.hasMany(WorkOrder, { foreignKey: 'project_id', as: 'workOrders' })
 
+WorkOrder.belongsTo(Vendor, { foreignKey: 'vendor_id', as: 'vendor' })
+Vendor.hasMany(WorkOrder, { foreignKey: 'vendor_id', as: 'workOrders' })
+WorkOrder.hasMany(PaymentAllocation, { foreignKey: 'work_order_id', as: 'paymentAllocations' })
+
 WorkOrderItem.belongsTo(WorkOrder, { foreignKey: 'work_order_id', as: 'workOrder' })
 WorkOrder.hasMany(WorkOrderItem, { foreignKey: 'work_order_id', as: 'items' })
 
@@ -157,6 +164,8 @@ StoreTransaction.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 StoreTransaction.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
 StoreTransaction.belongsTo(User, { foreignKey: 'approved_by', as: 'approver' })
 StoreTransaction.hasMany(StoreTransactionItem, { foreignKey: 'transaction_id', as: 'items' })
+StoreTransaction.hasMany(DPRRmcLog, { foreignKey: 'dpr_id', as: 'rmcLogs' }) // Reusing dpr_id as generic foreign key
+DPRRmcLog.belongsTo(StoreTransaction, { foreignKey: 'dpr_id', as: 'transaction' })
 StoreTransactionItem.belongsTo(StoreTransaction, { foreignKey: 'transaction_id', as: 'transaction' })
 StoreTransactionItem.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
 StoreTransactionItem.belongsTo(PurchaseOrderItem, { foreignKey: 'po_item_id', as: 'poItem' })
@@ -185,6 +194,8 @@ DailyProgressReport.belongsTo(Project, { foreignKey: 'project_id', as: 'project'
 DailyProgressReport.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
 DailyProgressReport.hasMany(ManpowerReport, { foreignKey: 'dpr_id', as: 'manpower' })
 ManpowerReport.belongsTo(DailyProgressReport, { foreignKey: 'dpr_id', as: 'dpr' })
+DailyProgressReport.hasMany(DPRRmcLog, { foreignKey: 'dpr_id', as: 'rmcLogs' })
+DPRRmcLog.belongsTo(DailyProgressReport, { foreignKey: 'dpr_id', as: 'dpr' })
 DailyProgressReport.belongsTo(ProjectBuilding, { foreignKey: 'building_id', as: 'building' })
 DailyProgressReport.belongsTo(ProjectFloor, { foreignKey: 'floor_id', as: 'floor' })
 DailyProgressReport.belongsTo(ProjectZone, { foreignKey: 'zone_id', as: 'zone' })
@@ -213,6 +224,7 @@ Expense.belongsTo(User, { foreignKey: 'submitted_by', as: 'submitter' })
 Expense.hasMany(ExpenseApproval, { foreignKey: 'expense_id', as: 'approvals' })
 ExpenseApproval.belongsTo(Expense, { foreignKey: 'expense_id', as: 'expense' })
 ExpenseApproval.belongsTo(User, { foreignKey: 'approver_id', as: 'approver' })
+Expense.hasMany(PaymentAllocation, { foreignKey: 'expense_id', as: 'paymentAllocations' })
 
 // Drawings
 Drawing.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
@@ -269,6 +281,7 @@ PurchaseOrderItem.belongsTo(Material, { foreignKey: 'material_id', as: 'material
 PurchaseOrderItem.belongsTo(ProjectBOQItem, { foreignKey: 'boq_item_id', as: 'boqItem' })
 PurchaseOrder.belongsTo(Annexure, { foreignKey: 'annexure_id', as: 'annexure' })
 Annexure.hasMany(PurchaseOrder, { foreignKey: 'annexure_id', as: 'purchaseOrders' })
+PurchaseOrder.hasMany(PaymentAllocation, { foreignKey: 'purchase_order_id', as: 'paymentAllocations' })
 
 Project.hasMany(PurchaseOrder, { foreignKey: 'project_id', as: 'purchaseOrders' })
 Vendor.hasMany(PurchaseOrder, { foreignKey: 'vendor_id', as: 'purchaseOrders' })
@@ -307,6 +320,23 @@ WorkTemplate.hasMany(WorkTemplateItem, { foreignKey: 'template_id', as: 'items' 
 WorkTemplateItem.belongsTo(WorkTemplate, { foreignKey: 'template_id', as: 'template' })
 WorkTemplateItem.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
 WorkItemType.hasMany(WorkTemplateItem, { foreignKey: 'work_item_type_id', as: 'templateItems' })
+
+// Financial Transactions
+FinancialTransaction.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+FinancialTransaction.belongsTo(Vendor, { foreignKey: 'vendor_id', as: 'vendor' })
+FinancialTransaction.belongsTo(Client, { foreignKey: 'client_id', as: 'client' })
+FinancialTransaction.belongsTo(User, { foreignKey: 'user_id', as: 'staff' })
+FinancialTransaction.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
+FinancialTransaction.hasMany(PaymentAllocation, { foreignKey: 'financial_transaction_id', as: 'allocations' })
+
+PaymentAllocation.belongsTo(FinancialTransaction, { foreignKey: 'financial_transaction_id', as: 'transaction' })
+PaymentAllocation.belongsTo(PurchaseOrder, { foreignKey: 'purchase_order_id', as: 'purchaseOrder' })
+PaymentAllocation.belongsTo(WorkOrder, { foreignKey: 'work_order_id', as: 'workOrder' })
+PaymentAllocation.belongsTo(Expense, { foreignKey: 'expense_id', as: 'expense' })
+
+Project.hasMany(FinancialTransaction, { foreignKey: 'project_id', as: 'financialTransactions' })
+Vendor.hasMany(FinancialTransaction, { foreignKey: 'vendor_id', as: 'payments' })
+Client.hasMany(FinancialTransaction, { foreignKey: 'client_id', as: 'receipts' })
 
 export {
   User,
@@ -364,6 +394,9 @@ export {
   ProjectBudget,
   WorkerCategory,
   WorkTemplate,
-  WorkTemplateItem
+  WorkTemplateItem,
+  DPRRmcLog,
+  FinancialTransaction,
+  PaymentAllocation
 }
 

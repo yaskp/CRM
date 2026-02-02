@@ -30,6 +30,8 @@ import boqRoutes from './boq.routes'
 import masterRoutes from './master.routes'
 import budgetRoutes from './budget.routes'
 import workTemplateRoutes from './workTemplate.routes'
+import financialTransactionRoutes from './financialTransaction.routes'
+import projectContactRoutes from './projectContact.routes'
 
 const router = Router()
 
@@ -64,5 +66,7 @@ router.use('/boqs', boqRoutes)
 router.use('/master', masterRoutes)
 router.use('/budgets', budgetRoutes)
 router.use('/work-templates', workTemplateRoutes)
+router.use('/finance', financialTransactionRoutes)
+router.use('/project-contacts', projectContactRoutes)
 
 export default router

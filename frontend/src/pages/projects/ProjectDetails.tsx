@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Card, Descriptions, Tag, Button, message, Spin, Row, Col, Typography, Divider, Modal, Select, Tabs, Empty, Space } from 'antd'
+import { Card, Descriptions, Tag, Button, message, Spin, Row, Col, Typography, Divider, Modal, Select, Tabs, Space } from 'antd'
 import {
   ArrowLeftOutlined,
   ProjectOutlined,
@@ -24,6 +24,7 @@ import ProjectStructure from './ProjectStructure'
 import ProjectPanels from './ProjectPanels'
 import ProjectBOQManager from './ProjectBOQ'
 import ProjectInventory from './ProjectInventory'
+import ProjectTeam from './ProjectTeam'
 
 const { Text, Title } = Typography
 
@@ -206,7 +207,7 @@ const ProjectDetails = () => {
                           Location
                         </Text>
                         <Text strong style={{ fontSize: 16, marginTop: 8, display: 'block' }}>
-                          {project.city || 'N/A'}, {project.state || 'N/A'}
+                          {project.site_city || 'N/A'}, {project.site_state || 'N/A'}
                         </Text>
                       </div>
                     </Col>
@@ -245,13 +246,13 @@ const ProjectDetails = () => {
                           {project.name}
                         </Descriptions.Item>
                         <Descriptions.Item label={<Text strong>Location</Text>}>
-                          {project.location || 'N/A'}
+                          {project.site_location || 'N/A'}
                         </Descriptions.Item>
                         <Descriptions.Item label={<Text strong>City</Text>}>
-                          {project.city || 'N/A'}
+                          {project.site_city || 'N/A'}
                         </Descriptions.Item>
                         <Descriptions.Item label={<Text strong>State</Text>}>
-                          {project.state || 'N/A'}
+                          {project.site_state || 'N/A'}
                         </Descriptions.Item>
                       </Descriptions>
                     </SectionCard>
@@ -545,9 +546,7 @@ const ProjectDetails = () => {
               </span>
             ),
             children: (
-              <Card>
-                <Empty description="Project team assignment coming soon" />
-              </Card>
+              <ProjectTeam projectId={Number(id)} />
             )
           }
         ]}

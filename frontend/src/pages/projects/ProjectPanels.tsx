@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons'
 import { drawingService } from '../../services/api/drawings'
 import { theme } from '../../styles/theme'
+import DrawingVisualizer from './DrawingVisualizer'
 
 const { Text, Title } = Typography
 const { Option } = Select
@@ -30,6 +31,7 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
     const [panelForm] = Form.useForm()
     const [batchForm] = Form.useForm()
     const [fileList, setFileList] = useState<any[]>([])
+    const [viewMode, setViewMode] = useState<'list' | 'visual'>('visual')
 
     useEffect(() => {
         fetchDrawings()
@@ -426,13 +428,34 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                     </div>
                                 </div>
                             )}
-                            <Table
-                                dataSource={panels}
-                                columns={panelColumns}
-                                rowKey="id"
-                                loading={loading}
-                                pagination={{ pageSize: 5 }}
-                            />
+                            <div style={{ marginBottom: 16 }}>
+                                <Space.Compact>
+                                    <Button
+                                        type={viewMode === 'visual' ? 'primary' : 'default'}
+                                        onClick={() => setViewMode('visual')}
+                                    >
+                                        Traffic Light Dashboard
+                                    </Button>
+                                    <Button
+                                        type={viewMode === 'list' ? 'primary' : 'default'}
+                                        onClick={() => setViewMode('list')}
+                                    >
+                                        Detailed List View
+                                    </Button>
+                                </Space.Compact>
+                            </div>
+
+                            {viewMode === 'visual' ? (
+                                <DrawingVisualizer panels={panels} loading={loading} />
+                            ) : (
+                                <Table
+                                    dataSource={panels}
+                                    columns={panelColumns}
+                                    rowKey="id"
+                                    loading={loading}
+                                    pagination={{ pageSize: 15 }}
+                                />
+                            )}
                         </>
                     )}
                 </Card>

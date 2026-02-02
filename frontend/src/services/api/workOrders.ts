@@ -32,4 +32,15 @@ export const workOrderService = {
     })
     return response.data
   },
+
+  uploadSignedCopy: async (id: number, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post(`/work-orders/${id}/upload-signed`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    return response.data
+  },
 }

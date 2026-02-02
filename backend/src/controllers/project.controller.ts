@@ -46,6 +46,9 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
       location,
       city,
       state,
+      site_location,
+      site_city,
+      site_state,
       start_date,
       site_state_code,
       // Extra Client Fields
@@ -120,12 +123,6 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
         // Find a default group if not provided (e.g., Corporate) for NON-individual clients
         let finalGroupId = client_group_id;
 
-        if (!finalGroupId && client_type !== 'individual') {
-          let fallbackGroup = await ClientGroup.findOne({ where: { group_type: 'corporate' }, transaction })
-          if (!fallbackGroup) fallbackGroup = await ClientGroup.findOne({ transaction })
-          finalGroupId = fallbackGroup?.id;
-        }
-
         // Create New Client
         const clientCode = await generateClientCode()
         const newClient = await Client.create({
@@ -192,9 +189,9 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
         name: name || project.name,
         contract_value: quotation.final_amount,
         start_date: start_date || project.start_date,
-        site_location: location || project.site_location,
-        site_city: city || project.site_city,
-        site_state: state || project.site_state,
+        site_location: site_location || location || project.site_location,
+        site_city: site_city || city || project.site_city,
+        site_state: site_state || state || project.site_state,
         site_state_code: finalSiteStateCode || project.site_state_code,
         // Update client identity fields in case they changed
         client_name: finalClient?.company_name || project.client_name,
@@ -233,10 +230,10 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
         client_pan_number: finalClient?.pan || undefined,
 
         // Site Details
-        site_location: location || lead.address,
+        site_location: site_location || location || lead.address,
         site_address: lead.address,
-        site_city: city || lead.city,
-        site_state: state || lead.state,
+        site_city: site_city || city || lead.city,
+        site_state: site_state || state || lead.state,
         site_state_code: finalSiteStateCode,
 
         // Duplication for compatibility
@@ -384,7 +381,9 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
   // ... (keeping createProject same for now, though it should ideally accept client_id)
   try {
     const {
-      name, location, city, state, client_ho_address, company_id,
+      name, location, city, state,
+      site_location, site_city, site_state,
+      client_ho_address, company_id,
       client_gstin, site_state_code, rera_number, start_date, end_date, contract_value,
       lead_id, client_id
     } = req.body
@@ -422,10 +421,10 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
       client_pan_number: syncClient?.pan,
 
       // Site details
-      site_location: location,
-      site_address: location, // duplicating to both for compatibility
-      site_city: city,
-      site_state: state,
+      site_location: site_location || location,
+      site_address: site_location || location, // duplicating to both for compatibility
+      site_city: site_city || city,
+      site_state: site_state || state,
       site_state_code: finalSiteStateCode,
 
       client_ho_address,
@@ -616,7 +615,9 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
   try {
     const { id } = req.params
     const {
-      name, location, city, state, client_ho_address, status,
+      name, location, city, state,
+      site_location, site_city, site_state,
+      client_ho_address, status,
       client_gstin, site_state_code, rera_number, start_date, end_date, contract_value,
       client_id, lead_id
     } = req.body
@@ -652,9 +653,9 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
 
     await project.update({
       name,
-      site_location: location,
-      site_city: city,
-      site_state: state,
+      site_location: site_location || location,
+      site_city: site_city || city,
+      site_state: site_state || state,
       client_ho_address,
       status,
       client_gstin,

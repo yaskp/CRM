@@ -237,7 +237,10 @@ export const getPanels = async (req: AuthRequest, res: Response, next: NextFunct
           association: 'consumptions', // The new StoreTransaction association
           where: { transaction_type: 'CONSUMPTION' },
           required: false,
-          include: [{ association: 'items' }], // Include items to see quantities
+          include: [
+            { association: 'items' },
+            { association: 'rmcLogs' }
+          ], // Include items and RMC logs
           order: [['transaction_date', 'DESC']],
         }
       ],

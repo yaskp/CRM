@@ -110,6 +110,26 @@ const PurchaseOrderList = () => {
             ),
         },
         {
+            title: 'Paid',
+            dataIndex: 'paid_amount',
+            key: 'paid_amount',
+            width: 150,
+            render: (amount: number) => (
+                <Text style={{ color: '#52c41a' }}>₹{Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+            ),
+        },
+        {
+            title: 'Balance',
+            dataIndex: 'balance_amount',
+            key: 'balance_amount',
+            width: 150,
+            render: (amount: number) => (
+                <Text strong style={{ color: Number(amount) > 0 ? '#f5222d' : '#8c8c8c' }}>
+                    ₹{Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </Text>
+            ),
+        },
+        {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',

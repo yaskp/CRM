@@ -110,6 +110,10 @@ import RoleList from '../pages/admin/RoleList'
 import RoleForm from '../pages/admin/RoleForm'
 import Settings from '../pages/admin/Settings'
 import BudgetDashboard from '../pages/finance/BudgetDashboard'
+import FinancialTransactionList from '../pages/finance/FinancialTransactionList'
+import FinancialTransactionForm from '../pages/finance/FinancialTransactionForm'
+import FinancialTransactionDetails from '../pages/finance/FinancialTransactionDetails'
+import VendorAgingReport from '../pages/finance/VendorAgingReport'
 
 const AppRoutes = () => {
   const { user, loading } = useAuth()
@@ -239,6 +243,10 @@ const AppRoutes = () => {
         <Route path="finance/expenses/new" element={<ExpenseForm />} />
         <Route path="finance/budget" element={<BudgetDashboard />} />
         <Route path="finance/project-consumption" element={<ProjectConsumptionReport />} />
+        <Route path="finance/transactions" element={<FinancialTransactionList />} />
+        <Route path="finance/transactions/new" element={<FinancialTransactionForm />} />
+        <Route path="finance/transactions/:id" element={<FinancialTransactionDetails />} />
+        <Route path="finance/vendor-aging" element={<VendorAgingReport />} />
 
 
         {/* Reports */}

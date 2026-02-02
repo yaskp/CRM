@@ -7,11 +7,16 @@ interface DrawingPanelAttributes {
   panel_identifier: string
   coordinates_json?: string
   panel_type?: string
+  design_depth?: number
+  width?: number
+  thickness?: number
+  theoretical_concrete_volume?: number
+  theoretical_steel_kg?: number
   created_by: number
   created_at?: Date
 }
 
-interface DrawingPanelCreationAttributes extends Optional<DrawingPanelAttributes, 'id' | 'created_at'> {}
+interface DrawingPanelCreationAttributes extends Optional<DrawingPanelAttributes, 'id' | 'created_at'> { }
 
 class DrawingPanel extends Model<DrawingPanelAttributes, DrawingPanelCreationAttributes> implements DrawingPanelAttributes {
   public id!: number
@@ -19,6 +24,11 @@ class DrawingPanel extends Model<DrawingPanelAttributes, DrawingPanelCreationAtt
   public panel_identifier!: string
   public coordinates_json?: string
   public panel_type?: string
+  public design_depth?: number
+  public width?: number
+  public thickness?: number
+  public theoretical_concrete_volume?: number
+  public theoretical_steel_kg?: number
   public created_by!: number
   public readonly created_at!: Date
 }
@@ -48,6 +58,26 @@ DrawingPanel.init(
     },
     panel_type: {
       type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    design_depth: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    width: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    thickness: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    theoretical_concrete_volume: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    theoretical_steel_kg: {
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
     },
     created_by: {

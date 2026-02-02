@@ -18,6 +18,22 @@ interface DailyProgressReportAttributes {
   concrete_quantity_cubic_meter?: number
   polymer_consumption_bags?: number
   diesel_consumption_liters?: number
+
+  // D-Wall Specific Technical Fields
+  actual_depth?: number
+  verticality_x?: number
+  verticality_y?: number
+  slurry_density?: number
+  slurry_viscosity?: number
+  slurry_sand_content?: number
+  cage_id_ref?: string
+  start_time?: string // HH:mm
+  end_time?: string   // HH:mm
+  slump_flow?: number
+  tremie_pipe_count?: number
+  theoretical_concrete_qty?: number
+  overbreak_percentage?: number
+
   weather_conditions?: string
   remarks?: string
   created_by: number
@@ -43,6 +59,22 @@ class DailyProgressReport extends Model<DailyProgressReportAttributes, DailyProg
   public concrete_quantity_cubic_meter?: number
   public polymer_consumption_bags?: number
   public diesel_consumption_liters?: number
+
+  // D-Wall Specific Technical Fields
+  public actual_depth?: number
+  public verticality_x?: number
+  public verticality_y?: number
+  public slurry_density?: number
+  public slurry_viscosity?: number
+  public slurry_sand_content?: number
+  public cage_id_ref?: string
+  public start_time?: string
+  public end_time?: string
+  public slump_flow?: number
+  public tremie_pipe_count?: number
+  public theoretical_concrete_qty?: number
+  public overbreak_percentage?: number
+
   public weather_conditions?: string
   public remarks?: string
   public created_by!: number
@@ -137,6 +169,58 @@ DailyProgressReport.init(
       allowNull: true,
     },
     diesel_consumption_liters: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    actual_depth: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    verticality_x: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
+    verticality_y: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
+    slurry_density: {
+      type: DataTypes.DECIMAL(5, 3),
+      allowNull: true,
+    },
+    slurry_viscosity: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
+    slurry_sand_content: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
+    cage_id_ref: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    start_time: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    end_time: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    slump_flow: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    tremie_pipe_count: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    theoretical_concrete_qty: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    overbreak_percentage: {
       type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
     },

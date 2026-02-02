@@ -12,10 +12,8 @@ import {
   FileTextOutlined,
   BarChartOutlined,
   SettingOutlined,
-  UserOutlined,
   ContainerOutlined,
   ShopOutlined,
-  TeamOutlined,
   NumberOutlined,
   LayoutOutlined
 } from '@ant-design/icons'
@@ -81,6 +79,8 @@ const menuPermissions: Record<string, string[]> = {
   // Finance
   '/finance/expenses': ['Admin', 'Site Engineer', 'Operation Manager', 'Head/Accounts'],
   '/finance/project-consumption': ['Admin', 'Operation Manager', 'Head/Accounts'],
+  '/finance/transactions': ['Admin', 'Head/Accounts'],
+  '/finance/vendor-aging': ['Admin', 'Head/Accounts'],
   '/finance/approvals': ['Admin', 'Store Manager', 'Operation Manager', 'Head/Accounts'],
 
   // Documents
@@ -295,8 +295,16 @@ const MasterMenu = () => {
       label: 'Expense Management',
     },
     {
+      key: '/finance/transactions',
+      label: 'Payments & Receipts',
+    },
+    {
       key: '/finance/project-consumption',
       label: 'Project Consumption',
+    },
+    {
+      key: '/finance/vendor-aging',
+      label: 'Vendor Aging Report',
     },
   ])
 

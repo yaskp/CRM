@@ -7,6 +7,7 @@ import {
   addWorkOrderItem,
   deleteWorkOrderItem,
   downloadWorkOrderPDF,
+  uploadSignedWorkOrder,
 } from '../controllers/workOrder.controller'
 import { authenticate } from '../middleware/auth.middleware'
 
@@ -21,6 +22,7 @@ router.get('/:id/pdf', downloadWorkOrderPDF)
 router.put('/:id', updateWorkOrder)
 router.post('/:id/items', addWorkOrderItem)
 router.delete('/:id/items/:itemId', deleteWorkOrderItem)
+router.post('/:id/upload-signed', uploadSignedWorkOrder)
 
 export default router
 

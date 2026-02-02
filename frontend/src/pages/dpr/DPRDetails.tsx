@@ -229,6 +229,51 @@ const DPRDetails = () => {
           />
         </SectionCard>
 
+        {/* 2B. D-Wall Specialized Technical Logs */}
+        {log.drawing_panel_id && (
+          <Row gutter={24}>
+            <Col span={14}>
+              <SectionCard title="QC & Technical Compliance Logs" icon={<CheckCircleOutlined />}>
+                <Descriptions bordered column={2} size="small">
+                  <Descriptions.Item label="Actual Depth"><b>{log.actual_depth || '-'} m</b></Descriptions.Item>
+                  <Descriptions.Item label="Cage ID">{log.cage_id_ref || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="Verticality X">{log.verticality_x || '-'} %</Descriptions.Item>
+                  <Descriptions.Item label="Verticality Y">{log.verticality_y || '-'} %</Descriptions.Item>
+                  <Descriptions.Item label="Slurry Density">{log.slurry_density || '-'} g/cc</Descriptions.Item>
+                  <Descriptions.Item label="Sand Content">{log.slurry_sand_content || '-'} %</Descriptions.Item>
+                  <Descriptions.Item label="Marsh Viscosity">{log.slurry_viscosity || '-'} sec</Descriptions.Item>
+                  <Descriptions.Item label="Slump Flow">{log.slump_flow || '-'} mm</Descriptions.Item>
+                  <Descriptions.Item label="Start / End Time">
+                    <Tag color="blue">{log.start_time || '-'}</Tag> to <Tag color="blue">{log.end_time || '-'}</Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Theoretical Qty">{log.theoretical_concrete_qty || '-'} cum</Descriptions.Item>
+                  <Descriptions.Item label="Overbreak (%)">
+                    <Tag color={Number(log.overbreak_percentage) > 15 ? 'error' : 'success'}>
+                      {log.overbreak_percentage || '0'} %
+                    </Tag>
+                  </Descriptions.Item>
+                </Descriptions>
+              </SectionCard>
+            </Col>
+            <Col span={10}>
+              <SectionCard title="RMC Delivery Details" icon={<DashboardOutlined />}>
+                <Table
+                  dataSource={log.rmcLogs || []}
+                  size="small"
+                  pagination={false}
+                  rowKey="id"
+                  columns={[
+                    { title: 'Truck', dataIndex: 'vehicle_no' },
+                    { title: 'Qty', dataIndex: 'quantity', align: 'right' },
+                    { title: 'Slump', dataIndex: 'slump', align: 'right' },
+                    { title: 'In-Out', render: (_, r: any) => <Text style={{ fontSize: 10 }}>{r.in_time}-{r.out_time}</Text> }
+                  ]}
+                />
+              </SectionCard>
+            </Col>
+          </Row>
+        )}
+
         {/* 3. Manpower & Site Conditions */}
         <Row gutter={24}>
           <Col span={12}>
@@ -286,7 +331,7 @@ const DPRDetails = () => {
           </div>
         </SectionCard>
       </div>
-    </PageContainer>
+    </PageContainer >
   )
 }
 

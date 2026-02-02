@@ -1,23 +1,17 @@
 import { useState, useEffect } from 'react'
-import { Table, Card, Button, Tag, Space, Input, Select, message, Popconfirm, Row, Col, Statistic, Typography } from 'antd'
+import { Table, Card, Button, Tag, Space, Input, message, Popconfirm, Typography } from 'antd'
 import {
   PlusOutlined,
   EyeOutlined,
   CheckOutlined,
   CloseOutlined,
-  SwapOutlined,
-  SyncOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  SearchOutlined,
-  FilterOutlined,
-  HomeOutlined
+  FileSyncOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
-import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { getPrimaryButtonStyle, largeInputStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
 const { Search } = Input
@@ -75,15 +69,6 @@ const STNList = () => {
     }
   }
 
-  const getStats = () => {
-    const total = transactions.length
-    const pending = transactions.filter(t => t.status === 'draft').length
-    const approved = transactions.filter(t => t.status === 'approved').length
-    return { total, pending, approved }
-  }
-
-  const stats = getStats()
-
   const columns = [
     {
       title: 'Trans. Number',
@@ -100,16 +85,20 @@ const STNList = () => {
       render: (date: string) => dayjs(date).format('DD-MMM-YYYY'),
     },
     {
-      title: 'Route',
-      key: 'route',
-      width: 350,
-      render: (_: any, record: any) => (
-        <Space>
-          <Text strong><HomeOutlined /> {record.warehouse?.name}</Text>
-          <SwapOutlined style={{ color: theme.colors.neutral.gray400 }} />
-          <Text strong><HomeOutlined /> {record.toWarehouse?.name}</Text>
-        </Space>
-      ),
+      title: 'Source (From)',
+      key: 'source',
+      render: (_: any, record: any) => {
+        const locName = record.source_type === 'warehouse' ? record.warehouse?.name : record.fromProject?.name
+        return <Space direction="vertical" size={0}><Tag color="blue">{record.source_type.toUpperCase()}</Tag><Text strong>{locName || 'N/A'}</Text></Space>
+      }
+    },
+    {
+      title: 'Destination (To)',
+      key: 'destination',
+      render: (_: any, record: any) => {
+        const locName = record.destination_type === 'warehouse' ? record.toWarehouse?.name : record.toProject?.name
+        return <Space direction="vertical" size={0}><Tag color="orange">{record.destination_type.toUpperCase()}</Tag><Text strong>{locName || 'N/A'}</Text></Space>
+      }
     },
     {
       title: 'Status',
@@ -118,59 +107,28 @@ const STNList = () => {
       width: 160,
       render: (status: string) => {
         const colorMap: Record<string, string> = {
-          draft: 'processing',
+          draft: 'default',
+          pending: 'processing',
           approved: 'success',
           rejected: 'error',
         }
-        return (
-          <Tag color={colorMap[status] || 'default'} style={{ padding: '0 8px', borderRadius: '4px' }}>
-            {status?.toUpperCase() || 'N/A'}
-          </Tag>
-        )
+        return <Tag color={colorMap[status]}>{status.toUpperCase()}</Tag>
       },
-    },
-    {
-      title: 'Created By',
-      dataIndex: ['creator', 'name'],
-      key: 'creator',
-      width: 150,
     },
     {
       title: 'Actions',
       key: 'actions',
-      width: 200,
+      width: 220,
       render: (_: any, record: any) => (
         <Space size="middle">
-          <Button
-            type="link"
-            icon={<EyeOutlined />}
-            onClick={() => navigate(`/inventory/stn/${record.id}`)}
-            style={{ padding: 0 }}
-          >
-            View
-          </Button>
-          {record.status === 'draft' && (
+          <Button type="link" icon={<EyeOutlined />} onClick={() => navigate(`/inventory/stn/${record.id}`)}>View</Button>
+          {(record.status === 'draft' || record.status === 'pending') && (
             <>
-              <Popconfirm
-                title="Approve this transfer?"
-                onConfirm={() => handleApprove(record.id)}
-                okText="Approve"
-                cancelText="No"
-                okButtonProps={{ style: { backgroundColor: '#52c41a', borderColor: '#52c41a' } }}
-              >
-                <Button type="link" icon={<CheckOutlined />} style={{ color: '#52c41a', padding: 0 }}>
-                  Approve
-                </Button>
+              <Popconfirm title="Approve this transfer?" onConfirm={() => handleApprove(record.id)} okText="Approve">
+                <Button type="link" icon={<CheckOutlined />} style={{ color: '#52c41a' }}>Approve</Button>
               </Popconfirm>
-              <Popconfirm
-                title="Reject this transfer?"
-                onConfirm={() => handleReject(record.id)}
-                okText="Reject"
-                cancelText="No"
-              >
-                <Button type="link" icon={<CloseOutlined />} danger style={{ padding: 0 }}>
-                  Reject
-                </Button>
+              <Popconfirm title="Reject this transfer?" onConfirm={() => handleReject(record.id)}>
+                <Button type="link" icon={<CloseOutlined />} danger>Reject</Button>
               </Popconfirm>
             </>
           )}
@@ -182,69 +140,20 @@ const STNList = () => {
   return (
     <PageContainer>
       <PageHeader
-        title="Stock Transfer Notes (STN)"
-        subtitle="Manage material transfers between different project locations or warehouses"
-        icon={<SyncOutlined />}
+        title="Store Transfer Notes (STN)"
+        subtitle="Manage material movements between warehouses and sites"
+        icon={<FileSyncOutlined />}
       />
 
-      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
-        <Col xs={24} sm={8}>
-          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
-            <Statistic
-              title="Total Transfers"
-              value={stats.total}
-              prefix={<SyncOutlined style={{ color: theme.colors.primary.main }} />}
-              valueStyle={{ color: theme.colors.primary.main }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
-            <Statistic
-              title="Pending Approval"
-              value={stats.pending}
-              prefix={<ClockCircleOutlined style={{ color: '#faad14' }} />}
-              valueStyle={{ color: '#faad14' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={8}>
-          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
-            <Statistic
-              title="Completed Transfers"
-              value={stats.approved}
-              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <Space size="middle" wrap>
+      <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Space size="middle">
             <Search
               placeholder="Search by STN number..."
               style={{ width: 300, ...largeInputStyle }}
-              size="large"
               onSearch={(value) => fetchTransactions({ search: value })}
-              prefix={<SearchOutlined style={prefixIconStyle} />}
-              allowClear
             />
-            <Select
-              placeholder="All Statuses"
-              style={{ width: 180, ...largeInputStyle }}
-              size="large"
-              allowClear
-              onChange={(value) => fetchTransactions({ status: value || undefined })}
-              suffixIcon={<FilterOutlined style={prefixIconStyle} />}
-            >
-              <Select.Option value="draft">⏳ Draft/Pending</Select.Option>
-              <Select.Option value="approved">✅ Approved</Select.Option>
-              <Select.Option value="rejected">❌ Rejected</Select.Option>
-            </Select>
           </Space>
-
           <Button
             type="primary"
             icon={<PlusOutlined />}
@@ -257,18 +166,13 @@ const STNList = () => {
         </div>
       </Card>
 
-      <Card style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
+      <Card style={{ borderRadius: theme.borderRadius.md }}>
         <Table
           columns={columns}
           dataSource={transactions}
           loading={loading}
           rowKey="id"
-          scroll={{ x: 1200 }}
-          pagination={{
-            ...pagination,
-            showSizeChanger: true,
-            showTotal: (total) => `Total ${total} transactions`,
-          }}
+          pagination={pagination}
           onChange={(pagination) => fetchTransactions({ current: pagination.current, pageSize: pagination.pageSize })}
         />
       </Card>

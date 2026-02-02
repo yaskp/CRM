@@ -1,0 +1,17 @@
+ALTER TABLE store_transactions 
+ADD COLUMN machinery_data TEXT NULL,
+ADD COLUMN grabbing_start_time VARCHAR(10) NULL,
+ADD COLUMN grabbing_end_time VARCHAR(10) NULL,
+ADD COLUMN concrete_grade VARCHAR(50) NULL,
+ADD COLUMN actual_depth DECIMAL(10, 2) NULL,
+ADD COLUMN verticality_x DECIMAL(5, 2) NULL,
+ADD COLUMN verticality_y DECIMAL(5, 2) NULL,
+ADD COLUMN slurry_density DECIMAL(5, 3) NULL,
+ADD COLUMN slurry_viscosity DECIMAL(5, 2) NULL,
+ADD COLUMN slurry_sand_content DECIMAL(5, 2) NULL,
+ADD COLUMN cage_id_ref VARCHAR(100) NULL,
+ADD COLUMN start_time VARCHAR(10) NULL,
+ADD COLUMN end_time VARCHAR(10) NULL,
+ADD COLUMN slump_flow DECIMAL(10, 2) NULL,
+ADD COLUMN tremie_pipe_count INT NULL,
+ADD COLUMN theoretical_concrete_qty DECIMAL(10, 2) NULL;

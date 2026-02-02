@@ -171,8 +171,8 @@ const ProjectList = () => {
     },
     {
       title: 'Location',
-      dataIndex: 'location',
-      key: 'location',
+      dataIndex: 'site_location',
+      key: 'site_location',
       width: 150,
       ellipsis: true,
     },

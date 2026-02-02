@@ -688,9 +688,40 @@ CREATE TABLE inventory_ledger (
 2. Wastage analysis
 3. BOQ integration
 
+### **PHASE 5: RA BILLING & FINANCIAL TRANSACTIONS** (3 weeks) 🔴 CRITICAL
+
+#### **1. Money Out (Vendor Payments - Accounts Payable)**
+- **RA Bill Engine**: Process Contractor bills with flexible Retention %, TDS types, and Recovery of Advances.
+- **Payment Vouchers**: Recording the actual Bank/Cash transaction.
+  - Linked to: PO, Work Order, or RA Bill.
+  - Fields: Payment Mode (Cheque/NEFT/HDFC123), Date, Ref No, Amount.
+- **Liability Tracker**: Real-time "Balance to be Paid" for every vendor project-wise.
+
+#### **2. Money In (Client Receipts - Accounts Receivable)**
+- **Certified Billing**: Marking which project milestones have been "Certified" by the client's PMC/Engineer.
+- **Receipt Vouchers**: Recording money received from the Client.
+  - Linked to: Project Milestone or Quotation.
+  - Tracking: TDS deducted by client, Retention held by client.
+- **Outstanding Aging**: 30/60/90 day reports on money yet to be received.
+
+#### **3. Bank & Cash Management**
+- **Petty Cash Vouchers**: Recording daily site cash spending.
+- **Bank Book**: A unified view of all receipts and payments to match your physical bank statement.
+- **Contra Entries**: Tracking when cash is withdrawn from the bank for site use (Bank → Site Cash).
+
+### **PHASE 6: ASSET & PLANT MANAGEMENT** (1 week)
+1. **Machine Logs**: Track Run Hours (HMR) and Kilometer (KMR) for rigs and cranes.
+2. **Fuel (HSD) Tracking**: Diesel receipt, storage in tankers, and per-machine consumption (Lit/Hr).
+3. **Breakdown Analytics**: Tracking machine downtime and maintenance costs.
+
+### **PHASE 7: ADVANCED QC & DOCUMENT CONTROL** (1 week)
+1. **Concrete Registers**: 7-day and 28-day Cube Test scheduling and result logging.
+2. **Drawing Versioning**: GFC (Good For Construction) status and transmittal notes.
+3. **Specialized D-Wall Logs**: Stop-end records, joints tracking, and inclinometer data.
+
 ---
 
-**Total Timeline: 8-10 weeks**
-**Result: Complete, Production-Ready Construction ERP**
+**Total Timeline: 12-14 weeks**
+**Result: Complete, Enterprise-Grade Construction ERP (India Edition)**
 
 This system will give you **complete visibility and control** over your entire construction operation! 🚀

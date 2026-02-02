@@ -14,6 +14,7 @@ import ProjectBOQItem from '../models/ProjectBOQItem'
 import WorkOrder from '../models/WorkOrder'
 import { Op } from 'sequelize'
 import CompanyBranch from '../models/CompanyBranch'
+import PaymentAllocation from '../models/PaymentAllocation'
 
 // ...
 
@@ -250,22 +251,36 @@ export const rejectPurchaseOrder = async (req: AuthRequest, res: Response, next:
 
 export const getPurchaseOrders = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { vendor_id, status } = req.query
+        const { vendor_id, status, project_id } = req.query
         const where: any = {}
 
         if (vendor_id) where.vendor_id = vendor_id
         if (status) where.status = status
+        if (project_id) where.project_id = project_id
 
         const orders = await PurchaseOrder.findAll({
             where,
             order: [['created_at', 'DESC']],
-            include: ['project', 'vendor', 'creator', 'items', 'warehouse', 'annexure']
+            include: [
+                'project', 'vendor', 'creator', 'items', 'warehouse', 'annexure',
+                { model: PaymentAllocation, as: 'paymentAllocations', attributes: ['allocated_amount'] }
+            ]
         })
 
+        const ordersWithPayments = orders.map(order => {
+            const allocations = (order as any).paymentAllocations || []
+            const settled_amount = allocations.reduce((sum: number, a: any) =>
+                sum + Number(a.allocated_amount || 0) + Number(a.tds_allocated || 0) + Number(a.retention_allocated || 0), 0)
+            return {
+                ...order.toJSON(),
+                paid_amount: settled_amount,
+                balance_amount: Number(order.total_amount) - settled_amount
+            }
+        })
 
         res.json({
             success: true,
-            purchaseOrders: orders
+            purchaseOrders: ordersWithPayments
         })
     } catch (error) {
         next(error)
@@ -395,16 +410,29 @@ export const getPurchaseOrderById = async (req: AuthRequest, res: Response, next
     try {
         const { id } = req.params
         const po = await PurchaseOrder.findByPk(id, {
-            include: ['project', 'vendor', 'creator', { association: 'items', include: ['material'] }, 'warehouse', 'annexure']
+            include: [
+                'project', 'vendor', 'creator',
+                { association: 'items', include: ['material'] },
+                'warehouse', 'annexure',
+                { model: PaymentAllocation, as: 'paymentAllocations' }
+            ]
         })
 
         if (!po) {
             throw createError('Purchase Order not found', 404)
         }
 
+        const allocations = (po as any).paymentAllocations || []
+        const settled_amount = allocations.reduce((sum: number, a: any) =>
+            sum + Number(a.allocated_amount || 0) + Number(a.tds_allocated || 0) + Number(a.retention_allocated || 0), 0)
+
         res.json({
             success: true,
-            purchaseOrder: po
+            purchaseOrder: {
+                ...po.toJSON(),
+                paid_amount: settled_amount,
+                balance_amount: Number(po.total_amount) - settled_amount
+            }
         })
     } catch (error) {
         next(error)

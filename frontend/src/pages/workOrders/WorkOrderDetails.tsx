@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Descriptions, Tag, Button, Space, message, Row, Col, Typography, Divider, Table } from 'antd'
+import { Card, Tag, Button, Space, message, Row, Col, Typography, Divider, Table } from 'antd'
 import {
     ArrowLeftOutlined,
     EditOutlined,
@@ -8,8 +8,16 @@ import {
     InfoCircleOutlined,
     DownloadOutlined,
     PrinterOutlined,
-    WalletOutlined
+    WalletOutlined,
+    BankOutlined,
+    UserOutlined,
+    TeamOutlined,
+    CreditCardOutlined,
+    HistoryOutlined,
+    FileDoneOutlined,
+    CloudUploadOutlined
 } from '@ant-design/icons'
+import { Upload } from 'antd'
 import { useNavigate, useParams } from 'react-router-dom'
 import { workOrderService } from '../../services/api/workOrders'
 import dayjs from 'dayjs'
@@ -24,6 +32,7 @@ const WorkOrderDetails = () => {
     const navigate = useNavigate()
     const [loading, setLoading] = useState(false)
     const [workOrder, setWorkOrder] = useState<any>(null)
+    const [uploadLoading, setUploadLoading] = useState(false)
 
     useEffect(() => {
         if (id) {
@@ -67,6 +76,22 @@ const WorkOrderDetails = () => {
         } catch (error) {
             message.error("Failed to open PDF for printing");
         }
+    }
+
+    const handleUploadSignedCopy = async (file: File) => {
+        setUploadLoading(true)
+        try {
+            const response = await workOrderService.uploadSignedCopy(Number(id), file)
+            if (response.success) {
+                message.success('Signed work order uploaded and archived successfully')
+                fetchWorkOrder() // Refresh data
+            }
+        } catch (error: any) {
+            message.error(error.response?.data?.message || 'Failed to upload signed work order')
+        } finally {
+            setUploadLoading(false)
+        }
+        return false // Prevent auto upload
     }
 
     const getStatusColor = (status: string) => {
@@ -146,31 +171,133 @@ const WorkOrderDetails = () => {
                 <Col xs={24} lg={16}>
                     {/* Main Info */}
                     <SectionCard title="Project & Vendor Information" icon={<ProjectOutlined />}>
-                        <Descriptions bordered column={{ xs: 1, sm: 2 }} size="middle">
-                            <Descriptions.Item label={<Text type="secondary">Project</Text>}>
-                                <b>{workOrder.project?.name}</b> <br />
-                                <Text type="secondary" style={{ fontSize: '12px' }}>{workOrder.project?.project_code}</Text>
-                            </Descriptions.Item>
-                            <Descriptions.Item label={<Text type="secondary">Client</Text>}>
-                                <b>{workOrder.project?.client?.company_name || '-'}</b>
-                            </Descriptions.Item>
-                            <Descriptions.Item label={<Text type="secondary">Vendor / Team</Text>}>
-                                {workOrder.vendor ? (
-                                    <Space direction="vertical" size={0}>
-                                        <Text strong>{workOrder.vendor.name}</Text>
-                                        <Tag color="purple">{workOrder.vendor.vendor_type}</Tag>
-                                    </Space>
-                                ) : (
-                                    <Tag color="cyan">Internal Team</Tag>
-                                )}
-                            </Descriptions.Item>
-                            <Descriptions.Item label={<Text type="secondary">Status</Text>}>
-                                <Tag color={getStatusColor(workOrder.status)}>{workOrder.status.toUpperCase()}</Tag>
-                            </Descriptions.Item>
-                            <Descriptions.Item label={<Text type="secondary">Payment Terms</Text>} span={2}>
-                                {workOrder.payment_terms || '-'}
-                            </Descriptions.Item>
-                        </Descriptions>
+                        <div style={{ padding: '8px 4px' }}>
+                            <Row gutter={[32, 24]}>
+                                <Col xs={24} sm={12}>
+                                    <div style={{ display: 'flex', gap: 16 }}>
+                                        <div style={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: 12,
+                                            background: '#f0f7ff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <ProjectOutlined style={{ fontSize: 20, color: theme.colors.primary.main }} />
+                                        </div>
+                                        <div>
+                                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 2 }}>Project</Text>
+                                            <Text strong style={{ fontSize: 15 }}>{workOrder.project?.name || 'N/A'}</Text>
+                                            <div style={{ fontSize: 12, color: theme.colors.neutral.gray600 }}>{workOrder.project?.project_code}</div>
+                                        </div>
+                                    </div>
+                                </Col>
+
+                                <Col xs={24} sm={12}>
+                                    <div style={{ display: 'flex', gap: 16 }}>
+                                        <div style={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: 12,
+                                            background: '#fff7e6',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <BankOutlined style={{ fontSize: 20, color: '#fa8c16' }} />
+                                        </div>
+                                        <div>
+                                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 2 }}>Client</Text>
+                                            <Text strong style={{ fontSize: 15 }}>{workOrder.project?.client?.company_name || 'N/A'}</Text>
+                                            {workOrder.project?.client?.client_code && (
+                                                <div style={{ fontSize: 12, color: theme.colors.neutral.gray600 }}>{workOrder.project?.client?.client_code}</div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </Col>
+
+                                <Col xs={24} sm={12}>
+                                    <div style={{ display: 'flex', gap: 16 }}>
+                                        <div style={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: 12,
+                                            background: '#f3f0ff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            {workOrder.vendor ? <TeamOutlined style={{ fontSize: 20, color: '#722ed1' }} /> : <UserOutlined style={{ fontSize: 20, color: '#722ed1' }} />}
+                                        </div>
+                                        <div>
+                                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 2 }}>Contractor / Team</Text>
+                                            {workOrder.vendor ? (
+                                                <Space direction="vertical" size={2}>
+                                                    <Text strong style={{ fontSize: 15 }}>{workOrder.vendor.name}</Text>
+                                                    <Tag color="purple" style={{ margin: 0, fontSize: 11 }}>{workOrder.vendor.vendor_type?.toUpperCase() || 'VENDOR'}</Tag>
+                                                </Space>
+                                            ) : (
+                                                <Tag color="cyan" style={{ marginTop: 4 }}>INTERNAL TEAM</Tag>
+                                            )}
+                                        </div>
+                                    </div>
+                                </Col>
+
+                                <Col xs={24} sm={12}>
+                                    <div style={{ display: 'flex', gap: 16 }}>
+                                        <div style={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: 12,
+                                            background: '#f6ffed',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <HistoryOutlined style={{ fontSize: 20, color: '#52c41a' }} />
+                                        </div>
+                                        <div>
+                                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 2 }}>Order Status</Text>
+                                            <Tag color={getStatusColor(workOrder.status)} style={{ fontWeight: 600, marginTop: 4 }}>
+                                                {workOrder.status?.toUpperCase()}
+                                            </Tag>
+                                        </div>
+                                    </div>
+                                </Col>
+
+                                <Col xs={24}>
+                                    <Divider style={{ margin: '8px 0' }} />
+                                    <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
+                                        <div style={{
+                                            width: 44,
+                                            height: 44,
+                                            borderRadius: 12,
+                                            background: '#f0f5ff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <CreditCardOutlined style={{ fontSize: 20, color: '#2f54eb' }} />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Payment Terms</Text>
+                                            <div style={{
+                                                background: '#f9fafb',
+                                                padding: '12px 16px',
+                                                borderRadius: 8,
+                                                border: '1px dashed #d9d9d9',
+                                                fontSize: 14,
+                                                color: theme.colors.neutral.gray800,
+                                                lineHeight: '1.6'
+                                            }}>
+                                                {workOrder.payment_terms || 'No payment terms specified.'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </Col>
+                            </Row>
+                        </div>
                     </SectionCard>
 
                     {/* Items */}
@@ -228,11 +355,68 @@ const WorkOrderDetails = () => {
                     <Card title="Document Actions" style={{ marginTop: '16px' }} size="small">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <Button icon={<DownloadOutlined />} onClick={handleDownloadPDF} block>
-                                Download PDF
+                                Download Office Copy
                             </Button>
                             <Button icon={<PrinterOutlined />} onClick={handlePrintPDF} block>
-                                Print PDF
+                                Print Order
                             </Button>
+
+                            <Divider style={{ margin: '8px 0' }} />
+
+                            {workOrder.po_wo_document_url ? (
+                                <div style={{
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    background: '#f6ffed',
+                                    border: '1px solid #b7eb8f',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px'
+                                }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <FileDoneOutlined style={{ color: '#52c41a', fontSize: '18px' }} />
+                                        <Text strong>Signed Copy Uploaded</Text>
+                                    </div>
+                                    <Button
+                                        type="primary"
+                                        size="small"
+                                        style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                                        onClick={() => window.open(`http://localhost:5000${workOrder.po_wo_document_url}`, '_blank')}
+                                        block
+                                    >
+                                        View Signed Copy
+                                    </Button>
+                                    <Upload
+                                        showUploadList={false}
+                                        beforeUpload={(file) => handleUploadSignedCopy(file)}
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                    >
+                                        <Button size="small" type="link" loading={uploadLoading} block>
+                                            Replace File
+                                        </Button>
+                                    </Upload>
+                                </div>
+                            ) : (
+                                <Upload
+                                    showUploadList={false}
+                                    beforeUpload={(file) => handleUploadSignedCopy(file)}
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                >
+                                    <Button
+                                        icon={<CloudUploadOutlined />}
+                                        type="primary"
+                                        ghost
+                                        loading={uploadLoading}
+                                        block
+                                        style={{ height: 'auto', padding: '12px' }}
+                                    >
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <Text strong style={{ color: 'inherit' }}>Upload Signed Copy</Text>
+                                            <Text type="secondary" style={{ fontSize: '11px' }}>PDF, JPG or PNG (Max 10MB)</Text>
+                                        </div>
+                                    </Button>
+                                </Upload>
+                            )}
                         </div>
                     </Card>
 

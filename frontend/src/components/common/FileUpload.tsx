@@ -12,6 +12,9 @@ interface FileUploadProps {
     accept?: string
 }
 
+const API_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api'
+const API_BASE = API_URL.replace('/api', '')
+
 export const FileUpload: React.FC<FileUploadProps> = ({
     value,
     onChange,
@@ -23,7 +26,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
 
     const uploadProps: UploadProps = {
         name: 'file',
-        action: `http://localhost:5000/api/upload?folder=${folder}`,
+        action: `${API_URL}/upload?folder=${folder}`,
         headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
@@ -62,6 +65,12 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         }
     }
 
+    const getFileUrl = (url?: string) => {
+        if (!url) return undefined
+        if (url.startsWith('http')) return url
+        return `${API_BASE}${url}`
+    }
+
     return (
         <div style={{ width: '100%' }}>
             {value ? (
@@ -77,7 +86,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
                     <Space>
                         <FileOutlined style={{ color: '#1890ff' }} />
                         <Typography.Text ellipsis style={{ maxWidth: 200 }}>
-                            <a href={`http://localhost:5000${value}`} target="_blank" rel="noopener noreferrer">
+                            <a href={getFileUrl(value)} target="_blank" rel="noopener noreferrer">
                                 {value.split('/').pop()}
                             </a>
                         </Typography.Text>

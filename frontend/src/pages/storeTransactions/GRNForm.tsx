@@ -4,7 +4,6 @@ import {
   PlusOutlined,
   DeleteOutlined,
   CloudUploadOutlined,
-  CheckCircleOutlined,
   LoadingOutlined,
   ArrowLeftOutlined
 } from '@ant-design/icons'
@@ -28,6 +27,14 @@ import { theme } from '../../styles/theme'
 const { TextArea } = Input
 const { Option } = Select
 const { Text } = Typography
+
+const API_FILE_BASE = ((import.meta as any).env?.VITE_API_URL || '').replace('/api', '') || 'http://localhost:5000'
+
+const getFileUrl = (url?: string) => {
+  if (!url) return undefined
+  if (url.startsWith('http')) return url
+  return `${API_FILE_BASE}${url}`
+}
 
 interface GRNItem {
   id?: number
@@ -382,6 +389,7 @@ const GRNInternalForm = () => {
           style={{ width: '100%' }}
           value={record.quantity}
           min={0}
+          controls={false}
           onChange={(val) => {
             const qty = val || 0
             // Default logic: If inv qty changes, reset accepted to match, rejected 0
@@ -403,6 +411,7 @@ const GRNInternalForm = () => {
           style={{ width: '100%', borderColor: '#52c41a' }}
           value={record.accepted_quantity}
           min={0}
+          controls={false}
           onChange={(val) => {
             const acc = val || 0
             // Don't auto-calculate rejected here to allow explicit control. 
@@ -421,6 +430,7 @@ const GRNInternalForm = () => {
           style={{ width: '100%', borderColor: '#ff4d4f' }}
           value={record.rejected_quantity}
           min={0}
+          controls={false}
           onChange={(val) => {
             const rej = val || 0
             updateItem(index, { rejected_quantity: rej })
@@ -503,7 +513,7 @@ const GRNInternalForm = () => {
             <LoadingOutlined style={{ fontSize: 24 }} />
           ) : currentUrl ? (
             <img
-              src={currentUrl.startsWith('http') ? currentUrl : `http://localhost:5000${currentUrl}`}
+              src={getFileUrl(currentUrl)}
               alt={title}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
@@ -520,8 +530,8 @@ const GRNInternalForm = () => {
           type="link"
           size="small"
           onClick={() => {
-            const url = currentUrl.startsWith('http') ? currentUrl : `http://localhost:5000${currentUrl}`;
-            window.open(url, '_blank');
+            const url = getFileUrl(currentUrl);
+            if (url) window.open(url, '_blank');
           }}
           style={{ fontSize: '11px', padding: '4px 0' }}
         >

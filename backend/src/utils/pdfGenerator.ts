@@ -754,14 +754,14 @@ export const generatePurchaseOrderPDF = (po: any, stream: any) => {
     let y = nextY + 40;
 
     // Helper to draw cell
-    const drawCellText = (text, cellX, y, width, align = 'left') => {
+    const drawCellText = (text: string, cellX: number, y: number, width: number, align: any = 'left') => {
         const padding = 4;
         const effectiveWidth = width - (padding * 2);
         doc.text(text, cellX + padding, y, { width: effectiveWidth, align: align })
     }
 
     // Helper to draw lines
-    const drawVerticalLines = (topY, bottomY) => {
+    const drawVerticalLines = (topY: number, bottomY: number) => {
         const lines = [40, 70, 270, 315, 370, 455, 555]
         lines.forEach(lineX => {
             doc.moveTo(lineX, topY).lineTo(lineX, bottomY).stroke()
@@ -772,7 +772,7 @@ export const generatePurchaseOrderPDF = (po: any, stream: any) => {
     const colX = { sn: 40, desc: 70, unit: 270, quantity: 315, rate: 370, amount: 455 };
     const colWidths = { sn: 30, desc: 200, unit: 45, quantity: 55, rate: 85, amount: 100 }
 
-    const drawTableHeader = (title, topY) => {
+    const drawTableHeader = (title: string, topY: number) => {
         doc.rect(40, topY, 515, 20).fill('#444444').stroke();
         doc.fillColor('white').font('Helvetica-Bold').fontSize(10);
         doc.text(title.toUpperCase(), 40, topY + 5, { align: 'center', width: 515 });
@@ -802,7 +802,7 @@ export const generatePurchaseOrderPDF = (po: any, stream: any) => {
         let currentY = y;
         doc.font('Helvetica').fontSize(9);
 
-        items.forEach((item, idx) => {
+        items.forEach((item: any, idx: number) => {
             const desc = item.material?.name || item.description || '-';
             const descWidth = colWidths.desc - 8;
             const descHeight = doc.heightOfString(desc, { width: descWidth });
@@ -913,188 +913,362 @@ export const generatePurchaseOrderPDF = (po: any, stream: any) => {
 }
 
 export const generateDPRPDF = (dpr: any, stream: any) => {
-    const doc = new PDFDocument({ margin: 40, size: 'A4' })
-
+    const doc = new PDFDocument({ margin: 20, size: 'A4' })
     doc.pipe(stream)
 
-    // --- Header (Shared Brand) ---
-    const companyName = 'VH SHRI ENTERPRISE'
-    const companyAddress = 'B-104, Rajhans Bonista,\nB/H Ramchowk, Ghod Dod Road,\nSurat-395007'
-    const companyContact = 'Contact: 0261-2666515, 2656515\nEmail: vhshrienterprise@gmail.com'
+    // Constants - use full A4 width
+    const startX = 20
+    const endX = 575
+    const width = endX - startX
+
+    // --- Header ---
+    const companyAddressLines = [
+        '804, RAJHANS BONISTA, B/H RAMCHOWK,',
+        'GHOD DOD ROAD, SURAT-395 007',
+        'CONTACT : 0261-2666515, 2666515',
+        'email : vhshrienterprise@gmail.com',
+        'www.vhshrienterprise.com'
+    ]
 
     const logoPath = path.join(process.cwd(), 'uploads/logo.png')
-    let contentStartY = 160
+    let y = 20
 
+    // Logo (Left)
     if (fs.existsSync(logoPath)) {
-        doc.image(logoPath, 40, 30, { width: 220 })
+        doc.image(logoPath, startX, y, { width: 160 })
     } else {
-        doc.fontSize(20).font('Helvetica-Bold').text(companyName, 40, 40)
+        doc.fontSize(22).font('Helvetica-Bold').text('vh shri', startX, y)
+        doc.fontSize(11).text('ENTERPRISE', startX, y + 24)
     }
 
-    doc.fontSize(10).font('Helvetica')
-    doc.text(companyAddress, 300, 40, { align: 'right', width: 250 })
-    doc.text(companyContact, 300, 85, { align: 'right', width: 250 })
+    // Address (Right)
+    doc.fontSize(7).font('Helvetica')
+    let addrY = y + 5
+    companyAddressLines.forEach(line => {
+        doc.text(line, 360, addrY, { align: 'right', width: 215 })
+        addrY += 9
+    })
 
-    doc.moveTo(40, 135).lineTo(550, 135).stroke()
+    y += 55
+    doc.moveTo(startX, y).lineTo(endX, y).stroke()
 
-    // --- Report Metadata ---
-    const startY = contentStartY
-    doc.fontSize(12).font('Helvetica-Bold').text('DAILY PROGRESS REPORT', 40, startY, { align: 'center', width: 515 })
+    // Report Title
+    y += 10
+    doc.fontSize(12).font('Helvetica-Bold').text('DAILY PROGRESS REPORT (DAY SHIFT)', startX, y, { align: 'center', width, underline: true })
+    y += 22
 
-    doc.fontSize(10).font('Helvetica-Bold')
-    doc.text('Report No:', 40, startY + 25).font('Helvetica').text(` ${dpr.transaction_number}`, 100, startY + 25)
-    doc.font('Helvetica-Bold').text('Date:', 40, startY + 40).font('Helvetica').text(` ${new Date(dpr.transaction_date).toLocaleDateString('en-GB')}`, 100, startY + 40)
+    // Draw Top Border
+    doc.moveTo(startX, y).lineTo(endX, y).stroke()
 
-    doc.font('Helvetica-Bold').text('Project:', 300, startY + 25).font('Helvetica').text(` ${dpr.project?.name || '-'}`, 350, startY + 25, { width: 200 })
-    doc.font('Helvetica-Bold').text('Location:', 300, startY + 45).font('Helvetica').text(` ${[dpr.toBuilding?.name, dpr.toFloor?.name, dpr.toZone?.name].filter(Boolean).join(' > ') || 'Site Wide'}`, 350, startY + 45, { width: 200 })
+    // 1. Project Details
+    const rowH = 18
+    const col1W = 100, col2W = 180, col3W = 100, col4W = width - (col1W + col2W + col3W)
 
-    // --- 1. Materials & Progress Table ---
-    let y = startY + 80
+    // Get client name from either client association or direct field
+    const clientName = dpr.project?.client?.name || dpr.project?.client_name || '-'
+    const location = dpr.project?.site_location || dpr.project?.site_address || '-'
 
-    const colX = { sn: 40, desc: 70, unit: 230, qty: 280, achievement: 340, wastage: 420, eff: 480 }
-    const colWidths = { sn: 30, desc: 160, unit: 50, qty: 60, achievement: 80, wastage: 60, eff: 75 }
+    // Row 1: Client | Location
+    doc.font('Helvetica-Bold').fontSize(9)
+    doc.text('NAME OF CLIENT :-', startX + 2, y + 5, { width: col1W })
+    doc.font('Helvetica').text(clientName, startX + col1W + 2, y + 5, { width: col2W })
 
-    const drawTableHeader = (title, topY) => {
-        doc.rect(40, topY, 515, 20).fill('#444444').stroke()
-        doc.fillColor('white').font('Helvetica-Bold').fontSize(10)
-        doc.text(title.toUpperCase(), 40, topY + 5, { align: 'center', width: 515 })
+    doc.font('Helvetica-Bold').text('LOCATION:-', startX + col1W + col2W + 2, y + 5, { width: col3W })
+    doc.font('Helvetica').text(location, startX + col1W + col2W + col3W + 2, y + 5, { width: col4W })
 
-        const headerY = topY + 20
-        doc.rect(40, headerY, 515, 25).fill('#e0e0e0').stroke()
-        doc.fillColor('black').font('Helvetica-Bold').fontSize(8)
+    // Vertical lines
+    doc.moveTo(startX, y).lineTo(startX, y + rowH).stroke()
+    doc.moveTo(startX + col1W, y).lineTo(startX + col1W, y + rowH).stroke()
+    doc.moveTo(startX + col1W + col2W, y).lineTo(startX + col1W + col2W, y + rowH).stroke()
+    doc.moveTo(startX + col1W + col2W + col3W, y).lineTo(startX + col1W + col2W + col3W, y + rowH).stroke()
+    doc.moveTo(endX, y).lineTo(endX, y + rowH).stroke()
 
-        doc.text('S.N', colX.sn + 5, headerY + 8)
-        doc.text('Activity / Material', colX.desc + 5, headerY + 8)
-        doc.text('Unit', colX.unit + 5, headerY + 8)
-        doc.text('Consumed', colX.qty + 5, headerY + 8)
-        doc.text('Work Done', colX.achievement + 5, headerY + 8)
-        doc.text('Wastage', colX.wastage + 5, headerY + 8)
-        doc.text('Efficiency', colX.eff + 5, headerY + 8)
+    y += rowH
+    doc.moveTo(startX, y).lineTo(endX, y).stroke()
 
-        return headerY + 25
-    }
+    // Row 2: Project | Date
+    doc.font('Helvetica-Bold').text('NAME OF PROJECT :-', startX + 2, y + 5, { width: col1W })
+    doc.font('Helvetica').text(dpr.project?.name || '-', startX + col1W + 2, y + 5, { width: col2W })
 
-    y = drawTableHeader('Materials Achievement & Consumption', y)
+    doc.font('Helvetica-Bold').text('DATE:-', startX + col1W + col2W + 2, y + 5, { width: col3W })
+    const dateStr = dpr.transaction_date ? new Date(dpr.transaction_date).toLocaleDateString('en-GB') : '-'
+    doc.font('Helvetica').text(dateStr, startX + col1W + col2W + col3W + 2, y + 5, { width: col4W })
 
-    doc.font('Helvetica').fontSize(9)
-    const items = dpr.items || []
-    items.forEach((item, idx) => {
-        const rowHeight = 25
-        if (y + rowHeight > 750) { doc.addPage(); y = 50 }
+    // Vertical lines
+    doc.moveTo(startX, y).lineTo(startX, y + rowH).stroke()
+    doc.moveTo(startX + col1W, y).lineTo(startX + col1W, y + rowH).stroke()
+    doc.moveTo(startX + col1W + col2W, y).lineTo(startX + col1W + col2W, y + rowH).stroke()
+    doc.moveTo(startX + col1W + col2W + col3W, y).lineTo(startX + col1W + col2W + col3W, y + rowH).stroke()
+    doc.moveTo(endX, y).lineTo(endX, y + rowH).stroke()
 
-        doc.rect(40, y, 515, rowHeight).stroke()
-        doc.text(`${idx + 1}`, colX.sn + 5, y + 8)
-        doc.text(item.material?.name || '-', colX.desc + 5, y + 8, { width: 150 })
-        doc.text(item.unit || item.material?.uom || '-', colX.unit + 5, y + 8)
-        doc.text(Number(item.quantity).toFixed(2), colX.qty + 5, y + 8)
-        doc.text(Number(item.work_done_quantity).toFixed(2), colX.achievement + 5, y + 8)
-        doc.text(Number(item.wastage_quantity).toFixed(2), colX.wastage + 5, y + 8)
+    y += rowH
+    doc.moveTo(startX, y).lineTo(endX, y).stroke()
 
-        // Efficiency Calc
-        const stdRate = item.material?.standard_rate
-        let effStr = '-'
-        if (stdRate && item.work_done_quantity > 0) {
-            const actualRate = item.quantity / item.work_done_quantity
-            effStr = `${Math.round((stdRate / actualRate) * 100)}%`
+    // --- 2. STAFF Section ---
+    const manpower = dpr.manpower_data ? (typeof dpr.manpower_data === 'string' ? JSON.parse(dpr.manpower_data) : dpr.manpower_data) : []
+    const staff = manpower.filter((m: any) => m.is_staff)
+    const workers = manpower.filter((m: any) => !m.is_staff)
+
+    const staffRowCount = Math.max(staff.length, 1)
+    const staffSectionHeight = staffRowCount * 18
+
+    // Label Column (Left)
+    doc.font('Helvetica-Bold').fontSize(9).text('STAFF', startX + 2, y + (staffSectionHeight / 2) - 5, { width: col1W, align: 'center' })
+    // Content Column (Right)
+    let tempY = y
+    for (let i = 0; i < staffRowCount; i++) {
+        const s = staff[i]
+        if (s) {
+            doc.font('Helvetica').fontSize(8).text(`${s.worker_type}: ${s.count}`, startX + col1W + 5, tempY + 5)
+        } else {
+            doc.font('Helvetica').fontSize(8).text('-', startX + col1W + 5, tempY + 5)
         }
-        doc.text(effStr, colX.eff + 5, y + 8)
-
-        y += rowHeight
-    })
-
-    // --- 2. Manpower Section ---
-    y += 20
-    if (y + 100 > 750) { doc.addPage(); y = 50 }
-
-    doc.rect(40, y, 515, 20).fill('#444444').stroke()
-    doc.fillColor('white').font('Helvetica-Bold').fontSize(10)
-    doc.text('MANPOWER DEPLOYMENT (LABOR HAJRI)', 40, y + 5, { align: 'center', width: 515 })
-    y += 20
-
-    const mpData = dpr.manpower_data ? (typeof dpr.manpower_data === 'string' ? JSON.parse(dpr.manpower_data) : dpr.manpower_data) : []
-
-    doc.fillColor('black').font('Helvetica-Bold').fontSize(9)
-    doc.rect(40, y, 515, 20).fill('#e0e0e0').stroke()
-    doc.text('Worker Category', 45, y + 5)
-    doc.text('Count', 250, y + 5)
-    doc.text('Attendance (Hajri)', 350, y + 5)
-    doc.text('Total Mandays', 470, y + 5)
-    y += 20
-
-    doc.font('Helvetica').fontSize(9)
-    mpData.forEach((mp: any) => {
-        const rowHeight = 20
-        if (y + rowHeight > 750) { doc.addPage(); y = 50 }
-        doc.fillColor('black')
-        doc.rect(40, y, 515, rowHeight).stroke()
-        doc.text(mp.worker_type || '-', 45, y + 5)
-        doc.text(mp.count ? mp.count.toString() : '0', 250, y + 5)
-        doc.text(mp.hajri ? mp.hajri.toString() : '0', 350, y + 5)
-        doc.text((Number(mp.count || 0) * Number(mp.hajri || 0)).toFixed(1), 470, y + 5)
-        y += rowHeight
-    })
-
-    // --- 3. Site Conditions & Remarks ---
-    y += 20
-    if (y + 100 > 750) { doc.addPage(); y = 50 }
-
-    doc.font('Helvetica-Bold').text('SITE CONDITIONS:', 40, y)
-    doc.font('Helvetica').text(`Weather: ${dpr.weather_condition || 'Clear'} | Work Hours: ${dpr.work_hours || '8'} | Temp: ${dpr.temperature || '-'}°C`, 40, y + 15)
-
-    y += 40
-    doc.fillColor('black').font('Helvetica-Bold').text('SITE REMARKS:', 40, y)
-    doc.font('Helvetica').text(dpr.remarks || 'Proceeding as per schedule.', 40, y + 15, { width: 515 })
-
-    y += doc.heightOfString(dpr.remarks || 'Proceeding as per schedule.', { width: 515 }) + 30
-
-    // --- 4. Progress Photos ---
-    const photos = dpr.progress_photos ? (typeof dpr.progress_photos === 'string' ? JSON.parse(dpr.progress_photos) : dpr.progress_photos) : []
-
-    if (photos.length > 0) {
-        if (y + 150 > 750) { doc.addPage(); y = 50 }
-        doc.font('Helvetica-Bold').fontSize(10).text('SITE PROGRESS PHOTOGRAPHS:', 40, y)
-        y += 20
-
-        let photoX = 40
-        const photoWidth = 240
-        const photoHeight = 160
-
-        photos.forEach((photo: any, index: number) => {
-            if (!photo) return
-            let photoUrl = typeof photo === 'string' ? photo : (photo.url || photo.response?.url)
-            if (!photoUrl) return
-
-            // Resolve local path
-            if (photoUrl.startsWith('http')) {
-                photoUrl = photoUrl.split('localhost:5000/')[1] || photoUrl
-            }
-
-            const absolutePath = path.join(process.cwd(), photoUrl)
-
-            if (fs.existsSync(absolutePath)) {
-                if (y + photoHeight > 750) { doc.addPage(); y = 50 }
-
-                try {
-                    doc.image(absolutePath, photoX, y, { width: photoWidth, height: photoHeight })
-                    doc.rect(photoX, y, photoWidth, photoHeight).stroke() // Border
-                } catch (e) {
-                    console.error('Failed to embed image in PDF', absolutePath, e)
-                }
-
-                if (index % 2 === 0 && index < photos.length - 1) {
-                    photoX = 300 // Move to right col
-                } else {
-                    photoX = 40 // Back to left col
-                    y += photoHeight + 15 // Move to next row
-                }
-            }
-        })
+        if (i < staffRowCount - 1) {
+            doc.moveTo(startX + col1W, tempY + 18).lineTo(endX, tempY + 18).stroke()
+        }
+        tempY += 18
     }
 
-    // --- Footer ---
-    doc.fillColor('black').font('Helvetica').fontSize(9)
-    doc.text('Authorized By Site Engineer', 40, 750, { align: 'left', width: 200 })
-    doc.text('Project Manager Approval', 350, 750, { align: 'right', width: 200 })
+    // Vertical Lines for Staff
+    doc.moveTo(startX, y).lineTo(startX, y + staffSectionHeight).stroke()
+    doc.moveTo(startX + col1W, y).lineTo(startX + col1W, y + staffSectionHeight).stroke()
+    doc.moveTo(endX, y).lineTo(endX, y + staffSectionHeight).stroke()
+
+    y += staffSectionHeight
+    doc.moveTo(startX, y).lineTo(endX, y).stroke()
+
+    // --- 3. Manpower Section ---
+    const mpLabelW = col1W
+    const mpCol1W = (width - mpLabelW) * 0.6
+    const mpCol2W = (width - mpLabelW) - mpCol1W
+
+    const workerRowCount = Math.max(workers.length, 1)
+    const mpSectionH = (workerRowCount + 1) * 18 // +1 for header
+
+    // Label: MANPOWER
+    doc.font('Helvetica-Bold').fontSize(9).text('MANPOWER', startX + 2, y + (mpSectionH / 2) - 5, { width: mpLabelW, align: 'center' })
+
+    // Header Row
+    doc.font('Helvetica-Bold').fontSize(8)
+    doc.text('STEEL AND SHUTTERING WORK', startX + mpLabelW + 2, y + 5, { width: mpCol1W, align: 'center' })
+    doc.text('CONCRETE WORK', startX + mpLabelW + mpCol1W + 2, y + 5, { width: mpCol2W, align: 'center' })
+
+    doc.moveTo(startX + mpLabelW, y + 18).lineTo(endX, y + 18).stroke()
+
+    // Data Rows
+    tempY = y + 18
+    for (let i = 0; i < workerRowCount; i++) {
+        const w = workers[i]
+        if (w) {
+            doc.font('Helvetica').fontSize(8).text(`${w.worker_type}: ${w.count}`, startX + mpLabelW + 5, tempY + 5)
+        } else {
+            doc.font('Helvetica').fontSize(8).text('-', startX + mpLabelW + 5, tempY + 5)
+        }
+        if (i < workerRowCount - 1) {
+            doc.moveTo(startX + mpLabelW, tempY + 18).lineTo(endX, tempY + 18).stroke()
+        }
+        tempY += 18
+    }
+
+    // Vertical Lines
+    doc.moveTo(startX, y).lineTo(startX, y + mpSectionH).stroke()
+    doc.moveTo(startX + mpLabelW, y).lineTo(startX + mpLabelW, y + mpSectionH).stroke()
+    doc.moveTo(startX + mpLabelW + mpCol1W, y).lineTo(startX + mpLabelW + mpCol1W, y + mpSectionH).stroke()
+    doc.moveTo(endX, y).lineTo(endX, y + mpSectionH).stroke()
+
+    y += mpSectionH
+    doc.moveTo(startX, y).lineTo(endX, y).stroke()
+
+    // --- 4. Machinery Section ---
+    const machinery = dpr.machinery_data ? (typeof dpr.machinery_data === 'string' ? JSON.parse(dpr.machinery_data) : dpr.machinery_data) : []
+    const machRows = Math.max(machinery.length, 1)
+    const machH = machRows * 18
+
+    doc.font('Helvetica-Bold').fontSize(9).text('MACHINERY', startX + 2, y + (machH / 2) - 5, { width: col1W, align: 'center' })
+
+    tempY = y
+    for (let i = 0; i < machRows; i++) {
+        const m = machinery[i]
+        if (m) {
+            doc.font('Helvetica').fontSize(8).text(`${m.name}: ${m.count} (Hrs: ${m.hours || '-'})`, startX + col1W + 5, tempY + 5)
+        } else {
+            doc.font('Helvetica').fontSize(8).text('-', startX + col1W + 5, tempY + 5)
+        }
+        if (i < machRows - 1) doc.moveTo(startX + col1W, tempY + 18).lineTo(endX, tempY + 18).stroke()
+        tempY += 18
+    }
+
+    doc.moveTo(startX, y).lineTo(startX, y + machH).stroke()
+    doc.moveTo(startX + col1W, y).lineTo(startX + col1W, y + machH).stroke()
+    doc.moveTo(endX, y).lineTo(endX, y + machH).stroke()
+
+    y += machH
+    doc.moveTo(startX, y).lineTo(endX, y).stroke()
+
+    // --- 5. Progress Section ---
+    const items = dpr.items || []
+    const progRows = Math.max(items.length, 1)
+    const progH = progRows * 18
+
+    doc.font('Helvetica-Bold').fontSize(9).text('PROGRESS', startX + 2, y + (progH / 2) - 5, { width: col1W, align: 'center' })
+
+    tempY = y
+    for (let i = 0; i < progRows; i++) {
+        const it = items[i]
+        if (it) {
+            doc.font('Helvetica').fontSize(8).text(`${it.material?.name || 'Activity'}: ${it.work_done_quantity} ${it.unit}`, startX + col1W + 5, tempY + 5)
+        } else {
+            doc.font('Helvetica').fontSize(8).text('-', startX + col1W + 5, tempY + 5)
+        }
+        if (i < progRows - 1) doc.moveTo(startX + col1W, tempY + 18).lineTo(endX, tempY + 18).stroke()
+        tempY += 18
+    }
+
+    doc.moveTo(startX, y).lineTo(startX, y + progH).stroke()
+    doc.moveTo(startX + col1W, y).lineTo(startX + col1W, y + progH).stroke()
+    doc.moveTo(endX, y).lineTo(endX, y + progH).stroke()
+
+    y += progH
+    doc.moveTo(startX, y).lineTo(endX, y).stroke()
+
+    // --- 6. Panel Details & RMC ---
+    const leftW = width * 0.4
+    const rightW = width * 0.6
+    const leftX = startX
+    const rightX = startX + leftW
+
+    // -- Left Side: Panel Details --
+    let currentLeftY = y
+    doc.fontSize(9)
+    // Header
+    doc.font('Helvetica-Bold').text('PANEL DETAILS', leftX, currentLeftY + 5, { width: leftW, align: 'center' })
+    doc.moveTo(leftX, currentLeftY + 18).lineTo(leftX + leftW, currentLeftY + 18).stroke()
+    currentLeftY += 18
+
+    // Panel Rows
+    const drawPanelRow = (label, val) => {
+        const rH = 16
+        doc.font('Helvetica').fontSize(8).text(label, leftX + 2, currentLeftY + 4, { width: (leftW * 0.6) - 2 })
+        doc.moveTo(leftX + (leftW * 0.6), currentLeftY).lineTo(leftX + (leftW * 0.6), currentLeftY + rH).stroke()
+        doc.text(val, leftX + (leftW * 0.6) + 2, currentLeftY + 4, { width: (leftW * 0.4) - 2 })
+
+        doc.moveTo(leftX, currentLeftY + rH).lineTo(leftX + leftW, currentLeftY + rH).stroke()
+        currentLeftY += rH
+    }
+
+    drawPanelRow('PANEL SIZE :-', '-')
+    drawPanelRow('PANEL WIDTH :-', '-')
+    drawPanelRow('GRABBING DEPTH :-', dpr.grabbing_depth || '-')
+    drawPanelRow('GRABBING (SQM)', dpr.grabbing_sqm || '-')
+    drawPanelRow('GRABBING START TIME :-', dpr.grabbing_start_time ? new Date(dpr.grabbing_start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-')
+    drawPanelRow('GRABBING END TIME :-', dpr.grabbing_end_time ? new Date(dpr.grabbing_end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-')
+    drawPanelRow('CONCRETING DEPTH:-', dpr.concreting_depth || '-')
+    drawPanelRow('CONCRETING (SQM)', dpr.concreting_sqm || '-')
+    drawPanelRow('CONCRETE START TIME :-', dpr.start_time ? new Date(dpr.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-')
+    drawPanelRow('CONCRETE COMPL TIME:-', dpr.end_time ? new Date(dpr.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-')
+    drawPanelRow('CONCRETE GRADE:-', dpr.concrete_grade || '-')
+
+    // -- Right Side: RMC Details --
+    let currentRightY = y
+    // Header
+    doc.font('Helvetica-Bold').fontSize(9).text('RMC DETAILS', rightX, currentRightY + 5, { width: rightW, align: 'center' })
+    doc.moveTo(rightX, currentRightY + 18).lineTo(endX, currentRightY + 18).stroke()
+    currentRightY += 18
+
+    // RMC Table Headers
+    const rmcCols = [
+        { w: 25, t: 'SR' },
+        { w: 60, t: 'VEHICLE' },
+        { w: 38, t: 'QTY' },
+        { w: 38, t: 'SLUMP' },
+        { w: 48, t: 'IN' },
+        { w: 48, t: 'START' },
+        { w: 48, t: 'OUT' }
+    ]
+    const rmcRowH = 16
+
+    let rmcX = rightX
+    doc.fontSize(7)
+    rmcCols.forEach((c, i) => {
+        doc.text(c.t, rmcX + 2, currentRightY + 4, { width: c.w })
+        if (i < rmcCols.length) doc.moveTo(rmcX + c.w, currentRightY).lineTo(rmcX + c.w, currentRightY + rmcRowH).stroke()
+        rmcX += c.w
+    })
+    doc.moveTo(rightX, currentRightY + rmcRowH).lineTo(endX, currentRightY + rmcRowH).stroke()
+    currentRightY += rmcRowH
+
+    // RMC Rows - show actual data
+    const rmcLogs = dpr.rmcLogs || []
+    const rmcRowsToShow = Math.max(rmcLogs.length, 2)
+
+    for (let i = 0; i < rmcRowsToShow; i++) {
+        const log = rmcLogs[i]
+        rmcX = rightX
+
+        if (log) {
+            doc.fontSize(7)
+            doc.text(`${i + 1}`, rmcX + 2, currentRightY + 4, { width: 23 })
+            rmcX += 25
+            doc.text(log.vehicle_no || '-', rmcX + 2, currentRightY + 4, { width: 58 })
+            rmcX += 60
+            doc.text(log.quantity ? Number(log.quantity).toFixed(1) : '-', rmcX + 2, currentRightY + 4, { width: 36 })
+            rmcX += 38
+            doc.text(log.slump ? log.slump.toString() : '-', rmcX + 2, currentRightY + 4, { width: 36 })
+            rmcX += 38
+            doc.text(log.in_time || '-', rmcX + 2, currentRightY + 4, { width: 46 })
+            rmcX += 48
+            doc.text(log.start_time || '-', rmcX + 2, currentRightY + 4, { width: 46 })
+            rmcX += 48
+            doc.text(log.out_time || '-', rmcX + 2, currentRightY + 4, { width: 46 })
+        }
+
+        rmcX = rightX
+        rmcCols.forEach((c, idx) => {
+            if (idx < rmcCols.length) doc.moveTo(rmcX + c.w, currentRightY).lineTo(rmcX + c.w, currentRightY + rmcRowH).stroke()
+            rmcX += c.w
+        })
+        doc.moveTo(rightX, currentRightY + rmcRowH).lineTo(endX, currentRightY + rmcRowH).stroke()
+        currentRightY += rmcRowH
+    }
+
+    // Calculate max Y
+    const maxY = Math.max(currentLeftY, currentRightY)
+
+    // Finish vertical lines
+    doc.moveTo(leftX, y).lineTo(leftX, maxY).stroke()
+    doc.moveTo(leftX + leftW, y).lineTo(leftX + leftW, maxY).stroke()
+    doc.moveTo(endX, y).lineTo(endX, maxY).stroke()
+
+    if (currentLeftY < maxY) doc.moveTo(leftX, maxY).lineTo(leftX + leftW, maxY).stroke()
+    if (currentRightY < maxY) doc.moveTo(rightX, maxY).lineTo(endX, maxY).stroke()
+
+    y = maxY
+
+    // --- 7. Remarks ---
+    const remarkH = 40
+
+    doc.font('Helvetica-Bold').fontSize(9).text('REMARKS', startX + 2, y + (remarkH / 2) - 5, { width: col1W, align: 'center' })
+    doc.font('Helvetica').fontSize(8).text(dpr.remarks || '', startX + col1W + 5, y + 5, { width: width - col1W - 5 })
+
+    doc.moveTo(startX, y).lineTo(startX, y + remarkH).stroke()
+    doc.moveTo(startX + col1W, y).lineTo(startX + col1W, y + remarkH).stroke()
+    doc.moveTo(endX, y).lineTo(endX, y + remarkH).stroke()
+    y += remarkH
+    doc.moveTo(startX, y).lineTo(endX, y).stroke()
+
+    // --- 8. Footer ---
+    y += 30
+
+    doc.fontSize(9).font('Helvetica-Bold')
+    doc.text('VH SHRI ENTERPRISE', startX + 25, y)
+    doc.text('CLIENT', endX - 90, y)
+
+    y += 35
+    doc.lineCap('butt').moveTo(startX + 25, y).lineTo(startX + 140, y).stroke()
+    doc.fontSize(8).text('(ENGINEERS SIGNATURE)', startX + 25, y + 4)
+
+    doc.moveTo(endX - 110, y).lineTo(endX - 25, y).stroke()
+    doc.text('(ENGINEERS SIGNATURE)', endX - 110, y + 4)
 
     doc.end()
 }

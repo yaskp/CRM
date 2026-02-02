@@ -1,0 +1,86 @@
+                        <SectionCard title="D-Wall Technical Logs (QC)" icon={<AuditOutlined />}>
+                            <Row gutter={16}>
+                                <Col span={6}>
+                                    <Form.Item label="Actual Depth (m)" name="actual_depth">
+                                        <InputNumber style={{ width: '100%' }} placeholder="0.00" size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Verticality X (%)" name="verticality_x">
+                                        <InputNumber style={{ width: '100%' }} placeholder="< 0.5" size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Verticality Y (%)" name="verticality_y">
+                                        <InputNumber style={{ width: '100%' }} placeholder="< 0.5" size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Cage ID" name="cage_id_ref">
+                                        <Input placeholder="CAGE-001" size="large" />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Divider dashed style={{ margin: '12px 0' }} />
+                            <Typography.Text strong style={{ display: 'block', marginBottom: 12 }}>Slurry Properties (Bentonite/Polymer)</Typography.Text>
+                            <Row gutter={16}>
+                                <Col span={8}>
+                                    <Form.Item label="Density (g/cm³)" name="slurry_density">
+                                        <InputNumber style={{ width: '100%' }} placeholder="1.05 - 1.15" size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={8}>
+                                    <Form.Item label="Sand Content (%)" name="slurry_sand_content">
+                                        <InputNumber style={{ width: '100%' }} placeholder="< 3%" size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={8}>
+                                    <Form.Item label="Viscosity (sec)" name="slurry_viscosity">
+                                        <InputNumber style={{ width: '100%' }} placeholder="32 - 50" size="large" />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Divider dashed style={{ margin: '12px 0' }} />
+                            <Typography.Text strong style={{ display: 'block', marginBottom: 12 }}>D-Wall Process Timelines</Typography.Text>
+                            <Row gutter={16}>
+                                <Col span={6}>
+                                    <Form.Item label="Grabbing Start" name="grabbing_start_time">
+                                        <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Grabbing End" name="grabbing_end_time">
+                                        <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Concreting Start" name="start_time">
+                                        <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Concreting End" name="end_time">
+                                        <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Divider dashed style={{ margin: '12px 0' }} />
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <Form.Item label="Concrete Grade" name="concrete_grade">
+                                        <Select placeholder="Select M20, M25, M30..." size="large">
+                                            <Option value="M20">M20</Option>
+                                            <Option value="M25">M25</Option>
+                                            <Option value="M30">M30</Option>
+                                            <Option value="M35">M35</Option>
+                                            <Option value="M40">M40</Option>
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item label="Slump Flow (mm)" name="slump_flow">
+                                        <InputNumber style={{ width: '100%' }} placeholder="180-220" size="large" />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                        </SectionCard>

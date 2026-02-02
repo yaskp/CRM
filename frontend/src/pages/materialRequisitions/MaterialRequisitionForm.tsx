@@ -10,7 +10,7 @@ import {
     InboxOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
-import { materialRequisitionService, MaterialRequisitionItem } from '../../services/api/materialRequisitions'
+import { materialRequisitionService } from '../../services/api/materialRequisitions'
 import { materialService } from '../../services/api/materials'
 import { projectService } from '../../services/api/projects'
 import { warehouseService } from '../../services/api/warehouses'
@@ -25,7 +25,6 @@ import {
     getLabelStyle,
     flexBetweenStyle,
     actionCardStyle,
-    prefixIconStyle,
     twoColumnGridStyle,
     threeColumnGridStyle
 } from '../../styles/styleUtils'
@@ -69,7 +68,6 @@ const MaterialRequisitionForm = () => {
     const [buildings, setBuildings] = useState<any[]>([])
     const [floors, setFloors] = useState<any[]>([])
     const [zones, setZones] = useState<any[]>([])
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
     const navigate = useNavigate()
     const { id } = useParams()
     const isEdit = !!id
@@ -134,7 +132,6 @@ const MaterialRequisitionForm = () => {
                 remarks: requisition.remarks,
             })
 
-            setSelectedProjectId(requisition.project_id)
             if (requisition.project_id) {
                 projectHierarchyService.getBuildings(requisition.project_id).then(res => setBuildings(res.data || []))
             }
@@ -305,7 +302,6 @@ const MaterialRequisitionForm = () => {
                                 size="large"
                                 style={largeInputStyle}
                                 onChange={(val) => {
-                                    setSelectedProjectId(val);
                                     form.setFieldsValue({ project_id: val });
                                     projectHierarchyService.getBuildings(val).then(res => setBuildings(res.data || []));
                                     setFloors([]);
@@ -472,7 +468,7 @@ const MaterialRequisitionForm = () => {
                                 { type: 'number', min: 0.01, message: 'Quantity must be greater than 0' },
                             ]}
                         >
-                            <InputNumber style={{ width: '100%', ...largeInputStyle }} size="large" min={0.01} step={0.01} />
+                            <InputNumber style={{ width: '100%', ...largeInputStyle }} size="large" min={0.01} step={0.01} controls={false} />
                         </Form.Item>
 
                         <Form.Item

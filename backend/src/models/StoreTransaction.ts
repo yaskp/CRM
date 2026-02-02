@@ -50,10 +50,34 @@ interface StoreTransactionAttributes {
   goods_image?: string
   receiver_image?: string
   manpower_data?: string
+  machinery_data?: string
   weather_condition?: string
   temperature?: number
   work_hours?: string
   progress_photos?: string
+
+  // D-Wall Specific Technical Fields
+  actual_depth?: number
+  verticality_x?: number
+  verticality_y?: number
+  slurry_density?: number
+  slurry_viscosity?: number
+  slurry_sand_content?: number
+  cage_id_ref?: string
+  start_time?: string
+  end_time?: string
+  slump_flow?: number
+  tremie_pipe_count?: number
+  theoretical_concrete_qty?: number
+  grabbing_start_time?: string
+  grabbing_end_time?: string
+  concrete_grade?: string
+  overbreak_percentage?: number
+  grabbing_depth?: number
+  grabbing_sqm?: number
+  concreting_depth?: number
+  concreting_sqm?: number
+
   created_at?: Date
 }
 
@@ -104,10 +128,34 @@ class StoreTransaction extends Model<StoreTransactionAttributes, StoreTransactio
   public goods_image?: string
   public receiver_image?: string
   public manpower_data?: string
+  public machinery_data?: string
   public weather_condition?: string
   public temperature?: number
   public work_hours?: string
   public progress_photos?: string
+
+  // D-Wall Specific Technical Fields
+  public actual_depth?: number
+  public verticality_x?: number
+  public verticality_y?: number
+  public slurry_density?: number
+  public slurry_viscosity?: number
+  public slurry_sand_content?: number
+  public cage_id_ref?: string
+  public start_time?: string
+  public end_time?: string
+  public slump_flow?: number
+  public tremie_pipe_count?: number
+  public theoretical_concrete_qty?: number
+  public grabbing_start_time?: string
+  public grabbing_end_time?: string
+  public concrete_grade?: string
+  public overbreak_percentage?: number
+  public grabbing_depth?: number
+  public grabbing_sqm?: number
+  public concreting_depth?: number
+  public concreting_sqm?: number
+
   public readonly created_at!: Date
 }
 
@@ -329,6 +377,10 @@ StoreTransaction.init(
       type: DataTypes.JSON,
       allowNull: true,
     },
+    machinery_data: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
     weather_condition: {
       type: DataTypes.STRING(50),
       allowNull: true,
@@ -343,6 +395,86 @@ StoreTransaction.init(
     },
     progress_photos: {
       type: DataTypes.JSON,
+      allowNull: true,
+    },
+    actual_depth: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    verticality_x: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
+    verticality_y: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
+    slurry_density: {
+      type: DataTypes.DECIMAL(5, 3),
+      allowNull: true,
+    },
+    slurry_viscosity: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
+    slurry_sand_content: {
+      type: DataTypes.DECIMAL(5, 2),
+      allowNull: true,
+    },
+    cage_id_ref: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    start_time: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    end_time: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    slump_flow: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    tremie_pipe_count: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    theoretical_concrete_qty: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    grabbing_start_time: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    grabbing_end_time: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    concrete_grade: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
+    overbreak_percentage: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    grabbing_depth: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    grabbing_sqm: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    concreting_depth: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    concreting_sqm: {
+      type: DataTypes.DECIMAL(10, 2),
       allowNull: true,
     },
     created_at: {

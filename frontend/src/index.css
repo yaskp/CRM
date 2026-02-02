@@ -52,6 +52,7 @@ code {
 .title-gradient {
   background: linear-gradient(to right, #111827, #374151);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -75,4 +76,14 @@ code {
   .premium-page-container {
     padding: 12px !important;
   }
+}
+
+/* Hide Ant Design InputNumber handlers/spinners globally */
+.ant-input-number-handler-wrap {
+  display: none !important;
+}
+
+/* Adjust input padding to center text better after hiding handlers */
+.ant-input-number-input {
+  padding-right: 12px !important;
 }

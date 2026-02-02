@@ -1,0 +1,349 @@
+                {/* 1C. D-Wall Specialized Logs (Appears if at least one Panel is selected) */}
+                {selectedPanels.length > 0 && (
+                    <>
+                        <SectionCard title="D-Wall Technical Logs (QC)" icon={<AuditOutlined />}>
+                            <Row gutter={16}>
+                                <Col span={6}>
+                                    <Form.Item label="Actual Depth (m)" name="actual_depth">
+                                        <InputNumber style={{ width: '100%' }} placeholder="0.00" size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Verticality X (%)" name="verticality_x">
+                                        <InputNumber style={{ width: '100%' }} placeholder="< 0.5" size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Verticality Y (%)" name="verticality_y">
+                                        <InputNumber style={{ width: '100%' }} placeholder="< 0.5" size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Cage ID" name="cage_id_ref">
+                                        <Input placeholder="CAGE-001" size="large" />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+
+                            <Divider dashed style={{ margin: '12px 0' }} />
+                            <Typography.Text strong style={{ display: 'block', marginBottom: 12 }}>Slurry Properties (Bentonite/Polymer)</Typography.Text>
+                            <Row gutter={16}>
+                                <Col span={8}>
+                                    <Form.Item label="Density (g/cm³)" name="slurry_density">
+                                        <InputNumber style={{ width: '100%' }} placeholder="1.05 - 1.15" size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={8}>
+                                    <Form.Item label="Sand Content (%)" name="slurry_sand_content">
+                                        <InputNumber style={{ width: '100%' }} placeholder="< 3%" size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={8}>
+                                    <Form.Item label="Viscosity (sec)" name="slurry_viscosity">
+                                        <InputNumber style={{ width: '100%' }} placeholder="32 - 50" size="large" />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+
+                            <Divider dashed style={{ margin: '12px 0' }} />
+                            <Typography.Text strong style={{ display: 'block', marginBottom: 12 }}>D-Wall Process Timelines</Typography.Text>
+                            <Row gutter={16}>
+                                <Col span={6}>
+                                    <Form.Item label="Grabbing Start" name="grabbing_start_time">
+                                        <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Grabbing End" name="grabbing_end_time">
+                                        <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Concreting Start" name="start_time">
+                                        <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={6}>
+                                    <Form.Item label="Concreting End" name="end_time">
+                                        <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+
+                            <Divider dashed style={{ margin: '12px 0' }} />
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <Form.Item label="Concrete Grade" name="concrete_grade">
+                                        <Select placeholder="Select M20, M25, M30..." size="large">
+                                            <Option value="M20">M20</Option>
+                                            <Option value="M25">M25</Option>
+                                            <Option value="M30">M30</Option>
+                                            <Option value="M35">M35</Option>
+                                            <Option value="M40">M40</Option>
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item label="Slump Flow (mm)" name="slump_flow">
+                                        <InputNumber style={{ width: '100%' }} placeholder="180-220" size="large" />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                        </SectionCard>
+
+                        <SectionCard
+                            title="RMC Delivery Details (Vehicle Log)"
+                            icon={<ClockCircleOutlined />}
+                            extra={<Button type="dashed" icon={<PlusOutlined />} onClick={addRmcLog}>Add Vehicle</Button>}
+                        >
+                            <Table
+                                dataSource={rmcLogs}
+                                columns={rmcColumns}
+                                pagination={false}
+                                rowKey={(_, i) => i?.toString() || '0'}
+                                size="small"
+                                bordered
+                            />
+                            <div style={{ marginTop: 16, display: 'flex', gap: 24 }}>
+                                <Form.Item label="Theoretical Qty (cum)" name="theoretical_concrete_qty" style={{ flex: 1 }}>
+                                    <InputNumber style={{ width: '100%' }} size="large" />
+                                </Form.Item>
+                                <Form.Item label="Tremie Pipes" name="tremie_pipe_count" style={{ flex: 1 }}>
+                                    <InputNumber style={{ width: '100%' }} size="large" />
+                                </Form.Item>
+                            </div>
+                        </SectionCard>
+                    </>
+                )}
+
+                {/* 2. Progress & Materials */}
+                <SectionCard
+                    title="Progress & Materials Achievement"
+                    icon={<BlockOutlined />}
+                    extra={
+                        <Space>
+                            <span style={{ fontSize: '13px', color: '#64748b' }}>Store mode:</span>
+                            <Switch
+                                size="small"
+                                checked={detailedMode}
+                                onChange={setDetailedMode}
+                                checkedChildren={<ExpandOutlined />}
+                                unCheckedChildren={<CompressOutlined />}
+                            />
+                        </Space>
+                    }
+                >
+                    <Table
+                        dataSource={items}
+                        columns={materialColumns}
+                        pagination={false}
+                        rowKey={(_, i) => i?.toString() || '0'}
+                        size="small"
+                        bordered
+                        style={{ marginTop: 8 }}
+                        locale={{ emptyText: 'Record materials and work progress below.' }}
+                        footer={() => (
+                            <Button
+                                type="dashed"
+                                icon={<PlusOutlined />}
+                                onClick={addItem}
+                                block
+                                style={{ height: '40px' }}
+                            >
+                                Add Material / Activity
+                            </Button>
+                        )}
+                    />
+                </SectionCard>
+
+                {/* 3. Resources Deployment (Staff/Manpower/Machinery) */}
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <SectionCard title="Staff Deployment" icon={<TeamOutlined />}>
+                            <Table
+                                dataSource={manpower.filter(m => m.is_staff)}
+                                columns={[
+                                    {
+                                        title: 'Designation / Name',
+                                        dataIndex: 'worker_type',
+                                        render: (val, _, idx) => (
+                                            <Input 
+                                                placeholder="PM, Site Engineer..." 
+                                                value={val} 
+                                                onChange={e => {
+                                                    const realIdx = manpower.findIndex(m => m === manpower.filter(x => x.is_staff)[idx]);
+                                                    updateManpower(realIdx, 'worker_type', e.target.value);
+                                                }}
+                                            />
+                                        )
+                                    },
+                                    {
+                                        title: 'Count',
+                                        dataIndex: 'count',
+                                        width: '100px',
+                                        render: (val, _, idx) => (
+                                            <InputNumber 
+                                                min={0} 
+                                                value={val} 
+                                                onChange={v => {
+                                                    const realIdx = manpower.findIndex(m => m === manpower.filter(x => x.is_staff)[idx]);
+                                                    updateManpower(realIdx, 'count', v);
+                                                }}
+                                            />
+                                        )
+                                    },
+                                    {
+                                        title: '',
+                                        width: '40px',
+                                        render: (_, __, idx) => (
+                                            <Button 
+                                                danger 
+                                                type="link" 
+                                                icon={<DeleteOutlined />} 
+                                                onClick={() => {
+                                                    const realIdx = manpower.findIndex(m => m === manpower.filter(x => x.is_staff)[idx]);
+                                                    removeManpower(realIdx);
+                                                }}
+                                            />
+                                        )
+                                    }
+                                ]}
+                                pagination={false}
+                                size="small"
+                                bordered
+                                footer={() => <Button type="dashed" block onClick={() => addManpower(true)} icon={<PlusOutlined />}>Add Staff</Button>}
+                            />
+                        </SectionCard>
+                    </Col>
+                    <Col span={12}>
+                        <SectionCard title="Machinery Deployment" icon={<DashboardOutlined />}>
+                            <Table
+                                dataSource={machinery}
+                                columns={[
+                                    {
+                                        title: 'Machine Name',
+                                        dataIndex: 'name',
+                                        render: (val, _, idx) => (
+                                            <Input 
+                                                placeholder="Crane, Excavator..." 
+                                                value={val} 
+                                                onChange={e => updateMachinery(idx, 'name', e.target.value)}
+                                            />
+                                        )
+                                    },
+                                    {
+                                        title: 'Quantity',
+                                        dataIndex: 'count',
+                                        width: '100px',
+                                        render: (val, _, idx) => (
+                                            <InputNumber min={0} value={val} onChange={v => updateMachinery(idx, 'count', v)} />
+                                        )
+                                    },
+                                    {
+                                        title: 'Hrs',
+                                        dataIndex: 'hours',
+                                        width: '100px',
+                                        render: (val, _, idx) => (
+                                            <InputNumber min={0} value={val} onChange={v => updateMachinery(idx, 'hours', v)} />
+                                        )
+                                    },
+                                    {
+                                        title: '',
+                                        width: '40px',
+                                        render: (_, __, idx) => (
+                                            <Button danger type="link" icon={<DeleteOutlined />} onClick={() => removeMachinery(idx)} />
+                                        )
+                                    }
+                                ]}
+                                pagination={false}
+                                size="small"
+                                bordered
+                                footer={() => <Button type="dashed" block onClick={addMachinery} icon={<PlusOutlined />}>Add Machine</Button>}
+                            />
+                        </SectionCard>
+                    </Col>
+                </Row>
+
+                <SectionCard
+                    title="Manpower Deployment (Labor Hajri)"
+                    icon={<TeamOutlined />}
+                >
+                    <Table
+                        dataSource={manpower.filter(m => !m.is_staff)}
+                        columns={[
+                            {
+                                title: 'Worker Category',
+                                dataIndex: 'worker_type',
+                                width: '40%',
+                                render: (val, _, idx) => (
+                                    <Select
+                                        mode="tags"
+                                        placeholder="Pick category..."
+                                        size="middle"
+                                        value={val ? [val] : []}
+                                        onChange={v => {
+                                            const realIdx = manpower.findIndex(m => m === manpower.filter(x => !x.is_staff)[idx]);
+                                            updateManpower(realIdx, 'worker_type', v[v.length - 1]);
+                                        }}
+                                        style={{ width: '100%' }}
+                                    >
+                                        {workerCategories.map(c => (
+                                            <Option key={c.category} value={c.category}>{c.category}</Option>
+                                        ))}
+                                    </Select>
+                                )
+                            },
+                            {
+                                title: 'Count (Strength)',
+                                dataIndex: 'count',
+                                render: (val, _, idx) => (
+                                    <InputNumber 
+                                        min={0} 
+                                        style={{ width: '100%' }} 
+                                        value={val} 
+                                        onChange={v => {
+                                            const realIdx = manpower.findIndex(m => m === manpower.filter(x => !x.is_staff)[idx]);
+                                            updateManpower(realIdx, 'count', v);
+                                        }} 
+                                    />
+                                )
+                            },
+                            {
+                                title: 'Shift/Hajri',
+                                dataIndex: 'hajri',
+                                render: (val, _, idx) => (
+                                    <InputNumber 
+                                        min={0} 
+                                        step={0.5} 
+                                        style={{ width: '100%' }} 
+                                        value={val} 
+                                        onChange={v => {
+                                            const realIdx = manpower.findIndex(m => m === manpower.filter(x => !x.is_staff)[idx]);
+                                            updateManpower(realIdx, 'hajri', v);
+                                        }} 
+                                    />
+                                )
+                            },
+                            {
+                                title: '',
+                                width: '5%',
+                                render: (_, __, idx) => (
+                                    <Button 
+                                        danger 
+                                        icon={<DeleteOutlined />} 
+                                        onClick={() => {
+                                            const realIdx = manpower.findIndex(m => m === manpower.filter(x => !x.is_staff)[idx]);
+                                            removeManpower(realIdx);
+                                        }} 
+                                        type="link" 
+                                    />
+                                )
+                            }
+                        ]}
+                        pagination={false}
+                        rowKey={(_, i) => i?.toString() || '0'}
+                        size="small"
+                        bordered
+                        footer={() => <Button type="dashed" block onClick={() => addManpower(false)} icon={<PlusOutlined />}>Add Labor Category</Button>}
+                    />
+                </SectionCard>

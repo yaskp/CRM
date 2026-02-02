@@ -32,6 +32,8 @@ interface WorkOrder {
   }
   total_amount: number
   final_amount: number
+  paid_amount?: number
+  balance_amount?: number
   status: string
   created_at: string
 }
@@ -154,6 +156,24 @@ const WorkOrderList = () => {
       width: 150,
       render: (amount: number) => (
         <Text strong style={{ color: theme.colors.success.main }}>₹{amount?.toLocaleString('en-IN') || 0}</Text>
+      ),
+    },
+    {
+      title: 'Paid Amount',
+      dataIndex: 'paid_amount',
+      key: 'paid_amount',
+      width: 140,
+      render: (amount: number) => (
+        <Text style={{ color: '#52c41a' }}>₹{amount?.toLocaleString('en-IN') || 0}</Text>
+      ),
+    },
+    {
+      title: 'Balance',
+      dataIndex: 'balance_amount',
+      key: 'balance_amount',
+      width: 140,
+      render: (amount: number) => (
+        <Text strong style={{ color: Number(amount) > 0 ? '#f5222d' : '#8c8c8c' }}>₹{amount?.toLocaleString('en-IN') || 0}</Text>
       ),
     },
     {

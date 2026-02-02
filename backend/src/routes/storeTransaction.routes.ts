@@ -10,6 +10,8 @@ import {
   rejectTransaction,
   getWorkerCategories,
   downloadDPRPDF,
+  updateStoreTransaction,
+  createWorkerCategory
 } from '../controllers/storeTransaction.controller'
 import { authenticate } from '../middleware/auth.middleware'
 import { hasPermission } from '../middleware/rbac.middleware'
@@ -23,9 +25,11 @@ router.post('/grn', hasPermission('store.create'), createGRN)
 router.post('/stn', hasPermission('store.create'), createSTN)
 router.post('/srn', hasPermission('store.create'), createSRN)
 router.post('/consumption', hasPermission('store.create'), createConsumption)
+router.post('/worker-categories', hasPermission('store.create'), createWorkerCategory)
 router.get('/worker-categories', hasPermission('store.read'), getWorkerCategories)
 router.get('/:id', hasPermission('store.read'), getTransaction)
 router.get('/:id/pdf', hasPermission('store.read'), downloadDPRPDF)
+router.put('/:id', hasPermission('store.create'), updateStoreTransaction)
 router.put('/:id/approve', hasPermission('store.approve'), approveTransaction)
 router.put('/:id/reject', hasPermission('store.approve'), rejectTransaction)
 

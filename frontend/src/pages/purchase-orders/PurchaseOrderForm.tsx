@@ -361,9 +361,24 @@ const PurchaseOrderForm = () => {
     }
 
     useEffect(() => {
+        // Auto-fill address if Project is selected and delivery is Direct to Site
+        if (selectedProjectId && selectedDeliveryType === 'direct_to_site' && !isEditMode) {
+            const project = projects.find(p => p.id === selectedProjectId)
+            if (project) {
+                form.setFieldsValue({
+                    shipping_street: project.site_address || project.site_location || '',
+                    shipping_city: project.site_city || '',
+                    shipping_state: project.site_state_code || '',
+                    shipping_pincode: project.site_pincode || ''
+                })
+            }
+        }
+    }, [selectedProjectId, selectedDeliveryType, projects, form, isEditMode])
+
+    useEffect(() => {
         // Only auto-fill address if NOT in edit mode (or if address is empty)
         // If in edit mode, we trust the fetched PO address unless user changes warehouse
-        if (selectedWarehouseId && !isEditMode) {
+        if (selectedWarehouseId && selectedDeliveryType === 'central_warehouse' && !isEditMode) {
             const warehouse = warehouses.find(w => w.id === selectedWarehouseId)
             if (warehouse) {
                 let address = warehouse.address || ''
@@ -372,27 +387,21 @@ const PurchaseOrderForm = () => {
                 if (!address && warehouse.project_id) {
                     const project = projects.find(p => p.id === warehouse.project_id)
                     if (project) {
-                        const parts = [
-                            project.location,
-                            project.city,
-                            project.state,
-                            project.site_pincode ? `Pin: ${project.site_pincode}` : ''
-                        ].filter(Boolean)
-                        address = parts.join(', ')
+                        address = project.site_address || project.site_location || ''
                     }
                 }
 
                 if (address) {
-                    // Simple parse attempt or just dump in street
                     form.setFieldsValue({
                         shipping_street: address,
-                        // Try to infer state if we can
-                        shipping_state: warehouse.state_code || getStateCodeFromGST(warehouse.gstin)
+                        shipping_city: warehouse.city || (warehouse.project_id ? projects.find(p => p.id === warehouse.project_id)?.site_city : ''),
+                        shipping_state: warehouse.state_code || getStateCodeFromGST(warehouse.gstin) || (warehouse.project_id ? projects.find(p => p.id === warehouse.project_id)?.site_state_code : ''),
+                        shipping_pincode: warehouse.pincode || (warehouse.project_id ? projects.find(p => p.id === warehouse.project_id)?.site_pincode : '')
                     })
                 }
             }
         }
-    }, [selectedWarehouseId, warehouses, projects, form, isEditMode])
+    }, [selectedWarehouseId, selectedDeliveryType, warehouses, projects, form, isEditMode])
 
     const calculateTotals = () => {
         let subtotal = 0
@@ -814,7 +823,7 @@ const PurchaseOrderForm = () => {
                                                     rules={[{ required: true, message: 'Req' }]}
                                                     style={{ marginBottom: 0 }}
                                                 >
-                                                    <InputNumber min={0.01} style={{ width: '100%' }} placeholder="Qty" />
+                                                    <InputNumber min={0.01} controls={false} style={{ width: '100%' }} placeholder="Qty" />
                                                 </Form.Item>
                                             </Col>
 
@@ -856,6 +865,7 @@ const PurchaseOrderForm = () => {
                                                 >
                                                     <InputNumber
                                                         min={0}
+                                                        controls={false}
                                                         style={{ width: '100%' }}
                                                         prefix="₹"
                                                         placeholder="Rate"
@@ -871,7 +881,7 @@ const PurchaseOrderForm = () => {
                                                     initialValue={0}
                                                     style={{ marginBottom: 0 }}
                                                 >
-                                                    <InputNumber min={0} max={100} style={{ width: '100%' }} suffix="%" />
+                                                    <InputNumber min={0} max={100} controls={false} style={{ width: '100%' }} suffix="%" />
                                                 </Form.Item>
                                             </Col>
 

@@ -9,10 +9,12 @@ import Warehouse from '../models/Warehouse'
 import Project from '../models/Project'
 import User from '../models/User'
 import Material from '../models/Material'
+import Client from '../models/Client'
 import PurchaseOrderItem from '../models/PurchaseOrderItem'
 import PurchaseOrder from '../models/PurchaseOrder'
 import Vendor from '../models/Vendor'
 import WorkerCategory from '../models/WorkerCategory'
+import DPRRmcLog from '../models/DPRRmcLog'
 import { numberingService } from '../utils/numberingService'
 import { createError } from '../middleware/errorHandler'
 import { sequelize } from '../database/connection'
@@ -356,6 +358,30 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       temperature,
       work_hours,
       progress_photos,
+      rmc_logs,
+      // D-Wall Fields
+      drawing_panel_id,
+      actual_depth,
+      verticality_x,
+      verticality_y,
+      slurry_density,
+      slurry_viscosity,
+      slurry_sand_content,
+      cage_id_ref,
+      start_time,
+      end_time,
+      slump_flow,
+      tremie_pipe_count,
+      theoretical_concrete_qty,
+      overbreak_percentage,
+      machinery_data,
+      grabbing_start_time,
+      grabbing_end_time,
+      concrete_grade,
+      grabbing_depth,
+      grabbing_sqm,
+      concreting_depth,
+      concreting_sqm
     } = req.body
 
     if (!warehouse_id || !items || items.length === 0) {
@@ -375,7 +401,7 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       to_building_id,
       to_floor_id,
       to_zone_id,
-      drawing_panel_id: req.body.drawing_panel_id,
+      drawing_panel_id,
       transaction_date,
       status: 'draft',
       remarks,
@@ -385,6 +411,29 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       work_hours,
       progress_photos,
       created_by: req.user!.id,
+
+      // D-Wall Fields
+      actual_depth,
+      verticality_x,
+      verticality_y,
+      slurry_density,
+      slurry_viscosity,
+      slurry_sand_content,
+      cage_id_ref,
+      start_time,
+      end_time,
+      slump_flow,
+      tremie_pipe_count,
+      theoretical_concrete_qty,
+      overbreak_percentage,
+      machinery_data,
+      grabbing_start_time,
+      grabbing_end_time,
+      concrete_grade,
+      grabbing_depth,
+      grabbing_sqm,
+      concreting_depth,
+      concreting_sqm
     }
 
     const consumption = await StoreTransaction.create(consumptionData, { transaction })
@@ -418,10 +467,29 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
         returned_quantity: item.returned_quantity || 0,
         work_done_quantity: item.work_done_quantity || 0,
         work_item_type_id: item.work_item_type_id,
+        drawing_panel_id: item.drawing_panel_id,
         unit: item.unit
       })),
       { transaction }
     )
+
+    // Create RMC logs if provided
+    if (rmc_logs && Array.isArray(rmc_logs)) {
+      await DPRRmcLog.bulkCreate(
+        rmc_logs.map((log: any) => ({
+          dpr_id: consumption.id, // Reusing dpr_id as a generic ID or we should handle associations
+          vehicle_no: log.vehicle_no,
+          quantity: log.quantity,
+          slump: log.slump,
+          in_time: log.in_time,
+          start_time: log.start_time,
+          out_time: log.out_time,
+          remarks: log.remarks,
+          drawing_panel_id: log.drawing_panel_id
+        })),
+        { transaction }
+      )
+    }
 
     await transaction.commit()
 
@@ -472,6 +540,13 @@ export const getTransactions = async (req: AuthRequest, res: Response, next: Nex
           as: 'project',
           attributes: ['id', 'name', 'project_code'],
           required: false,
+        },
+        { association: 'drawingPanel' },
+        {
+          model: StoreTransactionItem,
+          as: 'items',
+          required: false,
+          include: [{ association: 'workItemType' }]
         },
         {
           model: User,
@@ -619,7 +694,13 @@ export const downloadDPRPDF = async (req: AuthRequest, res: Response, next: Next
     const { id } = req.params
     const transaction = await StoreTransaction.findByPk(Number(id), {
       include: [
-        { model: Project, as: 'project' },
+        {
+          model: Project,
+          as: 'project',
+          include: [
+            { model: Client, as: 'client' }
+          ]
+        },
         { association: 'toBuilding' },
         { association: 'toFloor' },
         { association: 'toZone' },
@@ -631,7 +712,8 @@ export const downloadDPRPDF = async (req: AuthRequest, res: Response, next: Next
             { model: Material, as: 'material' },
             { association: 'workItemType' }
           ]
-        }
+        },
+        { model: DPRRmcLog, as: 'rmcLogs' }
       ]
     })
 
@@ -1073,3 +1155,151 @@ export const rejectTransaction = async (req: AuthRequest, res: Response, next: N
   }
 }
 
+export const updateStoreTransaction = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const transaction = await sequelize.transaction()
+  try {
+    const { id } = req.params
+    const {
+      warehouse_id,
+      project_id,
+      to_building_id,
+      to_floor_id,
+      to_zone_id,
+      drawing_panel_id,
+      transaction_date,
+      remarks,
+      manpower_data,
+      progress_photos,
+      items,
+      rmc_logs,
+      weather_condition,
+      temperature,
+      work_hours,
+      actual_depth,
+      verticality_x,
+      verticality_y,
+      slurry_density,
+      slurry_viscosity,
+      slurry_sand_content,
+      cage_id_ref,
+      start_time,
+      end_time,
+      slump_flow,
+      tremie_pipe_count,
+      theoretical_concrete_qty,
+      machinery_data,
+      grabbing_start_time,
+      grabbing_end_time,
+      concrete_grade,
+      grabbing_depth,
+      grabbing_sqm,
+      concreting_depth,
+      concreting_sqm
+    } = req.body
+
+    const storeTransaction = await StoreTransaction.findByPk(id)
+    if (!storeTransaction) {
+      throw createError('Transaction not found', 404)
+    }
+
+    if (storeTransaction.status === 'approved') {
+      throw createError('Cannot update an approved transaction', 400)
+    }
+
+    // Update main fields
+    await storeTransaction.update({
+      warehouse_id,
+      project_id,
+      to_building_id,
+      to_floor_id,
+      to_zone_id,
+      drawing_panel_id,
+      transaction_date,
+      remarks,
+      manpower_data,
+      progress_photos,
+      weather_condition,
+      temperature,
+      work_hours,
+      actual_depth,
+      verticality_x,
+      verticality_y,
+      slurry_density,
+      slurry_viscosity,
+      slurry_sand_content,
+      cage_id_ref,
+      start_time,
+      end_time,
+      slump_flow,
+      tremie_pipe_count,
+      theoretical_concrete_qty,
+      machinery_data,
+      grabbing_start_time,
+      grabbing_end_time,
+      concrete_grade,
+      grabbing_depth,
+      grabbing_sqm,
+      concreting_depth,
+      concreting_sqm
+    }, { transaction })
+
+    // Update Items: Delete and Re-create for simplicity in updates
+    if (items && Array.isArray(items)) {
+      await StoreTransactionItem.destroy({ where: { transaction_id: id } as any, transaction })
+      for (const item of items) {
+        await StoreTransactionItem.create({
+          transaction_id: Number(storeTransaction.id),
+          material_id: item.material_id,
+          quantity: item.quantity,
+          issued_quantity: item.issued_quantity,
+          returned_quantity: item.returned_quantity,
+          wastage_quantity: item.wastage_quantity,
+          work_done_quantity: item.work_done_quantity,
+          work_item_type_id: item.work_item_type_id,
+          unit: item.unit
+        } as any, { transaction })
+      }
+    }
+
+    // Update RMC Logs
+    if (rmc_logs && Array.isArray(rmc_logs)) {
+      await DPRRmcLog.destroy({ where: { dpr_id: id }, transaction })
+      for (const log of rmc_logs) {
+        await DPRRmcLog.create({
+          ...log,
+          dpr_id: storeTransaction.id
+        }, { transaction })
+      }
+    }
+
+    await transaction.commit()
+    res.json({
+      success: true,
+      message: 'Transaction updated successfully',
+      transaction: storeTransaction
+    })
+  } catch (error) {
+    if (transaction) await transaction.rollback()
+    next(error)
+  }
+}
+
+export const createWorkerCategory = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { name } = req.body;
+    if (!name) throw createError('Category Name is required', 400);
+
+    const category = await WorkerCategory.create({ name }, { transaction });
+    await transaction.commit();
+
+    res.status(201).json({
+      success: true,
+      message: 'Worker Category created successfully',
+      category
+    });
+  } catch (error) {
+    if (transaction) await transaction.rollback();
+    next(error);
+  }
+}

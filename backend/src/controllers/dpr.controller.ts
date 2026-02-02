@@ -4,6 +4,7 @@ import DailyProgressReport from '../models/DailyProgressReport'
 import ManpowerReport from '../models/ManpowerReport'
 import WorkOrder from '../models/WorkOrder'
 import DrawingPanel from '../models/DrawingPanel'
+import DPRRmcLog from '../models/DPRRmcLog'
 import { createError } from '../middleware/errorHandler'
 import { Op } from 'sequelize'
 
@@ -26,6 +27,22 @@ export const createDPR = async (req: AuthRequest, res: Response, next: NextFunct
       weather_conditions,
       remarks,
       manpower,
+      rmc_logs,
+      // D-Wall Fields
+      drawing_panel_id,
+      actual_depth,
+      verticality_x,
+      verticality_y,
+      slurry_density,
+      slurry_viscosity,
+      slurry_sand_content,
+      cage_id_ref,
+      start_time,
+      end_time,
+      slump_flow,
+      tremie_pipe_count,
+      theoretical_concrete_qty,
+      overbreak_percentage
     } = req.body
 
     if (!project_id || !report_date) {
@@ -45,8 +62,8 @@ export const createDPR = async (req: AuthRequest, res: Response, next: NextFunct
     }
 
     // 2. Resolve panel link if panel_number is provided
-    let drawing_panel_id: number | undefined = undefined
-    if (panel_number) {
+    let final_panel_id = drawing_panel_id
+    if (!final_panel_id && panel_number) {
       const panel = await DrawingPanel.findOne({
         where: { panel_identifier: panel_number },
         include: [{
@@ -54,7 +71,7 @@ export const createDPR = async (req: AuthRequest, res: Response, next: NextFunct
           where: { project_id }
         }]
       })
-      if (panel) drawing_panel_id = panel.id
+      if (panel) final_panel_id = panel.id
     }
 
     const dpr = await DailyProgressReport.create({
@@ -62,7 +79,7 @@ export const createDPR = async (req: AuthRequest, res: Response, next: NextFunct
       report_date,
       site_location,
       panel_number,
-      drawing_panel_id,
+      drawing_panel_id: final_panel_id,
       building_id,
       floor_id,
       zone_id,
@@ -75,6 +92,21 @@ export const createDPR = async (req: AuthRequest, res: Response, next: NextFunct
       weather_conditions,
       remarks,
       created_by: req.user!.id,
+
+      // D-Wall Fields
+      actual_depth,
+      verticality_x,
+      verticality_y,
+      slurry_density,
+      slurry_viscosity,
+      slurry_sand_content,
+      cage_id_ref,
+      start_time,
+      end_time,
+      slump_flow,
+      tremie_pipe_count,
+      theoretical_concrete_qty,
+      overbreak_percentage
     })
 
     // Create manpower reports if provided
@@ -89,8 +121,24 @@ export const createDPR = async (req: AuthRequest, res: Response, next: NextFunct
       )
     }
 
+    // Create RMC logs if provided
+    if (rmc_logs && Array.isArray(rmc_logs)) {
+      await DPRRmcLog.bulkCreate(
+        rmc_logs.map((log: any) => ({
+          dpr_id: dpr.id,
+          vehicle_no: log.vehicle_no,
+          quantity: log.quantity,
+          slump: log.slump,
+          in_time: log.in_time,
+          start_time: log.start_time,
+          out_time: log.out_time,
+          remarks: log.remarks
+        }))
+      )
+    }
+
     const dprWithManpower = await DailyProgressReport.findByPk(dpr.id, {
-      include: [{ association: 'manpower' }],
+      include: [{ association: 'manpower' }, { association: 'rmcLogs' }],
     })
 
     res.status(201).json({

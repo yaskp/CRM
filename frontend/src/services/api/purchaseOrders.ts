@@ -17,6 +17,8 @@ export interface PurchaseOrder {
     vendor_state_code?: string
     delivery_type?: 'direct_to_site' | 'central_warehouse' | 'mixed'
     billing_unit_id?: number
+    paid_amount?: number
+    balance_amount?: number
     created_at: string
     project?: {
         name: string

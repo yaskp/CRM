@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, DatePicker, InputNumber, Typography, Select, Switch, Tooltip } from 'antd'
+import { Form, Input, Button, Card, message, DatePicker, InputNumber, Typography, Select, Switch } from 'antd'
 import {
   ProjectOutlined,
   EnvironmentOutlined,
   BankOutlined,
   CalendarOutlined,
   FileTextOutlined,
-  UserOutlined,
-  TeamOutlined
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { projectService } from '../../services/api/projects'
@@ -52,13 +50,14 @@ const ProjectCreate = () => {
 
   useEffect(() => {
     if (location.state) {
-      const { name, company_name, location: loc, city, state, lead_id } = location.state
+      const { name, location: loc, city, state, lead_id } = location.state
       form.setFieldsValue({
         name: name ? `${name} (Project)` : undefined,
-        client_ho_address: loc, // Mapping address/location if needed
-        city: city,
-        state: state,
-        lead_id: lead_id // Set the lead_id if coming from conversion
+        client_ho_address: loc,
+        site_location: loc,
+        site_city: city,
+        site_state: state,
+        lead_id: lead_id
       })
     }
   }, [location.state, form])
@@ -105,9 +104,11 @@ const ProjectCreate = () => {
     if (selectedLead) {
       form.setFieldsValue({
         name: selectedLead.name ? `${selectedLead.name} (Project)` : undefined,
-        company_name: selectedLead.company_name, // If project has this field
+        company_name: selectedLead.company_name,
         client_ho_address: selectedLead.address,
-        // We could map other fields if they existed in Lead and Project
+        site_location: selectedLead.address,
+        site_city: selectedLead.city,
+        site_state: selectedLead.state,
       })
     }
   }
@@ -226,7 +227,7 @@ const ProjectCreate = () => {
 
             <Form.Item
               label={<span style={getLabelStyle()}>Location</span>}
-              name="location"
+              name="site_location"
             >
               <Input
                 prefix={<EnvironmentOutlined style={prefixIconStyle} />}
@@ -238,7 +239,7 @@ const ProjectCreate = () => {
 
             <Form.Item
               label={<span style={getLabelStyle()}>City</span>}
-              name="city"
+              name="site_city"
             >
               <Input
                 placeholder="Enter city"
@@ -249,11 +250,11 @@ const ProjectCreate = () => {
 
             <Form.Item
               label={<span style={getLabelStyle()}>State</span>}
-              name="state"
+              name="site_state"
             >
               <StateSelect
-                onChange={(val, code) => {
-                  form.setFieldsValue({ state: val })
+                onChange={(val) => {
+                  form.setFieldsValue({ site_state: val })
                 }}
               />
             </Form.Item>
@@ -323,7 +324,7 @@ const ProjectCreate = () => {
               tooltip="State where the construction site is located (used for GST calculation)"
             >
               <StateSelect
-                onChange={(val, code) => {
+                onChange={(_, code) => {
                   form.setFieldsValue({ site_state_code: code })
                 }}
               />

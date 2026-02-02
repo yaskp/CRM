@@ -124,8 +124,17 @@ export const storeTransactionService = {
     const response = await api.put(`/store/${id}/reject`, { remarks })
     return response.data
   },
+  // Update transaction
+  updateTransaction: async (id: number, data: any) => {
+    const response = await api.put(`/store/${id}`, data)
+    return response.data
+  },
   getWorkerCategories: async () => {
     const response = await api.get('/store/worker-categories')
+    return response.data
+  },
+  createWorkerCategory: async (name: string) => {
+    const response = await api.post('/store/worker-categories', { name })
     return response.data
   },
 }

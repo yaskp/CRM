@@ -126,8 +126,9 @@ const ProjectEdit = () => {
                 name: form.getFieldValue('name') || (fullLead.name ? `${fullLead.name} (Project)` : undefined),
                 company_name: form.getFieldValue('company_name') || fullLead.company_name,
                 client_ho_address: form.getFieldValue('client_ho_address') || fullLead.address,
-                city: form.getFieldValue('city') || fullLead.city,
-                state: form.getFieldValue('state') || fullLead.state,
+                site_location: form.getFieldValue('site_location') || fullLead.address,
+                site_city: form.getFieldValue('site_city') || fullLead.city,
+                site_state: form.getFieldValue('site_state') || fullLead.state,
                 client_id: fullLead.client_id || undefined
             };
 
@@ -278,7 +279,7 @@ const ProjectEdit = () => {
 
                         <Form.Item
                             label={<span style={getLabelStyle()}>Location</span>}
-                            name="location"
+                            name="site_location"
                         >
                             <Input
                                 prefix={<EnvironmentOutlined style={prefixIconStyle} />}
@@ -290,7 +291,7 @@ const ProjectEdit = () => {
 
                         <Form.Item
                             label={<span style={getLabelStyle()}>City</span>}
-                            name="city"
+                            name="site_city"
                         >
                             <Input
                                 placeholder="Enter city"
@@ -301,11 +302,11 @@ const ProjectEdit = () => {
 
                         <Form.Item
                             label={<span style={getLabelStyle()}>State</span>}
-                            name="state"
+                            name="site_state"
                         >
                             <StateSelect
                                 onChange={(val, code) => {
-                                    form.setFieldsValue({ state: val })
+                                    form.setFieldsValue({ site_state: val })
                                 }}
                             />
                         </Form.Item>

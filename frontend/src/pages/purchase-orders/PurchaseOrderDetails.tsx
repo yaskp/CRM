@@ -10,7 +10,8 @@ import {
     PrinterOutlined,
     CheckCircleOutlined,
     BankOutlined,
-    DownloadOutlined
+    DownloadOutlined,
+    DollarOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { purchaseOrderService } from '../../services/api/purchaseOrders'
@@ -302,6 +303,17 @@ const PurchaseOrderDetails = () => {
                             <Button icon={<PrinterOutlined />} onClick={handlePrintPDF} block>
                                 Print PO
                             </Button>
+                            {purchaseOrder.status === 'approved' && (
+                                <Button
+                                    type="primary"
+                                    icon={<DollarOutlined />}
+                                    onClick={() => navigate(`/finance/transactions/new?vendor_id=${purchaseOrder.vendor_id}&project_id=${purchaseOrder.project_id}&category=vendor`)}
+                                    block
+                                    style={{ background: '#722ed1', borderColor: '#722ed1' }}
+                                >
+                                    Record Payment
+                                </Button>
+                            )}
                         </div>
                     </Card>
 

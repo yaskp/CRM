@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Button, Card, message, Select, Input, InputNumber, Space, Table, Typography } from 'antd'
+import { Form, Button, Card, message, Select, Input, InputNumber, Space, Table, Typography, Divider, Row, Col } from 'antd'
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -11,7 +11,6 @@ import {
   TagOutlined,
   PercentageOutlined,
   FileTextOutlined,
-  LinkOutlined,
   PrinterOutlined
 } from '@ant-design/icons'
 import { FileUpload } from '../../components/common/FileUpload'
@@ -57,7 +56,6 @@ const WorkOrderForm = () => {
   const [workItemTypes, setWorkItemTypes] = useState<any[]>([])
   const [vendors, setVendors] = useState<any[]>([])
   const [annexures, setAnnexures] = useState<any[]>([])
-  const [isSubcontract, setIsSubcontract] = useState(false)
   const [clientInfo, setClientInfo] = useState<any>(null)
   const [form] = Form.useForm()
   const navigate = useNavigate()
@@ -99,7 +97,7 @@ const WorkOrderForm = () => {
 
         if (q.items && q.items.length > 0) {
           const woItems = q.items.map((item: any) => ({
-            work_item_type_id: item.work_item_type_id, // Map the work item type ID
+            work_item_type_id: item.work_item_type_id,
             item_type: item.item_type || 'Other',
             category: item.item_type === 'material' ? 'material' : 'labour',
             description: item.description,
@@ -113,7 +111,6 @@ const WorkOrderForm = () => {
           message.success(`Loaded ${woItems.length} items from quotation`)
         }
 
-        // Also load scopes and terms from quotation if available
         if (q.client_scope || q.contractor_scope || q.terms_conditions || q.annexure) {
           form.setFieldsValue({
             client_scope: q.client_scope,
@@ -203,10 +200,6 @@ const WorkOrderForm = () => {
         amount: Number(item.amount)
       }))
       setItems(parsedItems)
-
-      if (wo.vendor_id) {
-        setIsSubcontract(true)
-      }
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch work order')
     }
@@ -251,7 +244,7 @@ const WorkOrderForm = () => {
 
       const data = {
         project_id: values.project_id,
-        vendor_id: isSubcontract ? values.vendor_id : null,
+        vendor_id: values.vendor_id || null,
         work_order_date: new Date().toISOString(),
         items: items.map(item => ({
           work_item_type_id: item.work_item_type_id,
@@ -329,6 +322,7 @@ const WorkOrderForm = () => {
           value={value}
           onChange={(val) => updateItem(index, 'quantity', val || 0)}
           min={0}
+          controls={false}
           style={{ width: '100%' }}
           size="large"
           placeholder="0"
@@ -357,6 +351,7 @@ const WorkOrderForm = () => {
           value={value}
           onChange={(val) => updateItem(index, 'rate', val || 0)}
           min={0}
+          controls={false}
           prefix="₹"
           style={{ width: '100%' }}
           size="large"
@@ -422,20 +417,16 @@ const WorkOrderForm = () => {
               </Select>
             </Form.Item>
 
-
             {clientInfo && (
               <InfoCard title="💼 Client Information">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <Text strong style={{ fontSize: 16 }}>{clientInfo.company_name}</Text>
                   <Text type="secondary">Client Code: {clientInfo.client_code}</Text>
 
-                  {/* Display Key Contact */}
                   {(() => {
-                    // Try to find contact in contacts array first
                     const keyContact = clientInfo.contacts?.find((c: any) => c.is_primary)
                       || clientInfo.contacts?.[0]
 
-                    // Fallback to legacy fields if no contacts array or empty
                     const contactName = keyContact?.contact_name || clientInfo.contact_person
                     const contactPhone = keyContact?.phone || clientInfo.phone
                     const contactEmail = keyContact?.email || clientInfo.email
@@ -452,44 +443,26 @@ const WorkOrderForm = () => {
               </InfoCard>
             )}
 
-            <Form.Item label={<span style={getLabelStyle()}>Work Order Type</span>}>
+            <Form.Item
+              label={<span style={getLabelStyle()}>Subcontractor / Vendor (Optional)</span>}
+              name="vendor_id"
+              extra="Associate this work order with a specific vendor to track subcontracted costs."
+            >
               <Select
-                value={isSubcontract ? 'subcontract' : 'internal'}
-                onChange={(val) => {
-                  setIsSubcontract(val === 'subcontract')
-                  if (val === 'internal') {
-                    form.setFieldsValue({ vendor_id: undefined })
-                  }
-                }}
+                placeholder="Select subcontractor/vendor if applicable"
                 size="large"
                 style={largeInputStyle}
+                showSearch
+                allowClear
+                optionFilterProp="children"
               >
-                <Option value="internal">Internal Team</Option>
-                <Option value="subcontract">Subcontractor/Vendor</Option>
+                {vendors.map((vendor) => (
+                  <Option key={vendor.id} value={vendor.id}>
+                    {vendor.name} - {vendor.vendor_type}
+                  </Option>
+                ))}
               </Select>
             </Form.Item>
-
-            {isSubcontract && (
-              <Form.Item
-                label={<span style={getLabelStyle()}>Subcontractor/Vendor</span>}
-                name="vendor_id"
-                rules={[{ required: true, message: 'Please select a vendor!' }]}
-              >
-                <Select
-                  placeholder="Select vendor"
-                  size="large"
-                  style={largeInputStyle}
-                  showSearch
-                  optionFilterProp="children"
-                >
-                  {vendors.map((vendor) => (
-                    <Option key={vendor.id} value={vendor.id}>
-                      {vendor.name} - {vendor.vendor_type}
-                    </Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            )}
           </SectionCard>
 
           <SectionCard title="Financial Controls" icon={<WalletOutlined />}>
@@ -498,6 +471,7 @@ const WorkOrderForm = () => {
                 style={{ width: '100%', ...largeInputStyle }}
                 min={0}
                 max={100}
+                controls={false}
                 size="large"
                 placeholder="0"
                 prefix={<PercentageOutlined style={prefixIconStyle} />}

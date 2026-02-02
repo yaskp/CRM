@@ -24,6 +24,7 @@ interface StoreTransactionItemAttributes {
   work_done_quantity?: number
   issued_quantity?: number
   returned_quantity?: number
+  drawing_panel_id?: number
   created_at?: Date
 }
 
@@ -52,6 +53,7 @@ class StoreTransactionItem extends Model<StoreTransactionItemAttributes, StoreTr
   public work_done_quantity?: number
   public issued_quantity?: number
   public returned_quantity?: number
+  public drawing_panel_id?: number
   public readonly created_at!: Date
 }
 
@@ -162,6 +164,14 @@ StoreTransactionItem.init(
     returned_quantity: {
       type: DataTypes.DECIMAL(15, 2),
       defaultValue: 0,
+    },
+    drawing_panel_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'drawing_panels',
+        key: 'id'
+      }
     },
     created_at: {
       type: DataTypes.DATE,

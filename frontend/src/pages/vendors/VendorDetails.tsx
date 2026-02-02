@@ -9,7 +9,8 @@ import {
     EnvironmentOutlined,
     BankOutlined,
     SafetyOutlined,
-    HistoryOutlined
+    HistoryOutlined,
+    DollarOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { vendorService } from '../../services/api/vendors'
@@ -80,6 +81,15 @@ const VendorDetails = () => {
                         style={getPrimaryButtonStyle()}
                     >
                         Edit Vendor
+                    </Button>,
+                    <Button
+                        key="pay"
+                        type="primary"
+                        icon={<DollarOutlined />}
+                        onClick={() => navigate(`/finance/transactions/new?vendor_id=${id}&category=vendor`)}
+                        style={{ ...getPrimaryButtonStyle(), background: '#722ed1', borderColor: '#722ed1' }}
+                    >
+                        Pay Vendor
                     </Button>
                 ]}
             />

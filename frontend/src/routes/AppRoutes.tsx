@@ -172,7 +172,7 @@ const AppRoutes = () => {
         <Route path="master/branches" element={<BranchList />} />
         <Route path="master/branches/new" element={<BranchForm />} />
         <Route path="master/branches/:id" element={<BranchForm />} />
-        <Route path="master/annexure" element={<AnnexureList />} />
+        <Route path="master/annexures" element={<AnnexureList />} />
 
         {/* Procurement - Material Requisitions */}
         <Route path="procurement/requisitions" element={<MaterialRequisitionList />} />

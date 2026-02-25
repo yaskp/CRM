@@ -4,10 +4,12 @@ import WorkOrder from '../models/WorkOrder'
 import WorkOrderItem from '../models/WorkOrderItem'
 import Project from '../models/Project'
 import Client from '../models/Client'
+import Quotation from '../models/Quotation'
 import ProjectDocument from '../models/ProjectDocument'
 import { generateWorkOrderNumber } from '../utils/workOrderCodeGenerator'
 import { createError } from '../middleware/errorHandler'
 import { generateWorkOrderPDF } from '../utils/pdfGenerator'
+import { Op } from 'sequelize'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
@@ -20,7 +22,16 @@ export const downloadWorkOrderPDF = async (req: AuthRequest, res: Response, next
     const wo = await WorkOrder.findByPk(id, {
       include: [
         { association: 'items' },
-        { association: 'project' },
+        {
+          association: 'project',
+          include: [
+            {
+              association: 'quotations',
+              where: { status: { [Op.in]: ['approved', 'accepted_by_party'] } },
+              required: false
+            }
+          ]
+        },
       ]
     })
 
@@ -51,7 +62,7 @@ export const createWorkOrder = async (req: AuthRequest, res: Response, next: Nex
   try {
     const {
       project_id, vendor_id, items, discount_percentage, payment_terms, po_wo_document_url,
-      client_scope, contractor_scope, terms_conditions, remarks, status
+      client_scope, contractor_scope, scope_matrix, terms_conditions, remarks, status
     } = req.body
 
     if (!project_id || !items || items.length === 0) {
@@ -88,6 +99,7 @@ export const createWorkOrder = async (req: AuthRequest, res: Response, next: Nex
       payment_terms,
       client_scope,
       contractor_scope,
+      scope_matrix: scope_matrix || [],
       terms_conditions,
       remarks,
       status: workOrderStatus,
@@ -218,6 +230,15 @@ export const getWorkOrder = async (req: AuthRequest, res: Response, next: NextFu
       throw createError('Work order not found', 404)
     }
 
+    // Fetch Approved Quotation for this project to provide scope/terms context
+    const approvedQuotation = await Quotation.findOne({
+      where: {
+        project_id: workOrder.project_id,
+        status: { [Op.in]: ['approved', 'accepted_by_party'] }
+      },
+      order: [['created_at', 'DESC']]
+    })
+
     const allocations = (workOrder as any).paymentAllocations || []
     const settled_amount = allocations.reduce((sum: number, a: any) =>
       sum + Number(a.allocated_amount || 0) + Number(a.tds_allocated || 0) + Number(a.retention_allocated || 0), 0)
@@ -227,7 +248,8 @@ export const getWorkOrder = async (req: AuthRequest, res: Response, next: NextFu
       workOrder: {
         ...workOrder.toJSON(),
         paid_amount: settled_amount,
-        balance_amount: Number(workOrder.final_amount) - settled_amount
+        balance_amount: Number(workOrder.final_amount) - settled_amount,
+        approved_quotation: approvedQuotation
       },
     })
   } catch (error) {
@@ -240,7 +262,7 @@ export const updateWorkOrder = async (req: AuthRequest, res: Response, next: Nex
     const { id } = req.params
     const {
       vendor_id, items, discount_percentage, payment_terms, status,
-      client_scope, contractor_scope, terms_conditions, remarks
+      client_scope, contractor_scope, scope_matrix, terms_conditions, remarks
     } = req.body
 
     const workOrder = await WorkOrder.findByPk(id, {
@@ -292,6 +314,7 @@ export const updateWorkOrder = async (req: AuthRequest, res: Response, next: Nex
         payment_terms,
         client_scope,
         contractor_scope,
+        scope_matrix: scope_matrix || workOrder.scope_matrix,
         terms_conditions,
         status,
       })
@@ -301,6 +324,7 @@ export const updateWorkOrder = async (req: AuthRequest, res: Response, next: Nex
         payment_terms,
         client_scope,
         contractor_scope,
+        scope_matrix: scope_matrix !== undefined ? scope_matrix : (workOrder as any).scope_matrix,
         terms_conditions,
         remarks,
         status,

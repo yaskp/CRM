@@ -198,6 +198,7 @@ export const syncBOQFromQuotation = async (req: AuthRequest, res: Response, next
             return ProjectBOQItem.create({
                 boq_id: boq.id,
                 material_id: qi.reference_id,
+                work_item_type_id: qi.work_item_type_id,
                 quantity: qi.quantity,
                 unit: qi.unit,
                 estimated_rate: qi.rate,

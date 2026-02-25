@@ -1,34 +1,40 @@
-
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Input, Modal, Form, message, Popconfirm, Tag, Tooltip, Select, InputNumber } from 'antd'
+import { Card, Table, Button, Input, Modal, Form, message, Popconfirm, Tag, Tooltip, Select, InputNumber, Space } from 'antd'
 import {
     PlusOutlined,
     EditOutlined,
     DeleteOutlined,
     SearchOutlined,
-    ContainerOutlined
+    ContainerOutlined,
+    UploadOutlined
 } from '@ant-design/icons'
 import { unitService } from '../../services/api/units'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
+import CSVImportModal from '../../components/common/CSVImportModal'
 
 
 const UnitList = () => {
     const [loading, setLoading] = useState(false)
     const [units, setUnits] = useState<any[]>([])
     const [isModalVisible, setIsModalVisible] = useState(false)
+    const [importModalVisible, setImportModalVisible] = useState(false)
     const [editingUnit, setEditingUnit] = useState<any>(null)
     const [searchText, setSearchText] = useState('')
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
+    const [total, setTotal] = useState(0)
     const [form] = Form.useForm()
 
     useEffect(() => {
-        fetchUnits()
-    }, [])
+        fetchUnits(currentPage, pageSize)
+    }, [currentPage, pageSize, searchText])
 
-    const fetchUnits = async () => {
+    const fetchUnits = async (page = currentPage, limit = pageSize) => {
         setLoading(true)
         try {
-            const response = await unitService.getUnits()
+            const response = await unitService.getUnits({ search: searchText, page, limit })
             setUnits(response.units || response.data || [])
+            setTotal(response.pagination?.total || 0)
         } catch (error) {
             message.error('Failed to fetch units')
         } finally {
@@ -67,8 +73,12 @@ const UnitList = () => {
             }
             setIsModalVisible(false)
             fetchUnits()
-        } catch (error) {
-            // Validation failed
+        } catch (error: any) {
+            if (error?.errorFields && error.errorFields.length > 0) {
+                message.error(error.errorFields[0].errors[0]);
+                return;
+            }
+            message.error(error.response?.data?.message || 'Operation failed')
         }
     }
 
@@ -144,10 +154,17 @@ const UnitList = () => {
         },
     ]
 
-    const filteredUnits = units.filter(u =>
-        u.name.toLowerCase().includes(searchText.toLowerCase()) ||
-        u.code.toLowerCase().includes(searchText.toLowerCase())
-    )
+    const importColumns = [
+        { title: 'Name', dataIndex: 'name', key: 'name', required: true },
+        { title: 'Code', dataIndex: 'code', key: 'code', required: true },
+        { title: 'Base Unit ID', dataIndex: 'base_unit_id', key: 'base_unit_id' },
+        { title: 'Conversion Factor', dataIndex: 'conversion_factor', key: 'conversion_factor' },
+    ]
+
+    const templateData = [
+        { name: 'Kilogram', code: 'KG', base_unit_id: '', conversion_factor: 1 },
+        { name: 'Metric Ton', code: 'MT', base_unit_id: '', conversion_factor: 1000 },
+    ]
 
     return (
         <PageContainer>
@@ -156,13 +173,18 @@ const UnitList = () => {
                 subtitle="Manage units of measurement for materials and services"
                 icon={<ContainerOutlined />}
                 extra={
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => {
-                        setEditingUnit(null)
-                        form.resetFields()
-                        setIsModalVisible(true)
-                    }}>
-                        Add New Unit
-                    </Button>
+                    <Space>
+                        <Button icon={<UploadOutlined />} onClick={() => setImportModalVisible(true)}>
+                            Import CSV
+                        </Button>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => {
+                            setEditingUnit(null)
+                            form.resetFields()
+                            setIsModalVisible(true)
+                        }}>
+                            Add New Unit
+                        </Button>
+                    </Space>
                 }
             />
 
@@ -171,16 +193,29 @@ const UnitList = () => {
                     <Input
                         placeholder="Search units..."
                         prefix={<SearchOutlined />}
-                        onChange={e => setSearchText(e.target.value)}
+                        onChange={e => {
+                            setSearchText(e.target.value)
+                            setCurrentPage(1)
+                        }}
                         style={{ width: 300 }}
                     />
                 </div>
                 <Table
                     columns={columns}
-                    dataSource={filteredUnits}
+                    dataSource={units}
                     rowKey="id"
                     loading={loading}
-                    pagination={{ pageSize: 15 }}
+                    pagination={{
+                        current: currentPage,
+                        pageSize: pageSize,
+                        total: total,
+                        showSizeChanger: true,
+                        showTotal: (total) => `Total ${total} units`,
+                        onChange: (page, size) => {
+                            setCurrentPage(page)
+                            setPageSize(size)
+                        }
+                    }}
                 />
             </Card>
 
@@ -236,6 +271,16 @@ const UnitList = () => {
                     </Form.Item>
                 </Form>
             </Modal>
+
+            <CSVImportModal
+                visible={importModalVisible}
+                onCancel={() => setImportModalVisible(false)}
+                onSuccess={() => fetchUnits()}
+                title="Units"
+                apiEndpoint="http://localhost:5000/api/units/import"
+                columns={importColumns}
+                templateData={templateData}
+            />
         </PageContainer>
     )
 }

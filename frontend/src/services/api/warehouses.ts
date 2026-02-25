@@ -1,8 +1,8 @@
 import api from './auth'
 
 export const warehouseService = {
-  getWarehouses: async () => {
-    const response = await api.get('/warehouses')
+  getWarehouses: async (params?: { limit?: number; type?: string; project_id?: number }) => {
+    const response = await api.get('/warehouses', { params })
     return response.data
   },
 

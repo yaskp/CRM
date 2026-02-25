@@ -190,13 +190,13 @@ const LeadForm = () => {
           {/* Column 1: Contact Information */}
           <SectionCard title="Contact Information" icon={<UserOutlined />}>
             <Form.Item
-              label={<span style={getLabelStyle()}>Name</span>}
+              label={<span style={getLabelStyle()}>Lead Title / Contact Name</span>}
               name="name"
-              rules={[{ required: true, message: 'Please enter lead name!' }]}
+              rules={[{ required: true, message: 'Please enter lead title or name!' }]}
             >
               <Input
                 prefix={<UserOutlined style={prefixIconStyle} />}
-                placeholder="Enter lead name"
+                placeholder="e.g. Acme Warehouse Project / John Doe"
                 size="large"
                 style={largeInputStyle}
               />
@@ -268,7 +268,9 @@ const LeadForm = () => {
                   }}
                 />
               </Form.Item>
-              <Form.Item name="state_code" hidden />
+              <Form.Item name="state_code" hidden>
+                <Input />
+              </Form.Item>
             </div>
           </SectionCard>
 
@@ -391,10 +393,10 @@ const LeadForm = () => {
             <Form.Item
               label={<span style={getLabelStyle()}>Status</span>}
               name="status"
+              initialValue="new"
             >
               <Select
                 placeholder="Select status"
-                defaultValue="new"
                 size="large"
                 style={largeInputStyle}
               >

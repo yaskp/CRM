@@ -21,17 +21,21 @@ const { Text } = Typography
 const PurchaseOrderList = () => {
     const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
     const [loading, setLoading] = useState(false)
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
+    const [total, setTotal] = useState(0)
     const navigate = useNavigate()
 
     useEffect(() => {
-        fetchPurchaseOrders()
-    }, [])
+        fetchPurchaseOrders(currentPage, pageSize)
+    }, [currentPage, pageSize])
 
-    const fetchPurchaseOrders = async () => {
+    const fetchPurchaseOrders = async (page = currentPage, limit = pageSize) => {
         setLoading(true)
         try {
-            const response = await purchaseOrderService.getPurchaseOrders()
+            const response = await purchaseOrderService.getPurchaseOrders({ page, limit })
             setPurchaseOrders(response.purchaseOrders || [])
+            setTotal(response.pagination?.total || 0)
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch purchase orders')
         } finally {
@@ -281,7 +285,17 @@ const PurchaseOrderList = () => {
                     dataSource={purchaseOrders}
                     loading={loading}
                     rowKey="id"
-                    pagination={{ pageSize: 10 }}
+                    pagination={{
+                        current: currentPage,
+                        pageSize: pageSize,
+                        total: total,
+                        showSizeChanger: true,
+                        showTotal: (total) => `Total ${total} purchase orders`,
+                        onChange: (page, size) => {
+                            setCurrentPage(page)
+                            setPageSize(size)
+                        }
+                    }}
                 />
             </Card>
         </PageContainer>

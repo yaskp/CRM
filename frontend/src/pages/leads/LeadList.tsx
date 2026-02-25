@@ -97,7 +97,7 @@ const LeadList = () => {
 
   const columns = [
     {
-      title: 'Name',
+      title: 'Lead Title / Contact',
       dataIndex: 'name',
       key: 'name',
       width: 180,

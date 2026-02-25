@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Form, Input, Button, Card, Row, Col, Space, InputNumber, Table, DatePicker, Select, Typography, message, Tabs } from 'antd'
-import { PlusOutlined, DeleteOutlined, SaveOutlined, ArrowLeftOutlined, CalculatorOutlined, InfoCircleOutlined, UserOutlined, CalendarOutlined, ToolOutlined, ShoppingCartOutlined, LayoutOutlined } from '@ant-design/icons'
+import { Form, Input, Button, Card, Row, Col, Space, InputNumber, Table, DatePicker, Select, Typography, App, Tabs, Checkbox } from 'antd'
+import { PlusOutlined, DeleteOutlined, SaveOutlined, ArrowLeftOutlined, CalculatorOutlined, UserOutlined, CalendarOutlined, ToolOutlined, ShoppingCartOutlined, LayoutOutlined } from '@ant-design/icons'
 import { quotationService } from '../../services/api/quotations'
 import { leadService } from '../../services/api/leads'
 import { annexureService } from '../../services/api/annexures'
@@ -20,6 +20,7 @@ import { calculateGSTBreakup, GSTType, detectGSTType } from '../../utils/gstUtil
 const QuotationForm = () => {
     const { id } = useParams()
     const navigate = useNavigate()
+    const { message } = App.useApp()
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
     const [leads, setLeads] = useState<any[]>([])
@@ -41,6 +42,11 @@ const QuotationForm = () => {
     const [selectedLead, setSelectedLead] = useState<any>(null)
     const [workItemTypes, setWorkItemTypes] = useState<any[]>([])
     const [gstType, setGstType] = useState<GSTType>('intra_state')
+    const [scopeMatrix, setScopeMatrix] = useState<any[]>([])
+
+    const [selectedScopeTemplate, setSelectedScopeTemplate] = useState<number | undefined>(undefined)
+    const [selectedPaymentTemplate, setSelectedPaymentTemplate] = useState<number | undefined>(undefined)
+    const [selectedTermsTemplate, setSelectedTermsTemplate] = useState<number | undefined>(undefined)
 
     const isEdit = !!id
 
@@ -49,10 +55,12 @@ const QuotationForm = () => {
     const leadIdFromUrl = searchParams.get('lead_id')
 
     useEffect(() => {
-        fetchInitialData()
-        if (isEdit) {
-            fetchQuotation()
-        }
+        (async () => {
+            const initialData = await fetchInitialData()
+            if (isEdit && initialData) {
+                await fetchQuotation(initialData.annexures)
+            }
+        })()
     }, [id])
 
     const fetchInitialData = async () => {
@@ -61,8 +69,8 @@ const QuotationForm = () => {
                 leadService.getLeads({ limit: 100 }),
                 annexureService.getAnnexures(),
                 materialService.getMaterials({ limit: 500 }),
-                unitService.getUnits(),
-                workItemTypeService.getWorkItemTypes(),
+                unitService.getUnits({ limit: 1000 }),
+                workItemTypeService.getWorkItemTypes({ limit: 1000 }),
                 masterService.getBranches(),
                 workTemplateService.getTemplates()
             ])
@@ -78,7 +86,8 @@ const QuotationForm = () => {
             )
 
             setLeads(filteredLeads)
-            setAnnexures(annexRes.annexures || [])
+            const annexuresList = annexRes.annexures || []
+            setAnnexures(annexuresList)
             setMaterials(matsRes.materials || [])
             setUnits(unitsRes.units || [])
             setTemplates(templatesRes.templates || [])
@@ -91,12 +100,15 @@ const QuotationForm = () => {
                     setSelectedLead(selectedLead)
                 }
             }
+
+            return { annexures: annexuresList }
         } catch (error) {
             console.error('Failed to fetch initial data:', error)
+            return null
         }
     }
 
-    const fetchQuotation = async () => {
+    const fetchQuotation = async (availableAnnexures: any[] = []) => {
         setLoading(true)
         try {
             const res = await quotationService.getQuotation(Number(id))
@@ -104,6 +116,7 @@ const QuotationForm = () => {
 
             form.setFieldsValue({
                 lead_id: quote.lead_id,
+                billing_unit_id: quote.billing_unit_id,
                 valid_until: quote.valid_until ? dayjs(quote.valid_until) : null,
                 discount_percentage: quote.discount_percentage || 0,
                 payment_terms: quote.payment_terms,
@@ -112,6 +125,42 @@ const QuotationForm = () => {
                 contractor_scope: quote.contractor_scope,
                 terms_conditions: quote.terms_conditions || ''
             })
+
+            // Set Selected Templates
+            if (quote.annexure_id) {
+                setSelectedScopeTemplate(quote.annexure_id)
+            }
+
+            // Attempt to reverse-match text to template for Dropdowns
+            // This is "best effort" - if the text was modified, it won't match, which is fine.
+            if (quote.payment_terms && availableAnnexures.length > 0) {
+                const matched = availableAnnexures.find(a => {
+                    const text = getClausesText(a)
+                    return text && text.trim() === quote.payment_terms.trim()
+                })
+                if (matched) setSelectedPaymentTemplate(matched.id)
+            }
+
+            if (quote.terms_conditions && availableAnnexures.length > 0) {
+                const matched = availableAnnexures.find(a => {
+                    const text = getClausesText(a)
+                    return text && text.trim() === quote.terms_conditions.trim()
+                })
+                if (matched) setSelectedTermsTemplate(matched.id)
+            }
+
+            if (quote.scope_matrix && Array.isArray(quote.scope_matrix)) {
+                setScopeMatrix(quote.scope_matrix.map((it: any, idx: number) => ({
+                    ...it,
+                    key: it.key || it.id || Date.now() + idx
+                })))
+            } else if (availableAnnexures.length > 0 && quote.annexure_id) {
+                // Fallback: If scope_matrix is missing in DB but we have ID, try to load from generic template?
+                // No, only load from template if user explicitly selected it.
+                // But older quotes might have annexure_id but no scope_matrix JSON.
+                // We could consider auto-loading here if we wanted to be helpful, strictly for migrating old data?
+                // Let's stick to DB data to avoid overwriting edits.
+            }
 
             if (quote.items && quote.items.length > 0) {
                 const mappedItems = quote.items.map((it: any) => ({
@@ -150,7 +199,7 @@ const QuotationForm = () => {
 
         currentItems.forEach(it => {
             const lineSubtotal = (it.quantity * it.rate || 0) * afterDiscountRatio
-            const breakup = calculateGSTBreakup(lineSubtotal, 18, currentGstType) // Defaulting to 18% for quote
+            const breakup = calculateGSTBreakup(lineSubtotal, 0, currentGstType) // Set GST rate to 0% as requested
 
             subtotal += (it.quantity * it.rate || 0)
             totalCGST += breakup.cgst_amount
@@ -195,7 +244,7 @@ const QuotationForm = () => {
         calculateTotals(newItems, form.getFieldValue('discount_percentage') || 0)
     }
 
-    const addItem = (type: string = 'material') => {
+    const addItem = (type: string) => {
         const newItem = {
             key: Date.now(),
             item_type: type,
@@ -206,6 +255,27 @@ const QuotationForm = () => {
             reference_id: null
         }
         setItems([...items, newItem])
+    }
+
+    const addScopeRow = (isCategory = false) => {
+        setScopeMatrix([...scopeMatrix, {
+            key: Date.now(),
+            description: '',
+            client_scope: false,
+            contractor_scope: !isCategory,
+            remarks: '',
+            is_category: isCategory
+        }])
+    }
+
+    const removeScopeRow = (key: any) => {
+        setScopeMatrix(scopeMatrix.filter(it => it.key !== key))
+    }
+
+    const handleScopeChange = (key: any, field: string, value: any) => {
+        setScopeMatrix(scopeMatrix.map(it =>
+            it.key === key ? { ...it, [field]: value } : it
+        ))
     }
 
     const removeItem = (key: any) => {
@@ -260,12 +330,13 @@ const QuotationForm = () => {
                     reference_id,
                     work_item_type_id
                 })),
+                scope_matrix: scopeMatrix,
                 total_amount: totals.subtotal,
-                final_amount: totals.grandTotal,
+                final_amount: totals.final,
                 gst_type: gstType,
-                cgst_amount: (totals as any).cgst,
-                sgst_amount: (totals as any).sgst,
-                igst_amount: (totals as any).igst,
+                cgst_amount: (totals as any).cgst || 0,
+                sgst_amount: (totals as any).sgst || 0,
+                igst_amount: (totals as any).igst || 0,
             }
 
             if (isEdit) {
@@ -277,7 +348,8 @@ const QuotationForm = () => {
             }
             navigate('/sales/quotations')
         } catch (error: any) {
-            message.error(error.response?.data?.message || 'Failed to save quotation')
+            console.error(error);
+            message.error(error.response?.data?.message || 'Failed to save quotation');
         } finally {
             setLoading(false)
         }
@@ -291,17 +363,24 @@ const QuotationForm = () => {
         {
             title: 'Work Type',
             key: 'work_item_type_id',
-            width: 180,
+            width: 280,
             render: (_: any, record: any) => (
                 <Select
+                    showSearch
                     placeholder="Select Type"
                     value={record.work_item_type_id}
                     onChange={v => handleItemChange(record.key, 'work_item_type_id', v)}
-                    style={{ width: '100%' }}
+                    style={{ width: '100%', height: 'auto' }}
                     variant="borderless"
+                    popupMatchSelectWidth={false}
+                    optionFilterProp="label"
                 >
                     {workItemTypes.map(t => (
-                        <Option key={t.id} value={t.id}>{t.name}</Option>
+                        <Option key={t.id} value={t.id} label={t.name}>
+                            <div style={{ whiteSpace: 'normal', wordBreak: 'break-word', padding: '4px 0' }}>
+                                {t.name}
+                            </div>
+                        </Option>
                     ))}
                 </Select>
             )
@@ -336,8 +415,9 @@ const QuotationForm = () => {
                     placeholder={itemType === 'material' ? 'Auto-filled from material' : 'Enter work description'}
                     value={text}
                     onChange={e => handleItemChange(record.key, 'description', e.target.value)}
-                    autoSize={{ minRows: 1, maxRows: 3 }}
+                    autoSize={{ minRows: 1, maxRows: 6 }}
                     variant="borderless"
+                    style={{ padding: '4px 8px', whiteSpace: 'normal', wordBreak: 'break-word' }}
                 />
             )
         },
@@ -431,6 +511,23 @@ const QuotationForm = () => {
                     boxShadow: '0 4px 12px rgba(13, 148, 136, 0.2)'
                 }}
             >
+                <style>{`
+                    .ant-select-selection-item {
+                        white-space: normal !important;
+                        word-break: break-word !important;
+                        line-height: 1.4 !important;
+                        padding-top: 4px !important;
+                        padding-bottom: 4px !important;
+                        display: flex !important;
+                        align-items: center !important;
+                    }
+                    .ant-select-single.ant-select-show-arrow .ant-select-selection-item {
+                        padding-right: 18px !important;
+                    }
+                    .ant-table-cell {
+                        vertical-align: top !important;
+                    }
+                `}</style>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Space direction="vertical" size={0}>
                         <Space>
@@ -485,7 +582,7 @@ const QuotationForm = () => {
                                     placeholder="Search Leads (showing leads without quotations)..."
                                     suffixIcon={<UserOutlined />}
                                     size="large"
-                                    optionFilterProp="children"
+                                    optionFilterProp="label"
                                     optionLabelProp="label"
                                     onChange={(value) => {
                                         const lead = leads.find(l => l.id === value)
@@ -537,6 +634,8 @@ const QuotationForm = () => {
                             >
                                 <Select
                                     size="large"
+                                    showSearch
+                                    optionFilterProp="children"
                                     placeholder="Select Branch/Unit"
                                     onChange={(val) => {
                                         const branch = branches.find(b => b.id === val)
@@ -570,52 +669,19 @@ const QuotationForm = () => {
 
                 </Card>
 
-                {/* MATERIAL COST SECTION */}
-                <Card
-                    variant="borderless"
-                    style={{ marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: 12 }}
-                    title={
-                        <Space>
-                            <ShoppingCartOutlined style={{ color: '#1890ff' }} />
-                            <Text strong>Material Cost (Approx Estimate for Reference)</Text>
-                        </Space>
-                    }
-                >
-                    <Table
-                        columns={getItemColumns('material')}
-                        dataSource={materialItems}
-                        pagination={false}
-                        rowKey="key"
-                        size="small"
-                    />
-                    <Button
-                        type="dashed"
-                        block
-                        icon={<PlusOutlined />}
-                        onClick={() => addItem('material')}
-                        style={{ marginTop: 16, height: 40 }}
-                    >
-                        Add Material Row
-                    </Button>
-                    {materialItems.length > 0 && (
-                        <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 8, textAlign: 'right' }}>
-                            <Text strong style={{ fontSize: 15 }}>
-                                Total Material Cost: ₹{materialItems.reduce((acc, it) => acc + (it.quantity * it.rate || 0), 0).toLocaleString('en-IN')}
-                            </Text>
-                        </div>
-                    )}
-                </Card>
-
-                {/* WORK TEMPLATE SELECTOR */}
+                {/* WORK TEMPLATE SELECTOR - Prominent at top */}
                 <Card
                     style={{ marginBottom: 24, borderRadius: 12, border: '1px dashed #14b8a6', background: '#f0fdfa' }}
                     styles={{ body: { padding: '12px 24px' } }}
                 >
                     <Space size="large">
-                        <Text strong><LayoutOutlined /> Quick Load Template:</Text>
+                        <Text strong><LayoutOutlined style={{ color: '#0d9488' }} /> Select Work Template:</Text>
                         <Select
-                            placeholder="Select Work Template (e.g. D-Wall)"
-                            style={{ width: 300 }}
+                            showSearch
+                            optionFilterProp="children"
+                            placeholder="Select Work Template (e.g. D-Wall, Grabbing)"
+                            style={{ width: 350 }}
+                            size="large"
                             onChange={(templateId) => {
                                 const template = templates.find(t => t.id === templateId);
                                 if (template && template.items) {
@@ -625,12 +691,11 @@ const QuotationForm = () => {
                                         quantity: 1,
                                         unit: it.unit || it.workItemType?.uom || 'Nos',
                                         rate: 0,
-                                        item_type: it.item_type,
+                                        item_type: it.item_type || 'labour',
                                         work_item_type_id: it.work_item_type_id
                                     }));
 
-                                    // Append or Replace? Append is usually safer but Replace is what User implied "just user add qty".
-                                    // Let's Replace the placeholder if it's the only one.
+                                    // Append template items to existing items
                                     const filteredItems = items.filter(it => it.description || it.work_item_type_id);
                                     setItems([...filteredItems, ...templateItems]);
                                     message.success(`Loaded ${templateItems.length} items from ${template.name}`);
@@ -641,11 +706,11 @@ const QuotationForm = () => {
                                 <Option key={t.id} value={t.id}>{t.name}</Option>
                             ))}
                         </Select>
-                        <Text type="secondary" style={{ fontSize: 12 }}>Selecting a template will auto-add all pre-defined work items to the tables below.</Text>
+                        <Text type="secondary" style={{ fontSize: 13 }}>Quickly load pre-defined work items and scope.</Text>
                     </Space>
                 </Card>
 
-                {/* LABOUR / CONTRACT WORK SECTION */}
+                {/* LABOUR / CONTRACT WORK SECTION - Now before Materials */}
                 <Card
                     variant="borderless"
                     style={{ marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: 12 }}
@@ -670,6 +735,7 @@ const QuotationForm = () => {
                                             pagination={false}
                                             rowKey="key"
                                             size="small"
+                                            scroll={{ x: 'max-content' }}
                                         />
                                         <Button
                                             type="dashed"
@@ -678,7 +744,7 @@ const QuotationForm = () => {
                                             onClick={() => addItem('labour')}
                                             style={{ marginTop: 16, height: 40 }}
                                         >
-                                            Add Labour Row
+                                            Add Extra Labour Row
                                         </Button>
                                     </>
                                 )
@@ -694,6 +760,7 @@ const QuotationForm = () => {
                                             pagination={false}
                                             rowKey="key"
                                             size="small"
+                                            scroll={{ x: 'max-content' }}
                                         />
                                         <Button
                                             type="dashed"
@@ -702,7 +769,7 @@ const QuotationForm = () => {
                                             onClick={() => addItem('contract')}
                                             style={{ marginTop: 16, height: 40 }}
                                         >
-                                            Add Contract Row
+                                            Add Extra Contract Row
                                         </Button>
                                     </>
                                 )
@@ -711,81 +778,183 @@ const QuotationForm = () => {
                     />
                 </Card>
 
+                {/* MATERIAL COST SECTION - Now after Work sections */}
+                <Card
+                    variant="borderless"
+                    style={{ marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: 12 }}
+                    title={
+                        <Space>
+                            <ShoppingCartOutlined style={{ color: '#1890ff' }} />
+                            <Text strong>Material Cost (Estimate for Reference)</Text>
+                        </Space>
+                    }
+                >
+                    <Table
+                        columns={getItemColumns('material')}
+                        dataSource={materialItems}
+                        pagination={false}
+                        rowKey="key"
+                        size="small"
+                        scroll={{ x: 'max-content' }}
+                    />
+                    <Button
+                        type="dashed"
+                        block
+                        icon={<PlusOutlined />}
+                        onClick={() => addItem('material')}
+                        style={{ marginTop: 16, height: 40 }}
+                    >
+                        Add Extra Material Row
+                    </Button>
+                    {materialItems.length > 0 && (
+                        <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 8, textAlign: 'right' }}>
+                            <Text strong style={{ fontSize: 15 }}>
+                                Total Material Cost: ₹{materialItems.reduce((acc, it) => acc + (it.quantity * it.rate || 0), 0).toLocaleString('en-IN')}
+                            </Text>
+                        </div>
+                    )}
+                </Card>
+
                 {/* SCOPE SECTIONS */}
                 <Card
                     variant="borderless"
                     style={{ marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: 12 }}
-                    title={<Text strong>Scope of Work & Responsibilities</Text>}
+                    title={<Text strong>Scope Matrix (Work Responsibilities)</Text>}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, alignItems: 'center' }}>
+                        <Text type="secondary">Define who is responsible for what (Client vs VHSHRI)</Text>
+                        <Space>
+                            <Select
+                                placeholder="Select Template"
+                                style={{ width: 600 }}
+                                popupMatchSelectWidth={false}
+                                value={selectedScopeTemplate}
+                                onChange={(val) => {
+                                    setSelectedScopeTemplate(val)
+                                    form.setFieldsValue({ annexure_id: val })
+                                    const annex = annexures.find(a => a.id === val);
+                                    if (annex) {
+                                        if (annex.scope_matrix && Array.isArray(annex.scope_matrix)) {
+                                            setScopeMatrix(annex.scope_matrix.map((it: any, idx: number) => ({
+                                                ...it,
+                                                key: Date.now() + idx
+                                            })))
+                                        } else if (annex.clauses) {
+                                            // Fallback from old clauses
+                                            setScopeMatrix(annex.clauses.map((c: string, idx: number) => ({
+                                                key: Date.now() + idx,
+                                                description: c,
+                                                client_scope: annex.type === 'client_scope',
+                                                contractor_scope: annex.type === 'contractor_scope',
+                                                remarks: ''
+                                            })))
+                                        }
+                                    }
+                                }}
+                                showSearch
+                                optionFilterProp="children"
+                            >
+                                {annexures.filter(a => ['scope_matrix', 'client_scope', 'contractor_scope'].includes(a.type)).map(a => (
+                                    <Option key={a.id} value={a.id}>{a.name} ({a.category_name})</Option>
+                                ))}
+                            </Select>
+                            <Button icon={<PlusOutlined />} onClick={() => addScopeRow(false)}>Add Item</Button>
+                            <Button icon={<PlusOutlined />} onClick={() => addScopeRow(true)}>Add Header</Button>
+                        </Space>
+                    </div>
+
+                    <Table
+                        dataSource={scopeMatrix}
+                        pagination={false}
+                        size="small"
+                        bordered
+                        columns={[
+                            {
+                                title: 'Description of Item',
+                                dataIndex: 'description',
+                                render: (text: string, record: any) => (
+                                    <Input.TextArea
+                                        autoSize={{ minRows: 1 }}
+                                        value={text}
+                                        onChange={e => handleScopeChange(record.key, 'description', e.target.value)}
+                                        variant="borderless"
+                                        placeholder={record.is_category ? "Category Header (e.g. Administration)" : "Enter scope item description"}
+                                        style={{
+                                            fontWeight: record.is_category ? 'bold' : 'normal',
+                                            fontSize: record.is_category ? '15px' : '14px'
+                                        }}
+                                    />
+                                )
+                            },
+                            {
+                                title: 'Client',
+                                key: 'client_scope',
+                                width: 80,
+                                align: 'center',
+                                render: (_: any, record: any) => !record.is_category && (
+                                    <Checkbox
+                                        checked={record.client_scope}
+                                        onChange={e => handleScopeChange(record.key, 'client_scope', e.target.checked)}
+                                    />
+                                )
+                            },
+                            {
+                                title: 'VHSHRI',
+                                key: 'contractor_scope',
+                                width: 80,
+                                align: 'center',
+                                render: (_: any, record: any) => !record.is_category && (
+                                    <Checkbox
+                                        checked={record.contractor_scope}
+                                        onChange={e => handleScopeChange(record.key, 'contractor_scope', e.target.checked)}
+                                    />
+                                )
+                            },
+                            {
+                                title: 'Remarks',
+                                dataIndex: 'remarks',
+                                width: 200,
+                                render: (text: string, record: any) => !record.is_category && (
+                                    <Input
+                                        value={text}
+                                        onChange={e => handleScopeChange(record.key, 'remarks', e.target.value)}
+                                        variant="borderless"
+                                        placeholder="Optional remarks"
+                                    />
+                                )
+                            },
+                            {
+                                title: '',
+                                width: 50,
+                                render: (_: any, record: any) => (
+                                    <Button
+                                        type="text"
+                                        danger
+                                        icon={<DeleteOutlined />}
+                                        onClick={() => removeScopeRow(record.key)}
+                                    />
+                                )
+                            }
+                        ]}
+                    />
+                </Card>
+
+                <Card
+                    variant="borderless"
+                    style={{ marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: 12 }}
                 >
                     <Row gutter={24}>
-                        <Col span={12}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                <Text strong style={{ color: '#1890ff' }}>VHSHRI Scope (Our Deliverables)</Text>
-                                <Select
-                                    placeholder="Load Template"
-                                    style={{ width: 200 }}
-                                    size="small"
-                                    onChange={(val) => {
-                                        const annex = annexures.find(a => a.id === val);
-                                        if (annex) {
-                                            const text = getClausesText(annex);
-                                            form.setFieldsValue({ contractor_scope: text })
-                                        }
-                                    }}
-                                >
-                                    {annexures.filter(a => a.type === 'contractor_scope' || a.id === 1).map(a => (
-                                        <Option key={a.id} value={a.id}>{a.title || a.name} {a.category_name ? `(${a.category_name})` : ''}</Option>
-                                    ))}
-                                </Select>
-                            </div>
-                            <Form.Item
-                                name="contractor_scope"
-                                extra="What we will supply, install & execute"
-                            >
-                                <Input.TextArea
-                                    rows={8}
-                                    placeholder="1. Supply, Grabbing/drilling work, Installation & execution&#10;2. Supply of all equipments&#10;3. The materials shall be shifted within premise..."
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                <Text strong style={{ color: '#fa8c16' }}>Client Scope (To be provided free of cost)</Text>
-                                <Select
-                                    placeholder="Load Template"
-                                    style={{ width: 200 }}
-                                    size="small"
-                                    onChange={(val) => {
-                                        const annex = annexures.find(a => a.id === val);
-                                        if (annex) {
-                                            const text = getClausesText(annex);
-                                            form.setFieldsValue({ client_scope: text })
-                                        }
-                                    }}
-                                >
-                                    {annexures.filter(a => a.type === 'client_scope' || a.id === 1).map(a => (
-                                        <Option key={a.id} value={a.id}>{a.title || a.name} {a.category_name ? `(${a.category_name})` : ''}</Option>
-                                    ))}
-                                </Select>
-                            </div>
-                            <Form.Item
-                                name="client_scope"
-                                extra="What client must arrange"
-                            >
-                                <Input.TextArea
-                                    rows={8}
-                                    placeholder="1. Scaffolding to be provided by client/contractor&#10;2. Clear movement access for equipments&#10;3. Labor to be provided by client..."
-                                />
-                            </Form.Item>
-                        </Col>
                         <Col span={24}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                                 <Text strong>Payment Terms</Text>
                                 <Select
                                     placeholder="Load Template"
-                                    style={{ width: 200 }}
+                                    style={{ width: 500 }}
+                                    popupMatchSelectWidth={false}
                                     size="small"
+                                    value={selectedPaymentTemplate}
                                     onChange={(val) => {
+                                        setSelectedPaymentTemplate(val)
                                         const annex = annexures.find(a => a.id === val);
                                         if (annex) {
                                             const text = getClausesText(annex);
@@ -807,9 +976,12 @@ const QuotationForm = () => {
                                 <Text strong>Terms & Conditions</Text>
                                 <Select
                                     placeholder="Load Template"
-                                    style={{ width: 200 }}
+                                    style={{ width: 500 }}
+                                    popupMatchSelectWidth={false}
                                     size="small"
+                                    value={selectedTermsTemplate}
                                     onChange={(val) => {
+                                        setSelectedTermsTemplate(val)
                                         const annex = annexures.find(a => a.id === val);
                                         if (annex) {
                                             const text = getClausesText(annex);
@@ -863,23 +1035,18 @@ const QuotationForm = () => {
                                 </Col>
                                 <Col span={14}>
                                     <div style={{ marginBottom: 8, borderLeft: '1px solid rgba(255,255,255,0.2)', paddingLeft: 16 }}>
-                                        <Text style={{ color: 'white', fontWeight: 600, fontSize: 12 }}>Total Quotation value (Excl. GST)</Text>
-                                        <div><Text strong style={{ color: '#fff', fontSize: 24 }}>₹{totals.final.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text></div>
+                                        <Text style={{ color: 'white', fontWeight: 600, fontSize: 12 }}>Final Quotation Value</Text>
+                                        <div><Text strong style={{ color: '#fff', fontSize: 32 }}>₹{totals.final.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Text></div>
+                                        <Text style={{ color: '#ffd666', fontSize: 13, fontWeight: 500 }}>* GST Extra as applicable</Text>
                                     </div>
                                 </Col>
                             </Row>
                         </Col>
                         <Col span={6} style={{ textAlign: 'right', borderLeft: '1px solid rgba(255,255,255,0.3)', paddingLeft: 24 }}>
-                            <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>Total Amount (Incl. GST)</Text>
-                            <div>
-                                <Title level={2} style={{ color: '#ffd666', margin: '8px 0' }}>
-                                    ₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </Title>
+                            <div style={{ opacity: 0.8 }}>
+                                <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>Terms:</Text>
+                                <div style={{ fontSize: 18, color: 'white', fontWeight: 600 }}>GST EXTRA</div>
                             </div>
-                            <Space>
-                                <InfoCircleOutlined style={{ fontSize: 12 }} />
-                                <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>Final Payable Amount</Text>
-                            </Space>
                         </Col>
                     </Row>
                 </Card>
@@ -900,10 +1067,11 @@ const QuotationForm = () => {
                 }}>
                     <Space size="large">
                         <div style={{ marginRight: 24, display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                            <Text type="secondary" style={{ fontSize: 12 }}>Total Amount (Incl. GST)</Text>
-                            <Text strong style={{ fontSize: 18, color: '#0d9488' }}>
-                                ₹{totals.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            <Text type="secondary" style={{ fontSize: 12 }}>Total Quotation Value</Text>
+                            <Text strong style={{ fontSize: 22, color: '#0d9488' }}>
+                                ₹{totals.final.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </Text>
+                            <Text type="secondary" style={{ fontSize: 10 }}>* GST EXTRA</Text>
                         </div>
                         <Button size="large" onClick={() => navigate('/sales/quotations')}>
                             Cancel

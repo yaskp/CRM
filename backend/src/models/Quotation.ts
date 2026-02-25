@@ -18,6 +18,7 @@ interface QuotationAttributes {
   annexure_id?: number
   client_scope?: string
   contractor_scope?: string
+  scope_matrix?: any[]
   terms_conditions?: string
   remarks?: string
   status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'approved' | 'accepted_by_party' | 'superseded'
@@ -47,6 +48,7 @@ class Quotation extends Model<QuotationAttributes, QuotationCreationAttributes> 
   public annexure_id?: number
   public client_scope?: string
   public contractor_scope?: string
+  public scope_matrix?: any[]
   public terms_conditions?: string
   public remarks?: string
   public status!: QuotationAttributes['status']
@@ -134,6 +136,10 @@ Quotation.init(
     },
     contractor_scope: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    scope_matrix: {
+      type: DataTypes.JSON,
       allowNull: true,
     },
     terms_conditions: {

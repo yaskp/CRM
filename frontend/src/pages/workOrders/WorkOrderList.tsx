@@ -42,7 +42,10 @@ interface WorkOrder {
 const WorkOrderList = () => {
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
   const [loading, setLoading] = useState(false)
-  const [filters, setFilters] = useState({ status: '', page: 1, limit: 10 })
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [total, setTotal] = useState(0)
+  const [filters, setFilters] = useState({ status: '' })
   const navigate = useNavigate()
 
   const [statusModalVisible, setStatusModalVisible] = useState(false)
@@ -50,11 +53,12 @@ const WorkOrderList = () => {
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [form] = Form.useForm()
 
-  const fetchWorkOrders = async () => {
+  const fetchWorkOrders = async (page = currentPage, limit = pageSize) => {
     setLoading(true)
     try {
-      const response = await workOrderService.getWorkOrders(filters)
+      const response = await workOrderService.getWorkOrders({ ...filters, page, limit })
       setWorkOrders(response.workOrders || [])
+      setTotal(response.pagination?.total || 0)
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch work orders')
     } finally {
@@ -63,8 +67,8 @@ const WorkOrderList = () => {
   }
 
   useEffect(() => {
-    fetchWorkOrders()
-  }, [filters.status])
+    fetchWorkOrders(currentPage, pageSize)
+  }, [filters.status, currentPage, pageSize])
 
   const handleStatusClick = (record: WorkOrder) => {
     setEditingWorkOrder(record)
@@ -81,7 +85,10 @@ const WorkOrderList = () => {
       setStatusModalVisible(false)
       fetchWorkOrders()
     } catch (error: any) {
-      if (error?.errorFields) return // Validation failed
+      if (error?.errorFields && error.errorFields.length > 0) {
+        message.error(error.errorFields[0].errors[0]);
+        return;
+      }
       message.error(error.response?.data?.message || 'Failed to update status')
     } finally {
       setUpdatingStatus(false)
@@ -276,7 +283,10 @@ const WorkOrderList = () => {
               allowClear
               size="large"
               style={{ width: 220, ...largeInputStyle }}
-              onChange={(value) => setFilters({ ...filters, status: value || '' })}
+              onChange={(value) => {
+                setFilters({ ...filters, status: value || '' })
+                setCurrentPage(1)
+              }}
               suffixIcon={<FilterOutlined style={prefixIconStyle} />}
             >
               <Option value="draft">⏳ Draft Orders</Option>
@@ -306,9 +316,15 @@ const WorkOrderList = () => {
           rowKey="id"
           scroll={{ x: 1000 }}
           pagination={{
-            pageSize: 10,
+            current: currentPage,
+            pageSize: pageSize,
+            total: total,
             showSizeChanger: true,
-            showTotal: (total) => `Total ${total} Work Orders`
+            showTotal: (total) => `Total ${total} Work Orders`,
+            onChange: (page, size) => {
+              setCurrentPage(page)
+              setPageSize(size)
+            }
           }}
         />
       </Card>
@@ -319,7 +335,7 @@ const WorkOrderList = () => {
         onCancel={() => setStatusModalVisible(false)}
         onOk={handleStatusUpdate}
         confirmLoading={updatingStatus}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" preserve={false}>
           <Form.Item

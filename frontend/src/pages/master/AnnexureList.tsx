@@ -1,19 +1,29 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Space, message, Popconfirm, Card, Modal, Form, Input, Select, Tag, Divider, Row, Col } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, MinusCircleOutlined, InfoCircleOutlined } from '@ant-design/icons'
+import { Table, Button, Space, message, Popconfirm, Card, Modal, Form, Input, Select, Tag, Divider, Row, Col, Checkbox, Switch, Typography } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, FileTextOutlined, MinusCircleOutlined, InfoCircleOutlined, ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
 import { annexureService, Annexure } from '../../services/api/annexures'
-import { getPrimaryButtonStyle, getSecondaryButtonStyle, largeInputStyle } from '../../styles/styleUtils'
+import { getPrimaryButtonStyle, largeInputStyle } from '../../styles/styleUtils'
 
 const { TextArea } = Input
+const { Text } = Typography
+
+import CSVImportModal from '../../components/common/CSVImportModal'
 
 const AnnexureList = () => {
     const [annexures, setAnnexures] = useState<Annexure[]>([])
     const [loading, setLoading] = useState(false)
     const [modalVisible, setModalVisible] = useState(false)
+    const [importModalVisible, setImportModalVisible] = useState(false)
     const [editingId, setEditingId] = useState<number | null>(null)
     const [form] = Form.useForm()
-    const typeValue = Form.useWatch('type', form)
+    const [typeValue, setTypeValue] = useState('general_terms')
+    const [searchText, setSearchText] = useState('')
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0
+    })
 
     // Default categories with new naming convention
     const [categories, setCategories] = useState([
@@ -21,7 +31,8 @@ const AnnexureList = () => {
         { label: 'Purchase Order Terms', value: 'purchase_order' },
         { label: 'Payment Terms', value: 'payment_terms' },
         { label: 'Client Scope', value: 'client_scope' },
-        { label: 'VHSHRI Scope', value: 'contractor_scope' }
+        { label: 'VHSHRI Scope', value: 'contractor_scope' },
+        { label: 'Scope Matrix', value: 'scope_matrix' }
     ])
 
     const [newCategoryName, setNewCategoryName] = useState('')
@@ -40,13 +51,21 @@ const AnnexureList = () => {
 
     useEffect(() => {
         fetchAnnexures()
-    }, [])
+    }, [pagination.current, pagination.pageSize, searchText])
 
     const fetchAnnexures = async () => {
         setLoading(true)
         try {
-            const response = await annexureService.getAnnexures()
+            const response = await annexureService.getAnnexures({
+                page: pagination.current,
+                limit: pagination.pageSize,
+                search: searchText
+            })
             setAnnexures(response.annexures || [])
+            setPagination(prev => ({
+                ...prev,
+                total: response.pagination?.total || 0
+            }))
         } catch (error) {
             message.error('Failed to fetch annexures')
         } finally {
@@ -67,6 +86,7 @@ const AnnexureList = () => {
     const handleEdit = (record: Annexure) => {
         setEditingId(record.id)
         form.setFieldsValue(record)
+        setTypeValue(record.type) // Explicitly set state
         setModalVisible(true)
     }
 
@@ -74,9 +94,28 @@ const AnnexureList = () => {
         setEditingId(null)
         form.resetFields()
         // Initialize with default state
-        form.setFieldsValue({ type: 'general_terms', clauses: [''] })
+        const defaultType = 'general_terms'
+        form.setFieldsValue({
+            type: defaultType,
+            clauses: [''],
+            scope_matrix: [
+                { description: 'Administration', is_category: true, client_scope: false, contractor_scope: false },
+                { description: 'Labour & Staff accommodation', is_category: false, client_scope: true, contractor_scope: false }
+            ]
+        })
+        setTypeValue(defaultType)
         setModalVisible(true)
     }
+
+    useEffect(() => {
+        // Fallback: if we just opened modal, sync state with form
+        if (modalVisible) {
+            const currentType = form.getFieldValue('type')
+            if (currentType && currentType !== typeValue) {
+                setTypeValue(currentType)
+            }
+        }
+    }, [modalVisible])
 
     const handleSubmit = async (values: any) => {
         try {
@@ -110,10 +149,10 @@ const AnnexureList = () => {
                     'client_scope': 'Client Scope',
                     'payment_terms': 'Payment Terms',
                     'general_terms': 'Terms & Conditions',
-                    'purchase_order': 'Purchase Order Terms'
+                    'purchase_order': 'Purchase Order Terms',
+                    'scope_matrix': 'Scope Matrix'
                 };
-                // Use backend provided category_name if available, else fallback to map, else capitalize raw
-                const displayType = record.category_name || categoryMap[record.type] || record.type.toUpperCase().replace('_', ' ');
+                const displayType = record.category_name || categoryMap[record.type] || (record.type ? record.type.toUpperCase().replace('_', ' ') : 'UNKNOWN');
 
                 return (
                     <Space direction="vertical" size={0}>
@@ -143,11 +182,24 @@ const AnnexureList = () => {
                         </div>
                     )
                 }
+                if (record.type === 'scope_matrix') {
+                    return (
+                        <div style={{ fontSize: 12, color: '#666' }}>
+                            {(record.scope_matrix || [])
+                                .slice(0, 3)
+                                .map((it: any, i: number) => (
+                                    <div key={i}>• {it.is_category ? <strong>{it.description}</strong> : it.description}</div>
+                                ))}
+                        </div>
+                    )
+                }
                 return (
                     <ul style={{ paddingLeft: 20, margin: 0, fontSize: 12 }}>
-                        {(record.clauses || []).slice(0, 2).map((c, i) => (
-                            <li key={i}>{c.substring(0, 50)}...</li>
-                        ))}
+                        {(Array.isArray(record.clauses) ? record.clauses : [])
+                            .slice(0, 2)
+                            .map((c: string, i: number) => (
+                                <li key={i}>{(c && typeof c === 'string') ? c.substring(0, 50) : ''}...</li>
+                            ))}
                     </ul>
                 )
             }
@@ -184,24 +236,51 @@ const AnnexureList = () => {
                 subtitle="Centralized management of terms, conditions, and scopes for Quotations and POs"
                 icon={<FileTextOutlined />}
                 extra={
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleAdd}
-                        style={getPrimaryButtonStyle()}
-                    >
-                        Add New Annexure
-                    </Button>
+                    <Space>
+                        <Button icon={<FileTextOutlined />} onClick={() => setImportModalVisible(true)}>
+                            Import CSV
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleAdd}
+                            style={getPrimaryButtonStyle()}
+                        >
+                            Add New Annexure
+                        </Button>
+                    </Space>
                 }
             />
 
             <Card style={{ borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                <div style={{ marginBottom: 16 }}>
+                    <Input.Search
+                        placeholder="Search annexures..."
+                        onSearch={value => {
+                            setSearchText(value)
+                            setPagination(prev => ({ ...prev, current: 1 }))
+                        }}
+                        onChange={e => {
+                            if (!e.target.value) {
+                                setSearchText('')
+                                setPagination(prev => ({ ...prev, current: 1 }))
+                            }
+                        }}
+                        style={{ width: 300 }}
+                        allowClear
+                    />
+                </div>
                 <Table
                     columns={columns}
                     dataSource={annexures}
                     rowKey="id"
                     loading={loading}
-                    pagination={{ pageSize: 10 }}
+                    pagination={pagination}
+                    onChange={(newPagination) => setPagination(prev => ({
+                        ...prev,
+                        current: newPagination.current || 1,
+                        pageSize: newPagination.pageSize || 10
+                    }))}
                 />
             </Card>
 
@@ -218,6 +297,9 @@ const AnnexureList = () => {
                     form={form}
                     layout="vertical"
                     onFinish={handleSubmit}
+                    onValuesChange={(changed) => {
+                        if (changed.type) setTypeValue(changed.type)
+                    }}
                 >
                     <Row gutter={16}>
                         <Col span={16}>
@@ -238,7 +320,7 @@ const AnnexureList = () => {
                                 <Select
                                     size="large"
                                     style={largeInputStyle}
-                                    dropdownRender={(menu) => (
+                                    popupRender={(menu) => (
                                         <>
                                             {menu}
                                             <Divider style={{ margin: '8px 0' }} />
@@ -270,8 +352,8 @@ const AnnexureList = () => {
 
                     <Divider />
 
-                    {typeValue === 'purchase_order' ? (
-                        <div style={{ background: '#f9f9f9', padding: '16px', borderRadius: '8px', border: '1px solid #eee' }}>
+                    {typeValue === 'purchase_order' && (
+                        <div style={{ background: '#f9f9f9', padding: '16px', borderRadius: '8px', border: '1px solid #eee', marginBottom: 24 }}>
                             <Row gutter={[16, 16]}>
                                 <Col span={12}>
                                     <Form.Item name="payment_terms" label="Payment Terms">
@@ -300,10 +382,149 @@ const AnnexureList = () => {
                                 </Col>
                             </Row>
                         </div>
+                    )}
+
+                    {typeValue === 'scope_matrix' ? (
+                        <Form.List name="scope_matrix">
+                            {(fields, { add, remove, move }) => (
+                                <div style={{ maxHeight: 500, overflowY: 'auto', paddingRight: 8 }}>
+                                    <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Space>
+                                            <Text strong>Scope Matrix Items</Text>
+                                            <Button
+                                                size="small"
+                                                onClick={() => {
+                                                    const current = form.getFieldValue('scope_matrix') || [];
+                                                    const standardDefaults = [
+                                                        { description: 'Administration & Safety', is_category: true },
+                                                        { description: 'Site setup and security', is_category: false, client_scope: true, contractor_scope: false },
+                                                        { description: 'Temporary Electricity / Water', is_category: false, client_scope: true, contractor_scope: false },
+                                                        { description: 'Site Work (RCC, Masonry)', is_category: true },
+                                                        { description: 'Scaffolding & Formwork', is_category: false, client_scope: false, contractor_scope: true },
+                                                        { description: 'Finishing Work', is_category: true },
+                                                        { description: 'Debris Removal', is_category: false, client_scope: false, contractor_scope: true }
+                                                    ];
+                                                    form.setFieldsValue({ scope_matrix: [...current, ...standardDefaults] });
+                                                }}
+                                            >
+                                                Load Standard Matrix
+                                            </Button>
+                                        </Space>
+                                        <Button type="primary" size="small" onClick={() => add({ is_category: false, client_scope: false, contractor_scope: true })} icon={<PlusOutlined />}>
+                                            Add Item
+                                        </Button>
+                                    </div>
+                                    <Table
+                                        dataSource={fields}
+                                        rowKey={(field) => field.key}
+                                        pagination={false}
+                                        size="small"
+                                        bordered
+                                        columns={[
+                                            {
+                                                title: 'Category?',
+                                                key: 'is_category',
+                                                width: 80,
+                                                align: 'center',
+                                                render: (_, field) => (
+                                                    <Form.Item
+                                                        {...field}
+                                                        name={[field.name, 'is_category']}
+                                                        valuePropName="checked"
+                                                        noStyle
+                                                    >
+                                                        <Switch size="small" />
+                                                    </Form.Item>
+                                                )
+                                            },
+                                            {
+                                                title: 'Description',
+                                                key: 'description',
+                                                render: (_, field) => (
+                                                    <Form.Item
+                                                        {...field}
+                                                        name={[field.name, 'description']}
+                                                        rules={[{ required: true }]}
+                                                        noStyle
+                                                    >
+                                                        <Input placeholder="Description or Header name" variant="borderless" />
+                                                    </Form.Item>
+                                                )
+                                            },
+                                            {
+                                                title: 'Client',
+                                                key: 'client_scope',
+                                                width: 60,
+                                                align: 'center',
+                                                render: (_, field) => (
+                                                    <Form.Item
+                                                        {...field}
+                                                        name={[field.name, 'client_scope']}
+                                                        valuePropName="checked"
+                                                        noStyle
+                                                    >
+                                                        <Checkbox />
+                                                    </Form.Item>
+                                                )
+                                            },
+                                            {
+                                                title: 'VH Shri',
+                                                key: 'contractor_scope',
+                                                width: 60,
+                                                align: 'center',
+                                                render: (_, field) => (
+                                                    <Form.Item
+                                                        {...field}
+                                                        name={[field.name, 'contractor_scope']}
+                                                        valuePropName="checked"
+                                                        noStyle
+                                                    >
+                                                        <Checkbox />
+                                                    </Form.Item>
+                                                )
+                                            },
+                                            {
+                                                title: 'Actions',
+                                                width: 120,
+                                                align: 'center',
+                                                render: (_, field, index) => (
+                                                    <Space size="small">
+                                                        <Button
+                                                            type="text"
+                                                            icon={<ArrowUpOutlined />}
+                                                            disabled={index === 0}
+                                                            onClick={() => move(index, index - 1)}
+                                                            size="small"
+                                                        />
+                                                        <Button
+                                                            type="text"
+                                                            icon={<ArrowDownOutlined />}
+                                                            disabled={index === fields.length - 1}
+                                                            onClick={() => move(index, index + 1)}
+                                                            size="small"
+                                                        />
+                                                        <Button
+                                                            type="text"
+                                                            danger
+                                                            icon={<DeleteOutlined />}
+                                                            onClick={() => remove(field.name)}
+                                                            size="small"
+                                                        />
+                                                    </Space>
+                                                )
+                                            }
+                                        ]}
+                                    />
+                                    <Button type="dashed" onClick={() => add({ is_category: true })} block icon={<PlusOutlined />} style={{ marginTop: 8 }}>
+                                        Add Category Header
+                                    </Button>
+                                </div>
+                            )}
+                        </Form.List>
                     ) : (
                         <Form.List name="clauses">
                             {(fields, { add, remove }) => (
-                                <>
+                                <div style={{ maxHeight: 400, overflowY: 'auto', paddingRight: 8 }}>
                                     <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <strong>Clauses / Terms</strong>
                                         <Tag icon={<InfoCircleOutlined />}>Will be shown as list item</Tag>
@@ -312,7 +533,8 @@ const AnnexureList = () => {
                                         <div key={field.key} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 8 }}>
                                             <span style={{ marginRight: 8, paddingTop: 6, color: '#999' }}>{index + 1}.</span>
                                             <Form.Item
-                                                {...field}
+                                                key={field.key}
+                                                name={field.name}
                                                 style={{ flex: 1, marginBottom: 0 }}
                                                 rules={[{ required: true, message: 'Please enter term' }]}
                                             >
@@ -330,12 +552,30 @@ const AnnexureList = () => {
                                     <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />} style={{ marginTop: 8 }}>
                                         Add Clause
                                     </Button>
-                                </>
+                                </div>
                             )}
                         </Form.List>
                     )}
                 </Form>
             </Modal>
+
+            <CSVImportModal
+                visible={importModalVisible}
+                onCancel={() => setImportModalVisible(false)}
+                onSuccess={() => fetchAnnexures()}
+                title="Annexures"
+                apiEndpoint="http://localhost:5000/api/annexures/import"
+                columns={[
+                    { title: 'Name', dataIndex: 'name', key: 'name', required: true },
+                    { title: 'Type', dataIndex: 'type', key: 'type', required: true },
+                    { title: 'Description', dataIndex: 'description', key: 'description' },
+                    { title: 'Clauses', dataIndex: 'clauses', key: 'clauses' },
+                ]}
+                templateData={[
+                    { name: 'Standard Terms', type: 'general_terms', description: 'Standard sales terms', clauses: 'Clause 1\nClause 2' },
+                    { name: 'Payment Terms 1', type: 'payment_terms', description: 'Immediate payment', clauses: '100% Advance' },
+                ]}
+            />
         </PageContainer>
     )
 }

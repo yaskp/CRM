@@ -13,7 +13,8 @@ interface AnnexureAttributes {
     quality_terms?: string
     warranty_terms?: string
     penalty_clause?: string
-    type: 'client_scope' | 'contractor_scope' | 'payment_terms' | 'general_terms' | 'purchase_order'
+    scope_matrix?: any[]
+    type: 'client_scope' | 'contractor_scope' | 'payment_terms' | 'general_terms' | 'purchase_order' | 'scope_matrix'
     is_active: boolean
     created_at?: Date
     updated_at?: Date
@@ -33,6 +34,7 @@ class Annexure extends Model<AnnexureAttributes, AnnexureCreationAttributes> imp
     public quality_terms?: string
     public warranty_terms?: string
     public penalty_clause?: string
+    public scope_matrix?: any[]
     public type!: AnnexureAttributes['type']
     public is_active!: boolean
     public readonly created_at!: Date
@@ -87,8 +89,12 @@ Annexure.init(
             type: DataTypes.TEXT,
             allowNull: true,
         },
+        scope_matrix: {
+            type: DataTypes.JSON,
+            allowNull: true,
+        },
         type: {
-            type: DataTypes.ENUM('client_scope', 'contractor_scope', 'payment_terms', 'general_terms', 'purchase_order'),
+            type: DataTypes.ENUM('client_scope', 'contractor_scope', 'payment_terms', 'general_terms', 'purchase_order', 'scope_matrix'),
             defaultValue: 'general_terms',
         },
         is_active: {

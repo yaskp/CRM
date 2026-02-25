@@ -41,11 +41,13 @@ interface GRNItem {
   material_id: number
   material_name?: string
   material_units?: string[]
-  quantity: number // Total Invoice Qty
-  ordered_quantity?: number
-  received_quantity_po?: number
-  accepted_quantity: number
-  rejected_quantity: number
+  quantity: number          // Total Invoice Qty (can exceed PO qty)
+  ordered_quantity?: number  // PO qty
+  received_quantity_po?: number // already received against this PO item
+  accepted_quantity: number // Good qty — capped at PO ordered qty
+  rejected_quantity: number // total rejected = excess + defective
+  excess_qty: number        // inv qty beyond PO qty (auto-calculated)
+  defective_qty: number     // user-marked as defective
   unit: string
   item_status: string
   po_item_id?: number
@@ -231,8 +233,9 @@ const GRNInternalForm = () => {
         const poItems = po.items.map((item: any) => {
           const ordered = Number(item.quantity)
           const recPo = Number(item.received_quantity) || 0
-          const balance = ordered - recPo
+          const balance = ordered - recPo // pending qty
           const matUnits = item.material?.unit || ['UNIT']
+          const defaultQty = balance > 0 ? balance : 0
 
           return {
             material_id: item.material_id,
@@ -240,9 +243,11 @@ const GRNInternalForm = () => {
             material_units: Array.isArray(matUnits) ? matUnits : [matUnits],
             ordered_quantity: ordered,
             received_quantity_po: recPo,
-            quantity: balance > 0 ? balance : 0,
-            accepted_quantity: balance > 0 ? balance : 0,
+            quantity: defaultQty,           // inv qty — defaults to pending balance
+            accepted_quantity: defaultQty,  // accepted — capped to PO qty
             rejected_quantity: 0,
+            excess_qty: 0,                  // excess = inv qty - PO qty (auto)
+            defective_qty: 0,               // defective = user-entered
             unit: item.unit || (Array.isArray(matUnits) ? matUnits[0] : matUnits),
             unit_price: Number(item.unit_price),
             po_item_id: item.id,
@@ -265,6 +270,8 @@ const GRNInternalForm = () => {
       quantity: 0,
       accepted_quantity: 0,
       rejected_quantity: 0,
+      excess_qty: 0,
+      defective_qty: 0,
       unit: '',
       item_status: 'Good'
     }
@@ -384,56 +391,82 @@ const GRNInternalForm = () => {
       title: 'Inv Qty',
       key: 'inv_qty',
       width: 100,
-      render: (_: any, record: GRNItem, index: number) => (
-        <InputNumber
-          style={{ width: '100%' }}
-          value={record.quantity}
-          min={0}
-          controls={false}
-          onChange={(val) => {
-            const qty = val || 0
-            // Default logic: If inv qty changes, reset accepted to match, rejected 0
-            updateItem(index, {
-              quantity: qty,
-              accepted_quantity: qty,
-              rejected_quantity: 0
-            })
-          }}
-        />
-      ),
+      render: (_: any, record: GRNItem, index: number) => {
+        const poQty = record.ordered_quantity || 0
+        const invQty = record.quantity || 0
+        const excessAuto = Math.max(0, invQty - poQty)
+        return (
+          <InputNumber
+            style={{ width: '100%', borderColor: invQty > poQty && poQty > 0 ? '#faad14' : undefined }}
+            value={record.quantity}
+            min={0}
+            // NO max — invoice can have more than PO qty
+            controls={false}
+            onChange={(val) => {
+              const qty = val || 0
+              const excess = poQty > 0 ? Math.max(0, qty - poQty) : 0
+              // Accepted cannot exceed PO ordered qty
+              const maxAccepted = poQty > 0 ? poQty : qty
+              const newAccepted = Math.min(qty - excess, maxAccepted)
+              const totalRej = excess + (record.defective_qty || 0)
+              updateItem(index, {
+                quantity: qty,
+                excess_qty: excess,
+                accepted_quantity: newAccepted >= 0 ? newAccepted : 0,
+                rejected_quantity: totalRej
+              })
+            }}
+          />
+        )
+      }
     },
     {
       title: 'Accepted (Good)',
       key: 'accepted',
-      width: 100,
-      render: (_: any, record: GRNItem, index: number) => (
-        <InputNumber
-          style={{ width: '100%', borderColor: '#52c41a' }}
-          value={record.accepted_quantity}
-          min={0}
-          controls={false}
-          onChange={(val) => {
-            const acc = val || 0
-            // Don't auto-calculate rejected here to allow explicit control. 
-            // User enters Good Qty manually.
-            updateItem(index, { accepted_quantity: acc })
-          }}
-        />
-      )
+      width: 110,
+      render: (_: any, record: GRNItem, index: number) => {
+        const maxAcc = record.ordered_quantity || record.quantity || 0
+        return (
+          <InputNumber
+            style={{ width: '100%', borderColor: '#52c41a' }}
+            value={record.accepted_quantity}
+            min={0}
+            max={maxAcc}  // Cannot accept more than PO qty
+            controls={false}
+            placeholder={`max ${maxAcc}`}
+            onChange={(val) => {
+              const acc = Math.min(val || 0, maxAcc)
+              updateItem(index, { accepted_quantity: acc })
+            }}
+          />
+        )
+      }
     },
     {
-      title: 'Rejected (Bad)',
-      key: 'rejected',
-      width: 100,
+      title: 'Excess Qty',
+      key: 'excess',
+      width: 90,
+      render: (_: any, record: GRNItem) => {
+        const excess = record.excess_qty || 0
+        if (excess <= 0) return <Text type="secondary">-</Text>
+        return <Tag color="purple" style={{ margin: 0 }}>+{excess}</Tag>
+      }
+    },
+    {
+      title: 'Defective Qty',
+      key: 'defective',
+      width: 110,
       render: (_: any, record: GRNItem, index: number) => (
         <InputNumber
-          style={{ width: '100%', borderColor: '#ff4d4f' }}
-          value={record.rejected_quantity}
+          style={{ width: '100%', borderColor: (record.defective_qty || 0) > 0 ? '#ff4d4f' : undefined }}
+          value={record.defective_qty || 0}
           min={0}
           controls={false}
+          placeholder="0"
           onChange={(val) => {
-            const rej = val || 0
-            updateItem(index, { rejected_quantity: rej })
+            const def = val || 0
+            const totalRej = (record.excess_qty || 0) + def
+            updateItem(index, { defective_qty: def, rejected_quantity: totalRej })
           }}
         />
       )
@@ -441,25 +474,24 @@ const GRNInternalForm = () => {
     {
       title: 'Status / Variance',
       key: 'status_calc',
-      width: 180,
+      width: 160,
       render: (_: any, record: GRNItem) => {
-        const totalReceived = (record.accepted_quantity || 0) + (record.rejected_quantity || 0)
+        const poQty = record.ordered_quantity || 0
         const invQty = record.quantity || 0
-        const diff = totalReceived - invQty // Excess (+), Shortage (-)
-        const hasDefective = (record.rejected_quantity || 0) > 0
+        const accepted = record.accepted_quantity || 0
+        const defective = record.defective_qty || 0
+        const excess = record.excess_qty || 0
+        // Pending = PO qty not yet received in this GRN
+        const alreadyRecvd = record.received_quantity_po || 0
+        const pending = Math.max(0, poQty - alreadyRecvd - invQty)
 
         return (
-          <Space direction="vertical" size={0}>
-            {hasDefective && <Tag color="orange">Defective: {record.rejected_quantity}</Tag>}
-
-            {diff < 0 && <Tag color="red">Shortage: {Math.abs(diff)}</Tag>}
-            {diff > 0 && <Tag color="purple">Excess: {diff}</Tag>}
-
-            {diff === 0 && !hasDefective && <Tag color="success">Perfect Match</Tag>}
-
-            <Text type="secondary" style={{ fontSize: '10px' }}>
-              Physical Recd: {totalReceived}
-            </Text>
+          <Space direction="vertical" size={2}>
+            {excess > 0 && <Tag color="purple" style={{ margin: 0 }}>Excess: +{excess}</Tag>}
+            {defective > 0 && <Tag color="orange" style={{ margin: 0 }}>Defective: {defective}</Tag>}
+            {pending > 0 && <Tag color="blue" style={{ margin: 0 }}>Pending: {pending}</Tag>}
+            {excess === 0 && defective === 0 && pending === 0 && <Tag color="success" style={{ margin: 0 }}>Complete ✓</Tag>}
+            <Text type="secondary" style={{ fontSize: '10px' }}>Accepted: {accepted}</Text>
           </Space>
         )
       }

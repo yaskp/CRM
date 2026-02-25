@@ -56,7 +56,13 @@ export interface CreatePurchaseOrderData {
 }
 
 export const purchaseOrderService = {
-    getPurchaseOrders: async (params?: { vendor_id?: number; project_id?: number; status?: string }) => {
+    getPurchaseOrders: async (params?: {
+        vendor_id?: number;
+        project_id?: number;
+        status?: string;
+        page?: number;
+        limit?: number;
+    }) => {
         const response = await api.get('/purchase-orders', { params })
         return response.data
     },

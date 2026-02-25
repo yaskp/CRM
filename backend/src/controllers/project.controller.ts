@@ -59,7 +59,12 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
       pincode,
       payment_terms,
       credit_limit,
-      is_gst_registered
+      is_gst_registered,
+      // Custom Client Master Overrides (missing in previous implementation)
+      company_name,
+      contact_person,
+      email: client_email,
+      phone: client_phone
     } = req.body
 
     const quotation = await Quotation.findByPk(quotationId, {
@@ -105,7 +110,9 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
     let finalClient: Client | null = null
 
     if (!clientId) {
-      // Attempt to find existing client to prevent duplicates
+      // Attempt to find existing client to prevent duplicate Client Master entries
+      // In construction CRM, the Client is the Corporate Entity (e.g., L&T).
+      // Multiple Projects (Sites) can be linked to the same Corporate Client.
       const existingClient = await Client.findOne({
         where: {
           [Op.or]: [
@@ -127,14 +134,14 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
         const clientCode = await generateClientCode()
         const newClient = await Client.create({
           client_code: clientCode,
-          company_name: lead.company_name || lead.name,
+          company_name: company_name || lead.company_name,
           client_group_id: finalGroupId,
-          contact_person: lead.name,
-          email: lead.email,
-          phone: lead.phone,
-          address: lead.address,
-          city: lead.city,
-          state: lead.state,
+          contact_person: contact_person || lead.name,
+          email: client_email || lead.email,
+          phone: client_phone || lead.phone,
+          address: location || lead.address,
+          city: city || lead.city,
+          state: state || lead.state,
           pincode: pincode,
           gstin: gstin,
           pan: pan,
@@ -148,9 +155,9 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
         // 🔗 Create Primary Contact linked to Client
         await ClientContact.create({
           client_id: newClient.id,
-          contact_name: lead.name,
-          email: lead.email,
-          phone: lead.phone,
+          contact_name: contact_person || lead.name,
+          email: client_email || lead.email,
+          phone: client_phone || lead.phone,
           is_primary: true,
           designation: 'Contact from Lead'
         }, { transaction })
@@ -158,7 +165,6 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
         clientId = newClient.id
         finalClient = newClient
       }
-
       // Update Lead with the Client ID (new or existing)
       await lead.update({ client_id: clientId }, { transaction })
     } else {
@@ -295,22 +301,51 @@ export const createProjectFromQuotation = async (req: AuthRequest, res: Response
       }
     } else if (warehouse_action === 'create_new') {
       const warehouseCode = customWarehouseCode || `WH-${projectCode}`
-      await Warehouse.create({
-        name: warehouse_name || `Site - ${project.name}`,
-        code: warehouseCode,
-        type: warehouse_type || 'site',
-        company_id: req.user!.company_id,
-        is_common: false,
-        project_id: project.id,
-        address: warehouse_address || project.site_address,
-        city: warehouse_city || project.site_city,
-        state: warehouse_state || project.site_state,
-        state_code: whStateCode || project.site_state_code,
-        pincode: warehouse_pincode || (finalClient?.pincode as any),
-        gstin: warehouse_gstin || project.client_gst_number,
-        incharge_name: warehouse_incharge_name || project.client_contact_person,
-        incharge_phone: warehouse_incharge_phone || project.client_phone
-      }, { transaction })
+
+      // Check if warehouse already exists for this project or with this code to prevent validation errors
+      let warehouse = await Warehouse.findOne({
+        where: {
+          [Op.or]: [
+            { code: warehouseCode },
+            { project_id: project.id, type: 'site' }
+          ]
+        },
+        transaction
+      })
+
+      if (warehouse) {
+        // Update existing warehouse instead of creating new
+        await warehouse.update({
+          name: warehouse_name || warehouse.name,
+          address: warehouse_address || project.site_address || warehouse.address,
+          city: warehouse_city || project.site_city || warehouse.city,
+          state: warehouse_state || project.site_state || warehouse.state,
+          state_code: whStateCode || project.site_state_code || warehouse.state_code,
+          pincode: warehouse_pincode || (finalClient?.pincode as any) || warehouse.pincode,
+          gstin: warehouse_gstin || project.client_gst_number || warehouse.gstin,
+          incharge_name: warehouse_incharge_name || project.client_contact_person || warehouse.incharge_name,
+          incharge_phone: warehouse_incharge_phone || project.client_phone || warehouse.incharge_phone,
+          project_id: project.id,
+          type: warehouse_type || (warehouse.type as any)
+        }, { transaction })
+      } else {
+        await Warehouse.create({
+          name: warehouse_name || `Site - ${project.name}`,
+          code: warehouseCode,
+          type: warehouse_type || 'site',
+          company_id: req.user!.company_id,
+          is_common: false,
+          project_id: project.id,
+          address: warehouse_address || project.site_address,
+          city: warehouse_city || project.site_city,
+          state: warehouse_state || project.site_state,
+          state_code: whStateCode || project.site_state_code,
+          pincode: warehouse_pincode || (finalClient?.pincode as any),
+          gstin: warehouse_gstin || project.client_gst_number,
+          incharge_name: warehouse_incharge_name || project.client_contact_person,
+          incharge_phone: warehouse_incharge_phone || project.client_phone
+        }, { transaction })
+      }
     }
 
     // 🚀 AUTO-INITIALIZE OR SYNC BILL OF QUANTITIES (BOQ)
@@ -441,7 +476,7 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
     // Initialize Extended Project Details
     await ProjectDetails.create({
       project_id: project.id,
-      site_address: location,
+      site_address: site_location || location,
       contract_value,
       start_date,
       expected_end_date: end_date,
@@ -467,7 +502,12 @@ export const createProject = async (req: AuthRequest, res: Response, next: NextF
       type: 'site',
       company_id: company_id || req.user!.company_id,
       is_common: false,
-      project_id: project.id
+      project_id: project.id,
+      address: site_location || location,
+      city: site_city || city,
+      state: site_state || state,
+      state_code: finalSiteStateCode,
+      gstin: client_gstin
     })
 
     res.status(201).json({
@@ -587,6 +627,12 @@ export const getProject = async (req: AuthRequest, res: Response, next: NextFunc
               include: [{ association: 'zones' }]
             }
           ]
+        },
+        {
+          association: 'quotations',
+          where: { status: { [Op.in]: ['approved', 'accepted_by_party'] } },
+          required: false,
+          include: [{ association: 'items' }]
         }
       ],
     })
@@ -647,6 +693,15 @@ export const updateProject = async (req: AuthRequest, res: Response, next: NextF
           client_address: syncClient.address,
           client_gst_number: syncClient.gstin,
           client_pan_number: syncClient.pan,
+        }
+
+        // Sync BACK from project TO client if client master is missing data (Inverse Sync)
+        const clientUpdates: any = {}
+        if (!syncClient.address && client_ho_address) clientUpdates.address = client_ho_address
+        if (!syncClient.gstin && client_gstin) clientUpdates.gstin = client_gstin
+
+        if (Object.keys(clientUpdates).length > 0) {
+          await syncClient.update(clientUpdates)
         }
       }
     }

@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Modal, Form, Input, Select, Space, Typography, Tag, message, Empty, Row, Col, Upload, Progress, Divider } from 'antd'
+import { Card, Button, Modal, Form, Input, Select, Space, Typography, message, Empty, Row, Col, Upload, Tabs, Table, Tag, Statistic, Divider, Progress } from 'antd'
 import {
     PlusOutlined,
     FileImageOutlined,
     UploadOutlined,
     EyeOutlined,
-    BuildOutlined,
-    SettingOutlined
+    AppstoreOutlined
 } from '@ant-design/icons'
 import { drawingService } from '../../services/api/drawings'
+import api from '../../services/api/auth'
 import { theme } from '../../styles/theme'
 import DrawingVisualizer from './DrawingVisualizer'
 
@@ -27,11 +27,21 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
     const [modalVisible, setModalVisible] = useState(false)
     const [panelModalVisible, setPanelModalVisible] = useState(false)
     const [batchModalVisible, setBatchModalVisible] = useState(false)
+
     const [form] = Form.useForm()
     const [panelForm] = Form.useForm()
     const [batchForm] = Form.useForm()
+
+    // Calculated fields state
+    const [calculatedValues, setCalculatedValues] = useState({
+        concrete_volume: 0,
+        grabbing_qty: 0,
+        stop_end_area: 0,
+        guide_wall_rm: 0,
+        ramming_qty: 0
+    })
+
     const [fileList, setFileList] = useState<any[]>([])
-    const [viewMode, setViewMode] = useState<'list' | 'visual'>('visual')
 
     useEffect(() => {
         fetchDrawings()
@@ -70,6 +80,184 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
         }
     }
 
+    const onFormValuesChange = (changedValues: any, allValues: any) => {
+        let L = Number(allValues.length || 0)
+        let W = Number(allValues.width || 0)
+        let D = Number(allValues.depth || 0)
+
+        // Auto-calculate Depth from RLs if RLs changed
+        if (changedValues.top_rl || changedValues.bottom_rl) {
+            const top = Number(allValues.top_rl)
+            const bottom = Number(allValues.bottom_rl)
+            if (!isNaN(top) && !isNaN(bottom)) {
+                D = Number((top - bottom).toFixed(2))
+                panelForm.setFieldsValue({ depth: D })
+            }
+        }
+
+        // Use updated D for calculations
+        const concrete = Number((L * W * D).toFixed(2))
+        const grab = Number((L * D).toFixed(2))
+        const stopEnd = Number((L * D).toFixed(2))
+        const guideWall = Number(L.toFixed(2))
+        const ramming = Number((L * W).toFixed(2))
+
+        panelForm.setFieldsValue({
+            concrete_design_qty: concrete,
+            grabbing_qty: grab,
+            stop_end_area: stopEnd,
+            guide_wall_rm: guideWall,
+            ramming_qty: ramming
+        })
+
+        setCalculatedValues({
+            concrete_volume: concrete,
+            grabbing_qty: grab,
+            stop_end_area: stopEnd,
+            guide_wall_rm: guideWall,
+            ramming_qty: ramming
+        })
+    }
+
+    const handleAddPanel = async (values: any) => {
+        setLoading(true)
+        try {
+            let drawingId = selectedDrawing?.id;
+            // Ensure drawing exists logic can be added here if needed, but UI enforces selection
+
+            const L = Number(values.length)
+            const W = Number(values.width)
+            const D = Number(values.depth)
+
+            const payload = {
+                panel_identifier: values.panel_identifier,
+                panel_type: values.panel_type,
+                length: L,
+                width: W,
+                design_depth: D,
+                top_rl: Number(values.top_rl),
+                bottom_rl: Number(values.bottom_rl),
+                reinforcement_ton: Number(values.reinforcement_ton),
+                no_of_anchors: Number(values.no_of_anchors),
+                anchor_length: Number(values.anchor_length),
+                anchor_capacity: Number(values.anchor_capacity),
+                concrete_design_qty: Number((L * W * D).toFixed(2)),
+                grabbing_qty: Number((L * D).toFixed(2)),
+                stop_end_area: Number((L * D).toFixed(2)),
+                guide_wall_rm: Number(L.toFixed(2)),
+                ramming_qty: Number((L * W).toFixed(2))
+            }
+
+            await drawingService.markPanel(drawingId, payload)
+            message.success('Panel details added')
+            setPanelModalVisible(false)
+            panelForm.resetFields()
+            setCalculatedValues({
+                concrete_volume: 0,
+                grabbing_qty: 0,
+                stop_end_area: 0,
+                guide_wall_rm: 0,
+                ramming_qty: 0
+            })
+            fetchPanels(drawingId)
+        } catch (error) {
+            message.error('Failed to add panel')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleGenerateBatch = async (values: any) => {
+        setLoading(true)
+        try {
+            let drawingId = selectedDrawing?.id;
+
+            const { prefix, start_no, end_no, panel_type, length, width, depth, top_rl, bottom_rl, reinforcement_ton, no_of_anchors, anchor_length, anchor_capacity } = values
+            const panelsToCreate = []
+
+            const L = Number(length)
+            const W = Number(width)
+            const D = Number(depth)
+            const concrete = Number((L * W * D).toFixed(2))
+            const grab = Number((L * D).toFixed(2))
+            const stopEnd = Number((L * D).toFixed(2))
+            const guideWall = Number(L.toFixed(2))
+            const ramming = Number((L * W).toFixed(2))
+
+            for (let i = start_no; i <= end_no; i++) {
+                panelsToCreate.push({
+                    panel_identifier: `${prefix}${i}`,
+                    panel_type,
+                    length: L,
+                    width: W,
+                    depth: D,
+                    top_rl: Number(top_rl),
+                    bottom_rl: Number(bottom_rl),
+                    reinforcement_ton: Number(reinforcement_ton),
+                    no_of_anchors: Number(no_of_anchors),
+                    anchor_length: Number(anchor_length),
+                    anchor_capacity: Number(anchor_capacity),
+                    concrete_design_qty: concrete,
+                    grabbing_qty: grab,
+                    stop_end_area: stopEnd,
+                    guide_wall_rm: guideWall,
+                    ramming_qty: ramming,
+                    dimensions: { length: L, width: W, depth: D }
+                })
+            }
+
+            await drawingService.bulkCreatePanels(drawingId, panelsToCreate)
+            message.success(`Successfully generated ${panelsToCreate.length} panels`)
+            setBatchModalVisible(false)
+            batchForm.resetFields()
+            fetchPanels(drawingId)
+        } catch (error) {
+            message.error('Failed to generate sequence')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const ensureDrawing = async () => {
+        if (selectedDrawing) return selectedDrawing.id;
+
+        // If no selected drawing but there are drawings, pick the first one
+        if (drawings.length > 0) {
+            setSelectedDrawing(drawings[0]);
+            return drawings[0].id;
+        }
+
+        // Auto-create a default drawing
+        setLoading(true);
+        try {
+            const res = await api.post('/drawings', {
+                project_id: projectId,
+                drawing_name: 'Panel Schedule / D-Wall Layout',
+                drawing_type: 'D-Wall Layout',
+                is_active: true
+            });
+            const newDrawing = res.data.drawing;
+            setDrawings([newDrawing]);
+            setSelectedDrawing(newDrawing);
+            return newDrawing.id;
+        } catch (error) {
+            message.error('Failed to create default drawing');
+            return null;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleOpenPanelModal = async () => {
+        const drawingId = await ensureDrawing();
+        if (drawingId) setPanelModalVisible(true);
+    };
+
+    const handleOpenBatchModal = async () => {
+        const drawingId = await ensureDrawing();
+        if (drawingId) setBatchModalVisible(true);
+    };
+
     const handleUpload = async (values: any) => {
         if (fileList.length === 0) {
             message.error('Please select a file to upload')
@@ -98,219 +286,6 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
             setLoading(false)
         }
     }
-
-    const handleAddPanel = async (values: any) => {
-        setLoading(true)
-        try {
-            let drawingId = selectedDrawing?.id;
-
-            // Auto-create a default layout if none exists
-            if (!drawingId) {
-                const newDrawing = await drawingService.uploadDrawing(
-                    { project_id: projectId, drawing_name: 'Master Panel Schedule', drawing_type: 'General Layout' },
-                    null as any // Handle case where no file is provided for auto-generated layout
-                );
-                drawingId = newDrawing.drawing.id;
-                await fetchDrawings();
-            }
-
-            await drawingService.markPanel(drawingId, {
-                panel_identifier: values.panel_identifier,
-                panel_type: values.panel_type,
-                coordinates_json: { length: values.length, width: values.width, depth: values.depth }
-            })
-            message.success('Panel details added')
-            setPanelModalVisible(false)
-            panelForm.resetFields()
-            fetchPanels(drawingId)
-        } catch (error) {
-            message.error('Failed to add panel')
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleGenerateBatch = async (values: any) => {
-        setLoading(true)
-        try {
-            let drawingId = selectedDrawing?.id;
-
-            if (!drawingId) {
-                const newDrawing = await drawingService.uploadDrawing(
-                    { project_id: projectId, drawing_name: 'Master Panel Schedule', drawing_type: 'General Layout' },
-                    null as any
-                );
-                drawingId = newDrawing.drawing.id;
-                await fetchDrawings();
-            }
-
-            const { prefix, start_no, end_no, panel_type, length, width, depth } = values
-            const panelsToCreate = []
-
-            for (let i = start_no; i <= end_no; i++) {
-                panelsToCreate.push({
-                    panel_identifier: `${prefix}${i}`,
-                    panel_type,
-                    dimensions: { length, width, depth }
-                })
-            }
-
-            await drawingService.bulkCreatePanels(drawingId, panelsToCreate)
-            message.success(`Successfully generated ${panelsToCreate.length} panels`)
-            setBatchModalVisible(false)
-            batchForm.resetFields()
-            fetchPanels(drawingId)
-        } catch (error) {
-            message.error('Failed to generate sequence')
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file || !selectedDrawing) return
-
-        const reader = new FileReader()
-        reader.onload = async (event) => {
-            try {
-                const text = event.target?.result as string
-                const lines = text.split('\n')
-                const bulkPanels = []
-
-                // Skip header line
-                for (let i = 1; i < lines.length; i++) {
-                    const line = lines[i].trim()
-                    if (!line) continue
-
-                    const [id, type, l, w, d] = line.split(',')
-                    bulkPanels.push({
-                        panel_identifier: id,
-                        panel_type: type || 'Primary',
-                        dimensions: { length: Number(l), width: Number(w), depth: Number(d) }
-                    })
-                }
-
-                if (bulkPanels.length > 0) {
-                    setLoading(true)
-                    await drawingService.bulkCreatePanels(selectedDrawing.id, bulkPanels)
-                    message.success(`Imported ${bulkPanels.length} panels from CSV`)
-                    fetchPanels(selectedDrawing.id)
-                }
-            } catch (error) {
-                message.error('Invalid CSV format. Use: PanelID,Type,Length,Width,Depth')
-            } finally {
-                setLoading(false)
-                e.target.value = '' // Reset input
-            }
-        }
-        reader.readAsText(file)
-    }
-
-    // handleUpdateProgress removed as progress is auto-calculated from DPR
-
-
-    const getStatusTag = (status: string) => {
-        switch (status) {
-            case 'completed': return <Tag color="success">COMPLETED</Tag>
-            case 'in_progress': return <Tag color="processing">IN PROGRESS</Tag>
-            default: return <Tag color="default">NOT STARTED</Tag>
-        }
-    }
-
-    const panelColumns = [
-        {
-            title: 'Panel ID',
-            dataIndex: 'panel_identifier',
-            key: 'panel_identifier',
-            render: (text: string) => <Text strong>{text}</Text>
-        },
-        {
-            title: 'Type',
-            dataIndex: 'panel_type',
-            key: 'panel_type',
-            render: (type: string) => <Tag color="blue">{type?.toUpperCase() || 'STANDARD'}</Tag>
-        },
-        {
-            title: 'Dimensions (LxWxD)',
-            key: 'dimensions',
-            render: (_: any, record: any) => {
-                const dims = record.coordinates_json ? (typeof record.coordinates_json === 'string' ? JSON.parse(record.coordinates_json) : record.coordinates_json) : {}
-                return `${dims.length || '-'}m × ${dims.width || '-'}mm × ${dims.depth || '-'}m`
-            }
-        },
-        {
-            title: 'Progress (Unified DPR)',
-            key: 'progress',
-            width: 250,
-            render: (_: any, record: any) => {
-                // 1. Calculate Total Area (Face Area)
-                let dims = { length: 0, width: 0, depth: 0 }
-                try {
-                    dims = typeof record.coordinates_json === 'string' ? JSON.parse(record.coordinates_json) : (record.coordinates_json || {})
-                } catch (e) { }
-
-                const totalArea = Number(dims.length || 0) * Number(dims.depth || 0)
-
-                // 2. Calculate Total Work Done from Consumptions
-                let totalWorkDone = 0
-                let lastUpdateDate: Date | null = null
-
-                // Process new Unified DPR (Consumptions)
-                if (record.consumptions && Array.isArray(record.consumptions)) {
-                    record.consumptions.forEach((c: any) => {
-                        if (c.transaction_date) {
-                            const tDate = new Date(c.transaction_date)
-                            if (!lastUpdateDate || tDate > lastUpdateDate) {
-                                lastUpdateDate = tDate
-                            }
-                        }
-                        if (c.items && Array.isArray(c.items)) {
-                            const txWork = Math.max(...c.items.map((i: any) => Number(i.work_done_quantity || 0)))
-                            if (txWork > 0) totalWorkDone += txWork
-                        }
-                    })
-                }
-
-                // Fallback to legacy DPR
-                let percentage = 0;
-                if (totalWorkDone === 0 && record.dprRecords?.[0]) {
-                    const legacy = record.dprRecords[0]
-                    if (legacy.work_completion_percentage) {
-                        percentage = Number(legacy.work_completion_percentage)
-                        lastUpdateDate = new Date(legacy.report_date)
-                    }
-                } else {
-                    // Calculate % based on work done
-                    percentage = totalArea > 0 ? (totalWorkDone / totalArea) * 100 : 0
-                }
-
-                const status = percentage >= 100 ? 'completed' : (percentage > 0 ? 'in_progress' : 'not_started')
-
-                return (
-                    <div style={{ width: '100%' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                            {getStatusTag(status)}
-                            <Text type="secondary" style={{ fontSize: 12 }}>{percentage.toFixed(0)}%</Text>
-                        </div>
-                        <Progress
-                            percent={Number(percentage.toFixed(0))}
-                            size="small"
-                            status={status === 'completed' ? 'success' : 'active'}
-                            showInfo={false}
-                        />
-                        {lastUpdateDate && (
-                            <div style={{ fontSize: 10, color: theme.colors.neutral.gray500, marginTop: 4 }}>
-                                Last Update: {(lastUpdateDate as Date).toLocaleDateString()}
-                            </div>
-                        )}
-                    </div>
-                )
-            }
-        }
-    ]
-
-    // Action column removed - progress is view only here
 
     return (
         <Row gutter={[16, 16]}>
@@ -350,114 +325,182 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                     title={
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Space>
-                                <BuildOutlined style={{ color: theme.colors.primary.main }} />
+                                <AppstoreOutlined style={{ color: theme.colors.primary.main }} />
                                 <Title level={4} style={{ margin: 0 }}>
-                                    {selectedDrawing ? `Panels in ${selectedDrawing.drawing_name}` : 'D-Wall Panel Details'}
+                                    {selectedDrawing ? `Panel Progress: ${selectedDrawing.drawing_name}` : 'Panel Progress Board'}
                                 </Title>
                             </Space>
                             <Space>
-                                <Button
-                                    icon={<SettingOutlined />}
-                                    onClick={() => setBatchModalVisible(true)}
-                                    style={{ background: '#f6ffed', color: '#52c41a', borderColor: '#b7eb8f' }}
-                                >
-                                    Generate Sequence
-                                </Button>
-                                <div style={{ position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
-                                    <Button icon={<UploadOutlined />}>Import CSV</Button>
-                                    <input
-                                        type="file"
-                                        accept=".csv"
-                                        onChange={handleCSVImport}
-                                        style={{
-                                            position: 'absolute',
-                                            left: 0,
-                                            top: 0,
-                                            opacity: 0,
-                                            cursor: 'pointer',
-                                            width: '100%',
-                                            height: '100%'
-                                        }}
-                                    />
-                                </div>
+                                <Button onClick={handleOpenBatchModal}>Batch</Button>
+                                <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenPanelModal}>Add Panel</Button>
                                 {selectedDrawing?.file_url && (
                                     <Button
                                         icon={<EyeOutlined />}
                                         href={`http://localhost:5000${selectedDrawing.file_url}`}
                                         target="_blank"
                                     >
-                                        Full Screen
+                                        View Map
                                     </Button>
                                 )}
-                                <Button
-                                    type="primary"
-                                    icon={<PlusOutlined />}
-                                    onClick={() => setPanelModalVisible(true)}
-                                >
-                                    Add One
-                                </Button>
                             </Space>
                         </div>
                     }
                 >
-                    {!selectedDrawing ? (
-                        <Empty description="Select a drawing to view and manage panels" style={{ padding: '60px' }} />
-                    ) : (
-                        <>
-                            {selectedDrawing.file_url && (
-                                <div style={{ marginBottom: 24, borderRadius: 8, overflow: 'hidden', border: `1px solid ${theme.colors.neutral.gray200}`, background: '#f9f9f9' }}>
-                                    <div style={{ padding: '8px 16px', borderBottom: `1px solid ${theme.colors.neutral.gray200}`, background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Text strong><FileImageOutlined /> Drawing Preview: {selectedDrawing.drawing_name}</Text>
-                                        <Tag color="blue">{selectedDrawing.file_type?.toUpperCase()}</Tag>
-                                    </div>
-                                    <div style={{ height: '300px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
-                                        {selectedDrawing.file_type?.toLowerCase() === 'pdf' ? (
-                                            <iframe
-                                                src={`http://localhost:5000${selectedDrawing.file_url}#toolbar=0&navpanes=0`}
-                                                width="100%"
-                                                height="100%"
-                                                style={{ border: 'none' }}
-                                            />
-                                        ) : (
-                                            <img
-                                                src={`http://localhost:5000${selectedDrawing.file_url}`}
-                                                alt="Drawing Preview"
-                                                style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }}
-                                            />
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                            <div style={{ marginBottom: 16 }}>
-                                <Space.Compact>
-                                    <Button
-                                        type={viewMode === 'visual' ? 'primary' : 'default'}
-                                        onClick={() => setViewMode('visual')}
-                                    >
-                                        Traffic Light Dashboard
-                                    </Button>
-                                    <Button
-                                        type={viewMode === 'list' ? 'primary' : 'default'}
-                                        onClick={() => setViewMode('list')}
-                                    >
-                                        Detailed List View
-                                    </Button>
-                                </Space.Compact>
-                            </div>
+                    <Tabs defaultActiveKey="1" items={[
+                        {
+                            key: '1',
+                            label: 'Visual Board',
+                            children: (
+                                <>
 
-                            {viewMode === 'visual' ? (
-                                <DrawingVisualizer panels={panels} loading={loading} />
-                            ) : (
-                                <Table
-                                    dataSource={panels}
-                                    columns={panelColumns}
-                                    rowKey="id"
-                                    loading={loading}
-                                    pagination={{ pageSize: 15 }}
-                                />
-                            )}
-                        </>
-                    )}
+                                    {!selectedDrawing ? (
+                                        <Empty
+                                            description="Select a drawing to view status or start by adding a panel"
+                                            style={{ padding: '60px' }}
+                                        >
+                                            <Space>
+                                                <Button onClick={handleOpenBatchModal}>Batch Generate</Button>
+                                                <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenPanelModal}>Add First Panel</Button>
+                                            </Space>
+                                        </Empty>
+                                    ) : (
+                                        <DrawingVisualizer panels={panels} loading={loading} />
+                                    )}
+                                </>
+                            )
+                        },
+                        {
+                            key: '2',
+                            label: 'List View',
+                            children: (
+                                <>
+                                    {!selectedDrawing ? (
+                                        <Empty
+                                            description="Select a drawing to view status or start by adding a panel"
+                                            style={{ padding: '60px' }}
+                                        >
+                                            <Space>
+                                                <Button onClick={handleOpenBatchModal}>Batch Generate</Button>
+                                                <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenPanelModal}>Add First Panel</Button>
+                                            </Space>
+                                        </Empty>
+                                    ) : (
+                                        <Table
+                                            dataSource={panels}
+                                            rowKey="id"
+                                            pagination={{
+                                                pageSize: 20,
+                                                showSizeChanger: true,
+                                                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} panels`
+                                            }}
+                                            columns={[
+                                                {
+                                                    title: 'Panel',
+                                                    dataIndex: 'panel_identifier',
+                                                    key: 'panel_identifier',
+                                                    width: 100,
+                                                    fixed: 'left',
+                                                    render: (text) => <Text strong>{text}</Text>
+                                                },
+                                                {
+                                                    title: 'Type',
+                                                    dataIndex: 'panel_type',
+                                                    key: 'panel_type',
+                                                    width: 100,
+                                                },
+                                                {
+                                                    title: 'Dimensions',
+                                                    children: [
+                                                        { title: 'L (m)', dataIndex: 'length', key: 'length', width: 80, render: (v: any) => Number(v).toFixed(2) },
+                                                        { title: 'W (m)', dataIndex: 'width', key: 'width', width: 80, render: (v: any) => Number(v).toFixed(2) },
+                                                        { title: 'D (m)', dataIndex: 'design_depth', key: 'design_depth', width: 80, render: (v: any) => Number(v).toFixed(1) },
+                                                    ]
+                                                },
+                                                {
+                                                    title: 'Area (m²)',
+                                                    key: 'area',
+                                                    width: 100,
+                                                    render: (_, record: any) => {
+                                                        const area = (Number(record.length) * Number(record.design_depth || 0)).toFixed(2)
+                                                        return <Text>{area}</Text>
+                                                    }
+                                                },
+                                                {
+                                                    title: 'Progress (DPR)',
+                                                    key: 'progress',
+                                                    width: 200,
+                                                    render: (_, record) => {
+                                                        const dprs = record.dprRecords || []
+                                                        const consumptions = record.consumptions || []
+                                                        const allLogs = [...consumptions, ...dprs]
+
+                                                        let percent = 0
+                                                        let status = 'active'
+
+                                                        // Calc Logic
+                                                        const hasConcrete = consumptions.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0)
+                                                        const hasRebar = allLogs.some((l: any) => l.cage_id_ref)
+                                                        const maxDepth = Math.max(0, ...allLogs.map((l: any) => Number(l.actual_depth || 0)))
+                                                        const designDepth = Number(record.design_depth || 1)
+
+                                                        if (hasConcrete) {
+                                                            percent = 100
+                                                            status = 'success'
+                                                        } else if (hasRebar) {
+                                                            percent = 90
+                                                        } else if (maxDepth > 0) {
+                                                            const ratio = Math.min((maxDepth / designDepth), 1)
+                                                            percent = Math.round(ratio * 80)
+                                                        }
+
+                                                        return <Progress percent={percent} size="small" status={status as any} />
+                                                    }
+                                                },
+                                                {
+                                                    title: 'Status',
+                                                    key: 'status',
+                                                    width: 120,
+                                                    render: (_, record) => {
+                                                        const dprs = record.dprRecords || []
+                                                        const consumptions = record.consumptions || []
+                                                        const allLogs = [...consumptions, ...dprs]
+
+                                                        const qcIssues: string[] = []
+                                                        allLogs.forEach((log: any) => {
+                                                            if (Number(log.verticality_x) > 0.5) qcIssues.push(`Vx`)
+                                                            if (Number(log.verticality_y) > 0.5) qcIssues.push(`Vy`)
+                                                        })
+                                                        if (qcIssues.length > 0) return <Tag color="red">QC: {qcIssues.join(',')}</Tag>
+
+                                                        const hasConcrete = consumptions.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0)
+                                                        if (hasConcrete) return <Tag color="green">Done</Tag>
+
+                                                        const hasRebar = allLogs.some((l: any) => l.cage_id_ref)
+                                                        if (hasRebar) return <Tag color="blue">Rebar</Tag>
+
+                                                        const hasExcavation = allLogs.some((l: any) => Number(l.actual_depth) > 0)
+                                                        if (hasExcavation) return <Tag color="gold">Digging</Tag>
+
+                                                        return <Tag>Planned</Tag>
+                                                    }
+                                                },
+                                                {
+                                                    title: 'Excavated Depth',
+                                                    key: 'depth_current',
+                                                    width: 120,
+                                                    render: (_, record) => {
+                                                        const allLogs = [...(record.dprRecords || []), ...(record.consumptions || [])]
+                                                        const maxDepth = Math.max(0, ...allLogs.map((l: any) => Number(l.actual_depth || 0)))
+                                                        return maxDepth > 0 ? <Text strong>{maxDepth.toFixed(2)}m</Text> : '-'
+                                                    }
+                                                }
+                                            ]}
+                                        />
+                                    )}
+                                </>
+                            )
+                        }
+                    ]} />
                 </Card>
             </Col>
 
@@ -480,8 +523,6 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                         <Select>
                             <Option value="D-Wall Layout">D-Wall Layout</Option>
                             <Option value="Shop Drawing">Shop Drawing</Option>
-                            <Option value="Guide Wall Layout">Guide Wall Layout</Option>
-                            <Option value="Reinforcement Detail">Reinforcement Detail</Option>
                         </Select>
                     </Form.Item>
                     <Form.Item label="Select Drawing File (PDF/Image/DWG)">
@@ -507,101 +548,246 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                 onOk={() => panelForm.submit()}
                 onCancel={() => setPanelModalVisible(false)}
                 confirmLoading={loading}
+                width={800}
             >
-                <Form form={panelForm} layout="vertical" onFinish={handleAddPanel}>
+                <Form
+                    form={panelForm}
+                    layout="vertical"
+                    onFinish={handleAddPanel}
+                    onValuesChange={onFormValuesChange}
+                >
                     <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="panel_identifier" label="Panel ID/Identifier" rules={[{ required: true }]}>
-                                <Input placeholder="e.g. P1, P-02" />
+                        <Col span={8}>
+                            <Form.Item name="panel_identifier" label="Panel ID" rules={[{ required: true }]}>
+                                <Input placeholder="e.g. P1" />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col span={8}>
                             <Form.Item name="panel_type" label="Panel Type" initialValue="Primary">
                                 <Select>
                                     <Option value="Primary">Primary (P)</Option>
                                     <Option value="Secondary">Secondary (S)</Option>
-                                    <Option value="Corner">Corner (C)</Option>
-                                    <Option value="L-Shape">L-Shape</Option>
-                                    <Option value="T-Shape">T-Shape</Option>
+                                    <Option value="Closing">Closing (C)</Option>
+                                    <Option value="End">End (E)</Option>
+                                    <Option value="Corner">Corner</Option>
                                 </Select>
                             </Form.Item>
                         </Col>
+                        <Col span={8}>
+                            <Statistic
+                                title="Concrete Vol (m³)"
+                                value={calculatedValues.concrete_volume}
+                                precision={2}
+                                valueStyle={{ color: '#3f8600', fontSize: 16 }}
+                            />
+                        </Col>
                     </Row>
-                    <Title level={5} style={{ marginTop: 8, fontSize: 14 }}>Dimensional Details</Title>
+
+                    <Divider orientation="left">Basic Dimensions (IN METERS)</Divider>
+
                     <Row gutter={16}>
                         <Col span={8}>
-                            <Form.Item name="length" label="Length (m)">
+                            <Form.Item name="length" label="Length (L)" rules={[{ required: true }]}>
                                 <Input type="number" step="0.01" placeholder="e.g. 2.8" />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="width" label="Width (mm)">
-                                <Input type="number" placeholder="e.g. 600" />
+                            <Form.Item name="width" label="Width (W)" rules={[{ required: true }]}>
+                                <Input type="number" step="0.01" placeholder="e.g. 0.8" suffix="m" />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="depth" label="Depth (m)">
-                                <Input type="number" step="0.1" placeholder="e.g. 22.5" />
+                            <Form.Item name="depth" label="Depth (D)" rules={[{ required: true }]}>
+                                <Input type="number" step="0.1" placeholder="e.g. 22.0" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="top_rl" label="Top RL">
+                                <Input type="number" step="0.01" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="bottom_rl" label="Bottom RL">
+                                <Input type="number" step="0.01" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Divider orientation="left">Auto-Calculated Quantities</Divider>
+
+                    <Row gutter={16}>
+                        <Col span={8}>
+                            <Form.Item name="concrete_design_qty" label="Concrete (m³)">
+                                <Input readOnly style={{ background: '#f5f5f5' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item name="grabbing_qty" label="Grabbing (m²)">
+                                <Input readOnly style={{ background: '#f5f5f5' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item name="stop_end_area" label="Stop End (m²)">
+                                <Input readOnly style={{ background: '#f5f5f5' }} />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16} style={{ marginBottom: '24px' }}>
+                        <Col span={12}>
+                            <Form.Item name="guide_wall_rm" label="Guide Wall (RM)">
+                                <Input readOnly style={{ background: '#f5f5f5' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="ramming_qty" label="Ramming (m²)">
+                                <Input readOnly style={{ background: '#f5f5f5' }} />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Divider orientation="left">Reinforcement & Anchors</Divider>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="reinforcement_ton" label="Reinforcement in Cage (Ton)">
+                                <Input type="number" step="0.01" placeholder="e.g. 5.9" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="no_of_anchors" label="No. of Anchors">
+                                <Input type="number" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="anchor_length" label="Anchor Length (m)">
+                                <Input type="number" step="0.01" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="anchor_capacity" label="Anchor Capacity (kN)">
+                                <Input type="number" />
                             </Form.Item>
                         </Col>
                     </Row>
                 </Form>
             </Modal>
 
-
-
-            {/* Batch Sequence Modal */}
             <Modal
-                title="Smart Sequence Generator"
+                title="Batch Generate Panels"
                 open={batchModalVisible}
                 onOk={() => batchForm.submit()}
                 onCancel={() => setBatchModalVisible(false)}
                 confirmLoading={loading}
-                width={600}
+                width={800}
             >
-                <div style={{ marginBottom: 16 }}>
-                    <Text type="secondary">Quickly generate multiple panels in a numeric sequence (e.g. P1 to P60).</Text>
-                </div>
-                <Form form={batchForm} layout="vertical" onFinish={handleGenerateBatch} initialValues={{ prefix: 'P', start_no: 1, panel_type: 'Primary' }}>
+                <Form
+                    form={batchForm}
+                    layout="vertical"
+                    onFinish={handleGenerateBatch}
+                    initialValues={{ prefix: 'P', start_no: 1, panel_type: 'Primary' }}
+                    onValuesChange={(changedValues, allValues) => {
+                        if (changedValues.top_rl !== undefined || changedValues.bottom_rl !== undefined) {
+                            const top = Number(allValues.top_rl)
+                            const bottom = Number(allValues.bottom_rl)
+                            if (!isNaN(top) && !isNaN(bottom) && top !== 0 && bottom !== 0) {
+                                batchForm.setFieldsValue({ depth: Number((top - bottom).toFixed(2)) })
+                            }
+                        }
+                    }}
+                >
+                    <div style={{ marginBottom: 16, background: '#e6f7ff', padding: '12px', borderRadius: '4px', border: '1px solid #91d5ff' }}>
+                        <Text strong>Global Settings:</Text> <Text>These dimensions and details will be applied to ALL generated panels in this sequence.</Text>
+                    </div>
                     <Row gutter={16}>
                         <Col span={8}>
-                            <Form.Item name="prefix" label="Prefix" tooltip="e.g. 'P' for P1, P2...">
-                                <Input maxLength={5} />
+                            <Form.Item name="prefix" label="Prefix" tooltip="e.g. 'P' -> P1, P2...">
+                                <Input maxLength={5} placeholder="P" />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="start_no" label="Start From" rules={[{ required: true }]}>
+                            <Form.Item name="start_no" label="Start" rules={[{ required: true }]}>
                                 <Input type="number" min={1} />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="end_no" label="End At" rules={[{ required: true }]}>
+                            <Form.Item name="end_no" label="End" rules={[{ required: true }]}>
                                 <Input type="number" min={1} />
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Form.Item name="panel_type" label="Standard Panel Type">
-                        <Select>
-                            <Option value="Primary">Primary (P)</Option>
-                            <Option value="Secondary">Secondary (S)</Option>
-                            <Option value="Corner">Corner (C)</Option>
-                        </Select>
-                    </Form.Item>
-                    <Divider orientation="left" style={{ fontSize: 13 }}>Standard Dimensions (Auto-filled for all)</Divider>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="panel_type" label="Panel Type">
+                                <Select>
+                                    <Option value="Primary">Primary (P)</Option>
+                                    <Option value="Secondary">Secondary (S)</Option>
+                                    <Option value="Closing">Closing (C)</Option>
+                                    <Option value="End">End (E)</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Divider orientation="left">Common Dimensions</Divider>
+
                     <Row gutter={16}>
                         <Col span={8}>
-                            <Form.Item name="length" label="Length (m)">
-                                <Input type="number" step="0.01" placeholder="e.g. 2.8" />
+                            <Form.Item name="length" label="Length (L)" rules={[{ required: true }]}>
+                                <Input type="number" step="0.01" />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="width" label="Width (mm)">
-                                <Input type="number" placeholder="e.g. 600" />
+                            <Form.Item name="width" label="Width (W)" rules={[{ required: true }]}>
+                                <Input type="number" step="0.01" />
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item name="depth" label="Depth (m)">
-                                <Input type="number" step="0.1" placeholder="e.g. 24.5" />
+                            <Form.Item name="depth" label="Depth (D)" rules={[{ required: true }]}>
+                                <Input type="number" step="0.1" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="top_rl" label="Top RL">
+                                <Input type="number" step="0.01" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="bottom_rl" label="Bottom RL">
+                                <Input type="number" step="0.01" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Divider orientation="left">Common Construction Details</Divider>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="reinforcement_ton" label="Reinf. (Ton)">
+                                <Input type="number" step="0.01" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="no_of_anchors" label="No. of Anchors">
+                                <Input type="number" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="anchor_length" label="Anchor Length (m)">
+                                <Input type="number" step="0.01" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="anchor_capacity" label="Anchor Capacity (kN)">
+                                <Input type="number" />
                             </Form.Item>
                         </Col>
                     </Row>

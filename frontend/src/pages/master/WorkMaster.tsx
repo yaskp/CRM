@@ -8,11 +8,13 @@ import {
     SearchOutlined,
     LayoutOutlined,
     FileTextOutlined,
+    UploadOutlined,
 } from '@ant-design/icons'
 import { workTemplateService } from '../../services/api/workTemplates'
 import { workItemTypeService } from '../../services/api/workItemTypes'
 import { unitService } from '../../services/api/units'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
+import CSVImportModal from '../../components/common/CSVImportModal'
 
 const { TextArea } = Input
 
@@ -23,6 +25,17 @@ const WorkMaster = () => {
     const [workItemTypes, setWorkItemTypes] = useState<any[]>([])
     const [units, setUnits] = useState<any[]>([])
     const [searchText, setSearchText] = useState('')
+    const [allWorkItemTypes, setAllWorkItemTypes] = useState<any[]>([]) // For legacy dropdowns
+    const [templatePagination, setTemplatePagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0
+    })
+    const [typePagination, setTypePagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0
+    })
 
     // Template Modal State
     const [isTemplateModalVisible, setIsTemplateModalVisible] = useState(false)
@@ -33,24 +46,64 @@ const WorkMaster = () => {
     const [isTypeModalVisible, setIsTypeModalVisible] = useState(false)
     const [editingType, setEditingType] = useState<any>(null)
     const [typeForm] = Form.useForm()
+    const [importModalVisible, setImportModalVisible] = useState(false)
 
     useEffect(() => {
-        fetchMetadata()
+        fetchDropdownData()
     }, [])
 
-    const fetchMetadata = async () => {
-        setLoading(true)
+    useEffect(() => {
+        fetchTemplates()
+    }, [templatePagination.current, templatePagination.pageSize, searchText, activeTab])
+
+    useEffect(() => {
+        fetchWorkItemTypes()
+    }, [typePagination.current, typePagination.pageSize, searchText, activeTab])
+
+    const fetchDropdownData = async () => {
         try {
-            const [tempRes, typesRes, unitsRes] = await Promise.all([
-                workTemplateService.getTemplates(),
-                workItemTypeService.getWorkItemTypes(),
-                unitService.getUnits()
+            const [typesRes, unitsRes] = await Promise.all([
+                workItemTypeService.getWorkItemTypes({ limit: 1000 }),
+                unitService.getUnits({ limit: 1000 })
             ])
-            setTemplates(tempRes.templates || [])
-            setWorkItemTypes(typesRes.data || [])
+            setAllWorkItemTypes(typesRes.data || [])
             setUnits(unitsRes.units || unitsRes.data || [])
         } catch (error) {
-            message.error('Failed to fetch data')
+            console.error('Failed to fetch dropdown data', error)
+        }
+    }
+
+    const fetchTemplates = async () => {
+        if (activeTab !== 'templates') return
+        setLoading(true)
+        try {
+            const res = await workTemplateService.getTemplates({
+                page: templatePagination.current,
+                limit: templatePagination.pageSize,
+                search: searchText
+            })
+            setTemplates(res.templates || [])
+            setTemplatePagination(prev => ({ ...prev, total: res.pagination?.total || 0 }))
+        } catch (error) {
+            message.error('Failed to fetch templates')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const fetchWorkItemTypes = async () => {
+        if (activeTab !== 'items') return
+        setLoading(true)
+        try {
+            const res = await workItemTypeService.getWorkItemTypes({
+                page: typePagination.current,
+                limit: typePagination.pageSize,
+                search: searchText
+            })
+            setWorkItemTypes(res.data || [])
+            setTypePagination(prev => ({ ...prev, total: res.pagination?.total || 0 }))
+        } catch (error) {
+            message.error('Failed to fetch work items')
         } finally {
             setLoading(false)
         }
@@ -70,9 +123,14 @@ const WorkMaster = () => {
             setIsTypeModalVisible(false)
             setEditingType(null)
             typeForm.resetFields()
-            fetchMetadata()
-        } catch (error) {
-            console.error(error)
+            fetchWorkItemTypes()
+            fetchDropdownData() // Refresh dropdown list too
+        } catch (error: any) {
+            if (error?.errorFields && error.errorFields.length > 0) {
+                message.error(error.errorFields[0].errors[0]);
+                return;
+            }
+            message.error(error.response?.data?.message || 'Failed to save work item type')
         }
     }
 
@@ -83,7 +141,7 @@ const WorkMaster = () => {
                 is_active: !record.is_active
             })
             message.success(record.is_active ? 'Item deactivated' : 'Item activated')
-            fetchMetadata()
+            fetchWorkItemTypes()
         } catch (error) {
             message.error('Operation failed')
         }
@@ -111,9 +169,13 @@ const WorkMaster = () => {
             setIsTemplateModalVisible(false)
             setEditingTemplate(null)
             templateForm.resetFields()
-            fetchMetadata()
-        } catch (error) {
-            console.error(error)
+            fetchTemplates()
+        } catch (error: any) {
+            if (error?.errorFields && error.errorFields.length > 0) {
+                message.error(error.errorFields[0].errors[0]);
+                return;
+            }
+            message.error(error.response?.data?.message || 'Failed to save template')
         }
     }
 
@@ -124,7 +186,7 @@ const WorkMaster = () => {
                 is_active: !record.is_active
             })
             message.success(record.is_active ? 'Template deactivated' : 'Template activated')
-            fetchMetadata()
+            fetchTemplates()
         } catch (error) {
             message.error('Operation failed')
         }
@@ -200,8 +262,7 @@ const WorkMaster = () => {
         }
     ]
 
-    const filteredTypes = workItemTypes.filter(t => t.name.toLowerCase().includes(searchText.toLowerCase()) || (t.code?.toLowerCase().includes(searchText.toLowerCase())))
-    const filteredTemplates = templates.filter(t => t.name.toLowerCase().includes(searchText.toLowerCase()))
+
 
     return (
         <PageContainer>
@@ -210,29 +271,42 @@ const WorkMaster = () => {
                 subtitle="Manage standardized work items and multi-item templates for Quotations"
                 icon={<LayoutOutlined />}
                 extra={
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => {
-                            if (activeTab === 'templates') {
-                                setEditingTemplate(null)
-                                templateForm.resetFields()
-                                setIsTemplateModalVisible(true)
-                            } else {
-                                setEditingType(null)
-                                typeForm.resetFields()
-                                setIsTypeModalVisible(true)
-                            }
-                        }}
-                    >
-                        {activeTab === 'templates' ? 'Add New Template' : 'Add New Work Item'}
-                    </Button>
+                    <Space>
+                        {activeTab === 'items' && (
+                            <Button
+                                icon={<UploadOutlined />}
+                                onClick={() => setImportModalVisible(true)}
+                            >
+                                Import CSV
+                            </Button>
+                        )}
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => {
+                                if (activeTab === 'templates') {
+                                    setEditingTemplate(null)
+                                    templateForm.resetFields()
+                                    setIsTemplateModalVisible(true)
+                                } else {
+                                    setEditingType(null)
+                                    typeForm.resetFields()
+                                    setIsTypeModalVisible(true)
+                                }
+                            }}
+                        >
+                            {activeTab === 'templates' ? 'Add New Template' : 'Add New Work Item'}
+                        </Button>
+                    </Space>
                 }
             />
 
             <Tabs
                 activeKey={activeTab}
-                onChange={setActiveTab}
+                onChange={(key) => {
+                    setActiveTab(key)
+                    setSearchText('') // Clear search when switching tabs
+                }}
                 items={[
                     {
                         key: 'templates',
@@ -240,9 +314,29 @@ const WorkMaster = () => {
                         children: (
                             <Card style={{ marginTop: 16 }}>
                                 <div style={{ marginBottom: 16 }}>
-                                    <Input placeholder="Search templates..." prefix={<SearchOutlined />} onChange={e => setSearchText(e.target.value)} style={{ width: 300 }} />
+                                    <Input
+                                        placeholder="Search templates..."
+                                        prefix={<SearchOutlined />}
+                                        value={searchText}
+                                        onChange={e => {
+                                            setSearchText(e.target.value)
+                                            setTemplatePagination(prev => ({ ...prev, current: 1 }))
+                                        }}
+                                        style={{ width: 300 }}
+                                    />
                                 </div>
-                                <Table columns={templateColumns} dataSource={filteredTemplates} rowKey="id" loading={loading} />
+                                <Table
+                                    columns={templateColumns}
+                                    dataSource={templates}
+                                    rowKey="id"
+                                    loading={loading}
+                                    pagination={templatePagination}
+                                    onChange={(p) => setTemplatePagination(prev => ({
+                                        ...prev,
+                                        current: p.current || 1,
+                                        pageSize: p.pageSize || 10
+                                    }))}
+                                />
                             </Card>
                         )
                     },
@@ -252,9 +346,29 @@ const WorkMaster = () => {
                         children: (
                             <Card style={{ marginTop: 16 }}>
                                 <div style={{ marginBottom: 16 }}>
-                                    <Input placeholder="Search work items..." prefix={<SearchOutlined />} onChange={e => setSearchText(e.target.value)} style={{ width: 300 }} />
+                                    <Input
+                                        placeholder="Search work items..."
+                                        prefix={<SearchOutlined />}
+                                        value={searchText}
+                                        onChange={e => {
+                                            setSearchText(e.target.value)
+                                            setTypePagination(prev => ({ ...prev, current: 1 }))
+                                        }}
+                                        style={{ width: 300 }}
+                                    />
                                 </div>
-                                <Table columns={typeColumns} dataSource={filteredTypes} rowKey="id" loading={loading} />
+                                <Table
+                                    columns={typeColumns}
+                                    dataSource={workItemTypes}
+                                    rowKey="id"
+                                    loading={loading}
+                                    pagination={typePagination}
+                                    onChange={(p) => setTypePagination(prev => ({
+                                        ...prev,
+                                        current: p.current || 1,
+                                        pageSize: p.pageSize || 10
+                                    }))}
+                                />
                             </Card>
                         )
                     }
@@ -292,7 +406,7 @@ const WorkMaster = () => {
                                             <Col span={9}>
                                                 <Form.Item {...restField} name={[name, 'work_item_type_id']} rules={[{ required: true }]} label={<span style={{ fontSize: 12 }}>Work Type</span>}>
                                                     <Select placeholder="Select Type" showSearch optionFilterProp="children" onChange={(val) => {
-                                                        const type = workItemTypes.find(t => t.id === val);
+                                                        const type = allWorkItemTypes.find(t => t.id === val);
                                                         if (type) {
                                                             const currentItems = templateForm.getFieldValue('items');
                                                             currentItems[name].unit = type.uom;
@@ -300,14 +414,14 @@ const WorkMaster = () => {
                                                             templateForm.setFieldsValue({ items: currentItems });
                                                         }
                                                     }}
-                                                        dropdownRender={(menu) => (
+                                                        popupRender={(menu) => (
                                                             <>
                                                                 {menu}
                                                                 <Divider style={{ margin: '4px 0' }} />
                                                                 <Button type="text" icon={<PlusOutlined />} onClick={() => setIsTypeModalVisible(true)} block style={{ textAlign: 'left', color: '#14b8a6' }}>Add New Type</Button>
                                                             </>
                                                         )}>
-                                                        {workItemTypes.map(t => <Select.Option key={t.id} value={t.id}>{t.name}</Select.Option>)}
+                                                        {allWorkItemTypes.map(t => <Select.Option key={t.id} value={t.id}>{t.name}</Select.Option>)}
                                                     </Select>
                                                 </Form.Item>
                                             </Col>
@@ -355,6 +469,25 @@ const WorkMaster = () => {
                     <Form.Item name="description" label="General Description"><TextArea rows={3} /></Form.Item>
                 </Form>
             </Modal>
+
+            {/* CSV IMPORT MODAL */}
+            <CSVImportModal
+                visible={importModalVisible}
+                onCancel={() => setImportModalVisible(false)}
+                onSuccess={() => { fetchWorkItemTypes(); fetchDropdownData(); }}
+                title="Work Item Types"
+                apiEndpoint="http://localhost:5000/api/work-item-types/import"
+                columns={[
+                    { title: 'Name', dataIndex: 'name', key: 'name', required: true },
+                    { title: 'Code', dataIndex: 'code', key: 'code' },
+                    { title: 'UOM', dataIndex: 'uom', key: 'uom', required: true },
+                    { title: 'Description', dataIndex: 'description', key: 'description' },
+                ]}
+                templateData={[
+                    { name: 'Guide Wall', code: 'GW', uom: 'RMT', description: 'Construction of guide wall' },
+                    { name: 'D-Wall Excavation', code: 'DWE', uom: 'SQM', description: 'Excavation of diaphragm wall panels' },
+                ]}
+            />
         </PageContainer>
     )
 }

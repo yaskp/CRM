@@ -177,7 +177,7 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                 open={modalVisible}
                 onOk={() => form.submit()}
                 onCancel={() => setModalVisible(false)}
-                destroyOnClose
+                destroyOnHidden
             >
                 <Form form={form} layout="vertical" onFinish={onFinish}>
                     <Form.Item name="name" label="Full Name" rules={[{ required: true }]}>

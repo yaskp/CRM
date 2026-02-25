@@ -177,9 +177,9 @@ const DprPrintTemplate: React.FC<DprPrintTemplateProps> = ({
                                                             {(() => {
                                                                 if (safeSelectedPanels.length === 0) return '-';
                                                                 const totalLength = safeSelectedPanels.reduce((s, p) => {
-                                                                    let d = { length: 0 };
+                                                                    let d: any = {};
                                                                     try { d = typeof p.coordinates_json === 'string' ? JSON.parse(p.coordinates_json) : (p.coordinates_json || {}) } catch (e) { }
-                                                                    return s + Number(d.length || 0)
+                                                                    return s + Number(p.length || d.length || 0)
                                                                 }, 0);
                                                                 const depth = safeSelectedPanels[0]?.depth || '-';
                                                                 return `L:${totalLength.toFixed(2)} D:${depth}`;

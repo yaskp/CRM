@@ -36,10 +36,13 @@ const generateRequisitionNumber = async (): Promise<string> => {
     return `${prefix}${sequence.toString().padStart(4, '0')}`
 }
 
+import { getPagination, getPaginationData } from '../utils/pagination'
+
 // Get all requisitions
 export const getRequisitions = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { project_id, status, priority, from_date, to_date } = req.query
+        const { project_id, status, priority, from_date, to_date, page, limit } = req.query
+        const { limit: l, offset, page: p } = getPagination({ page: page as any, limit: limit as any })
 
         const where: any = {}
 
@@ -53,7 +56,7 @@ export const getRequisitions = async (req: Request, res: Response, next: NextFun
             if (to_date) where.requested_date[Op.lte] = new Date(to_date as string)
         }
 
-        const requisitions = await MaterialRequisition.findAll({
+        const { count, rows: requisitions } = await MaterialRequisition.findAndCountAll({
             where,
             include: [
                 {
@@ -83,12 +86,15 @@ export const getRequisitions = async (req: Request, res: Response, next: NextFun
                     ],
                 },
             ],
+            limit: l,
+            offset,
             order: [['created_at', 'DESC']],
         })
 
         res.json({
             success: true,
-            data: requisitions,
+            requisitions,
+            pagination: getPaginationData(count, p, l)
         })
     } catch (error) {
         next(error)
@@ -149,14 +155,16 @@ export const createRequisition = async (req: AuthRequest, res: Response, next: N
     try {
         const {
             project_id,
-            from_warehouse_id,
+            requested_by,
             required_date,
             priority,
+            purpose,
+            remarks,
             items,
         } = req.body
 
-        if (!project_id || !from_warehouse_id || !items || items.length === 0) {
-            throw createError('Project ID, Warehouse ID and items are required', 400)
+        if (!project_id || !items || items.length === 0) {
+            throw createError('Project ID and items are required', 400)
         }
 
         // Generate requisition number
@@ -166,11 +174,12 @@ export const createRequisition = async (req: AuthRequest, res: Response, next: N
         const requisition = await MaterialRequisition.create({
             requisition_number,
             project_id,
-            from_warehouse_id,
             requested_by: req.user!.id,
             requested_date: new Date(),
             required_date: required_date ? new Date(required_date) : undefined,
             priority: priority || 'medium',
+            purpose: purpose || '',
+            remarks: remarks || '',
             status: 'pending',
         })
 
@@ -179,11 +188,11 @@ export const createRequisition = async (req: AuthRequest, res: Response, next: N
             requisition_id: requisition.id,
             material_id: item.material_id,
             requested_quantity: item.requested_quantity,
-            unit: item.unit || 'nos',
+            unit: Array.isArray(item.unit) ? item.unit[0] : item.unit || 'nos',
+            estimated_rate: item.estimated_rate,
+            specification: item.specification,
+            remarks: item.remarks,
             issued_quantity: 0,
-            building_id: item.building_id,
-            floor_id: item.floor_id,
-            zone_id: item.zone_id,
         }))
 
         await MaterialRequisitionItem.bulkCreate(requisitionItems)

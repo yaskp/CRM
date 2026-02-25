@@ -28,6 +28,7 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
       client_scope,
       contractor_scope,
       terms_conditions,
+      scope_matrix,
       items
     } = req.body
 
@@ -90,6 +91,7 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
         client_scope,
         contractor_scope,
         terms_conditions,
+        scope_matrix,
         status: 'draft',
         created_by: req.user!.id,
       }, { transaction: t })
@@ -136,18 +138,20 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
 
 export const getQuotations = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { lead_id, status, search, page = 1, limit = 10 } = req.query
+    const { lead_id, project_id, status, search, page = 1, limit = 10 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
 
     const where: any = {}
     if (lead_id) where.lead_id = lead_id
+    if (project_id) where.project_id = project_id
     if (status) where.status = status
 
     if (search) {
       where[Op.or] = [
         { quotation_number: { [Op.like]: `%${search}%` } },
         { '$lead.name$': { [Op.like]: `%${search}%` } },
-        { '$lead.company_name$': { [Op.like]: `%${search}%` } }
+        { '$lead.company_name$': { [Op.like]: `%${search}%` } },
+        { '$project.name$': { [Op.like]: `%${search}%` } }
       ]
     }
 
@@ -166,6 +170,10 @@ export const getQuotations = async (req: AuthRequest, res: Response, next: NextF
               attributes: ['id', 'name', 'project_code'],
             },
           ],
+        },
+        {
+          association: 'project',
+          attributes: ['id', 'name', 'project_code'],
         },
         {
           association: 'creator',
@@ -249,7 +257,8 @@ export const updateQuotation = async (req: AuthRequest, res: Response, next: Nex
       terms_conditions,
       status,
       items,
-      billing_unit_id
+      billing_unit_id,
+      scope_matrix
     } = req.body
 
     const quotation = await Quotation.findByPk(id)
@@ -283,6 +292,7 @@ export const updateQuotation = async (req: AuthRequest, res: Response, next: Nex
         client_scope,
         contractor_scope,
         terms_conditions,
+        scope_matrix,
         status,
       }, { transaction: t })
 
@@ -363,7 +373,7 @@ export const downloadPdf = async (req: AuthRequest, res: Response, next: NextFun
       include: [
         {
           association: 'lead',
-          attributes: ['name', 'company_name', 'address', 'phone', 'email'],
+          attributes: ['name', 'company_name', 'address', 'city', 'state', 'pincode', 'phone', 'email'],
         },
         {
           association: 'items',
@@ -437,6 +447,7 @@ export const reviseQuotation = async (req: AuthRequest, res: Response, next: Nex
       client_scope: original.client_scope,
       contractor_scope: original.contractor_scope,
       terms_conditions: original.terms_conditions,
+      scope_matrix: original.scope_matrix,
       status: 'draft', // Revision starts as draft
       created_by: req.user!.id,
     }, { transaction })

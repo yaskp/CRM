@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, InputNumber, Typography, Divider, Modal, Switch, Tooltip } from 'antd'
+import { Form, Input, Button, Card, message, Select, InputNumber, Typography, Divider, Modal, Switch } from 'antd'
 import {
     TeamOutlined,
     UserOutlined,
@@ -153,7 +153,7 @@ const ClientForm = () => {
                                     return typeof label === 'string' && label.toLowerCase().includes(input.toLowerCase())
                                 }}
                                 suffixIcon={<ApartmentOutlined style={prefixIconStyle} />}
-                                dropdownRender={(menu) => (
+                                popupRender={(menu) => (
                                     <>
                                         {menu}
                                         <Divider style={{ margin: '8px 0' }} />
@@ -375,7 +375,7 @@ const ClientForm = () => {
                                 size="large"
                                 placeholder="0.00"
                                 formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                parser={value => value!.replace(/\₹\s?|(,*)/g, '')}
+                                parser={value => value!.replace(/\₹\s?|(,*)/g, '') as any}
                                 min={0}
                             />
                         </Form.Item>
@@ -421,9 +421,9 @@ const ClientForm = () => {
                     <Form.List name="contacts">
                         {(fields, { add, remove }) => (
                             <>
-                                {fields.map((field, index) => (
+                                {fields.map(({ key, name, ...restField }, index) => (
                                     <Card
-                                        key={field.key}
+                                        key={key}
                                         size="small"
                                         title={`Contact Person ${index + 1}`}
                                         extra={
@@ -431,7 +431,7 @@ const ClientForm = () => {
                                                 type="text"
                                                 danger
                                                 icon={<DeleteOutlined />}
-                                                onClick={() => remove(field.name)}
+                                                onClick={() => remove(name)}
                                             >
                                                 Remove
                                             </Button>
@@ -444,9 +444,9 @@ const ClientForm = () => {
                                     >
                                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
                                             <Form.Item
-                                                {...field}
+                                                {...restField}
                                                 label={<span style={getLabelStyle()}>Contact Name</span>}
-                                                name={[field.name, 'contact_name']}
+                                                name={[name, 'contact_name']}
                                                 rules={[{ required: true, message: 'Contact name is required' }]}
                                                 style={{ marginBottom: 0 }}
                                             >
@@ -458,9 +458,9 @@ const ClientForm = () => {
                                             </Form.Item>
 
                                             <Form.Item
-                                                {...field}
+                                                {...restField}
                                                 label={<span style={getLabelStyle()}>Designation</span>}
-                                                name={[field.name, 'designation']}
+                                                name={[name, 'designation']}
                                                 style={{ marginBottom: 0 }}
                                             >
                                                 <Input
@@ -471,9 +471,9 @@ const ClientForm = () => {
                                             </Form.Item>
 
                                             <Form.Item
-                                                {...field}
+                                                {...restField}
                                                 label={<span style={getLabelStyle()}>Email</span>}
-                                                name={[field.name, 'email']}
+                                                name={[name, 'email']}
                                                 rules={[{ type: 'email', message: 'Invalid email format' }]}
                                                 style={{ marginBottom: 0 }}
                                             >
@@ -485,9 +485,9 @@ const ClientForm = () => {
                                             </Form.Item>
 
                                             <Form.Item
-                                                {...field}
+                                                {...restField}
                                                 label={<span style={getLabelStyle()}>Phone</span>}
-                                                name={[field.name, 'phone']}
+                                                name={[name, 'phone']}
                                                 style={{ marginBottom: 0 }}
                                             >
                                                 <Input

@@ -19,6 +19,7 @@ interface LeadAttributes {
   layout_url?: string
   section_url?: string
   remarks?: string
+  pincode?: string
   status: 'new' | 'contacted' | 'quoted' | 'follow_up' | 'converted' | 'lost'
   created_at?: Date
 }
@@ -43,6 +44,7 @@ class Lead extends Model<LeadAttributes, LeadCreationAttributes> implements Lead
   public layout_url?: string
   public section_url?: string
   public remarks?: string
+  public pincode?: string
   public status!: LeadAttributes['status']
   public readonly created_at!: Date
   public readonly project?: any
@@ -102,6 +104,10 @@ Lead.init(
     },
     state_code: {
       type: DataTypes.STRING(2),
+      allowNull: true,
+    },
+    pincode: {
+      type: DataTypes.STRING(20),
       allowNull: true,
     },
     source: {

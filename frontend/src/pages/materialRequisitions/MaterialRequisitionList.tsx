@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Card, Tag, Input, Select, DatePicker, Space, message, Modal, InputNumber, Row, Col, Statistic, Typography } from 'antd'
+import { Table, Button, Card, Tag, Input, Select, Space, message, Modal, InputNumber, Row, Col, Statistic, Typography } from 'antd'
 import {
     PlusOutlined,
     EyeOutlined,
     EditOutlined,
     CheckOutlined,
     CloseOutlined,
-    SearchOutlined,
     ContainerOutlined,
     ClockCircleOutlined,
     CheckCircleOutlined,
@@ -20,7 +19,6 @@ import { PageContainer, PageHeader } from '../../components/common/PremiumCompon
 import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
-const { Search } = Input
 const { Option } = Select
 const { Text } = Typography
 
@@ -30,6 +28,9 @@ const MaterialRequisitionList = () => {
     const { user } = useAuth()
     const [requisitions, setRequisitions] = useState<MaterialRequisition[]>([])
     const [loading, setLoading] = useState(false)
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
+    const [total, setTotal] = useState(0)
     const [filters, setFilters] = useState({
         status: '',
         priority: '',
@@ -38,16 +39,17 @@ const MaterialRequisitionList = () => {
     const navigate = useNavigate()
 
     useEffect(() => {
-        fetchRequisitions()
-    }, [filters])
+        fetchRequisitions(currentPage, pageSize)
+    }, [filters, currentPage, pageSize])
 
-    const fetchRequisitions = async () => {
+    const fetchRequisitions = async (page = currentPage, limit = pageSize) => {
         setLoading(true)
         try {
-            const params: any = { ...filters }
+            const params: any = { ...filters, page, limit }
             if (params.project_id) params.project_id = Number(params.project_id)
             const response = await materialRequisitionService.getRequisitions(params)
-            setRequisitions(response.requisitions || response.data || [])
+            setRequisitions(response.requisitions || [])
+            setTotal(response.pagination?.total || 0)
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch requisitions')
         } finally {
@@ -333,7 +335,10 @@ const MaterialRequisitionList = () => {
                             style={{ width: 180, ...largeInputStyle }}
                             size="large"
                             allowClear
-                            onChange={(value) => setFilters({ ...filters, status: value || '' })}
+                            onChange={(value) => {
+                                setFilters({ ...filters, status: value || '' })
+                                setCurrentPage(1)
+                            }}
                             suffixIcon={<FilterOutlined style={prefixIconStyle} />}
                         >
                             <Option value="draft">📁 Draft</Option>
@@ -349,7 +354,10 @@ const MaterialRequisitionList = () => {
                             style={{ width: 150, ...largeInputStyle }}
                             size="large"
                             allowClear
-                            onChange={(value) => setFilters({ ...filters, priority: value || '' })}
+                            onChange={(value) => {
+                                setFilters({ ...filters, priority: value || '' })
+                                setCurrentPage(1)
+                            }}
                         >
                             <Option value="low">🔹 Low</Option>
                             <Option value="medium">🔸 Medium</Option>
@@ -357,7 +365,7 @@ const MaterialRequisitionList = () => {
                             <Option value="urgent">⚡ Urgent</Option>
                         </Select>
 
-                        <Button onClick={fetchRequisitions} size="large">Refresh</Button>
+                        <Button onClick={() => fetchRequisitions(1)} size="large">Refresh</Button>
                     </Space>
 
                     <Button
@@ -380,9 +388,15 @@ const MaterialRequisitionList = () => {
                     rowKey="id"
                     scroll={{ x: 1300 }}
                     pagination={{
-                        pageSize: 10,
+                        current: currentPage,
+                        pageSize: pageSize,
+                        total: total,
                         showSizeChanger: true,
                         showTotal: (total) => `Total ${total} requisitions`,
+                        onChange: (page, size) => {
+                            setCurrentPage(page)
+                            setPageSize(size)
+                        }
                     }}
                 />
             </Card>

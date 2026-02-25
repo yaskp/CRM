@@ -2,8 +2,8 @@
 import api from './auth'
 
 export const unitService = {
-    getUnits: async () => {
-        const response = await api.get('/units')
+    getUnits: async (params?: { search?: string; page?: number; limit?: number }) => {
+        const response = await api.get('/units', { params })
         return response.data
     },
 

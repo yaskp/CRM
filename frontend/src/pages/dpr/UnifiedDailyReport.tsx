@@ -26,6 +26,8 @@ import { projectHierarchyService } from '../../services/api/projectHierarchy'
 import { inventoryService } from '../../services/api/inventory'
 import { boqService } from '../../services/api/boqs'
 import { workItemTypeService } from '../../services/api/workItemTypes'
+import { userService } from '../../services/api/users'
+import { equipmentService } from '../../services/api/equipment'
 import api from '../../services/api/auth'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
@@ -58,7 +60,10 @@ interface MaterialItem {
 
 interface ManpowerItem {
     tempId?: string
-    worker_type: string
+    worker_type?: string  // For workers
+    user_id?: number      // For staff
+    staff_name?: string   // For staff
+    staff_role?: string   // For staff
     count: number
     hajri: number
     is_staff?: boolean
@@ -66,9 +71,13 @@ interface ManpowerItem {
 
 interface MachineryItem {
     tempId?: string
-    name: string
+    equipment_id?: number           // From Equipment Master
+    equipment_name?: string          // From Equipment Master
+    equipment_type?: string          // From Equipment Master
+    registration_number?: string     // From Equipment Master
+    name?: string                    // Legacy field for manual entry
     count: number
-    hours?: number
+    hours: number
 }
 
 interface RmcItem {
@@ -81,6 +90,21 @@ interface RmcItem {
     out_time?: string
     remarks?: string
     drawing_panel_id?: number
+}
+
+interface PanelWorkLog {
+    tempId?: string
+    drawing_panel_id?: number
+    panel_identifier?: string
+    grabbing_depth?: number
+    grabbing_sqm?: number
+    grabbing_start_time?: string
+    grabbing_end_time?: string
+    concrete_start_time?: string
+    concrete_end_time?: string
+    concrete_grade?: string
+    theoretical_concrete_qty?: number
+    cage_id_ref?: string
 }
 
 const UnifiedDailyReport = () => {
@@ -124,6 +148,9 @@ const UnifiedDailyReport = () => {
     const [photoList, setPhotoList] = useState<UploadFile[]>([])
     const [selectedWorkType, setSelectedWorkType] = useState<any>(null)
     const [rmcLogs, setRmcLogs] = useState<RmcItem[]>([])
+    const [panelWorkLogs, setPanelWorkLogs] = useState<PanelWorkLog[]>([])
+    const [staffUsers, setStaffUsers] = useState<any[]>([])
+    const [equipmentList, setEquipmentList] = useState<any[]>([])
 
     const navigate = useNavigate()
 
@@ -249,19 +276,23 @@ const UnifiedDailyReport = () => {
 
     const fetchMetadata = async () => {
         try {
-            const [matRes, whRes, projRes, witRes, workerRes] = await Promise.all([
-                materialService.getMaterials(),
-                warehouseService.getWarehouses(),
-                projectService.getProjects(),
-                workItemTypeService.getWorkItemTypes(),
-                storeTransactionService.getWorkerCategories()
+            const [matRes, whRes, projRes, witRes, workerRes, staffRes, equipRes] = await Promise.all([
+                materialService.getMaterials({ limit: 999 }),
+                warehouseService.getWarehouses({ limit: 999 }),
+                projectService.getProjects({ limit: 999 }),
+                workItemTypeService.getWorkItemTypes({ limit: 999 }),
+                storeTransactionService.getWorkerCategories(),
+                userService.getUsers({ limit: 1000 }),
+                equipmentService.getEquipment({ limit: 1000 })
             ])
             setMaterials(matRes.materials || [])
             setFilteredMaterials(matRes.materials || [])
             setWarehouses(whRes.warehouses || [])
             setProjects(projRes.projects || [])
-            setWorkItemTypes(witRes.data || [])
+            setWorkItemTypes(witRes.data || witRes.workItemTypes || [])
             setWorkerCategories(workerRes.categories || [])
+            setStaffUsers(staffRes.users || [])
+            setEquipmentList(equipRes.equipment || [])
         } catch (error) {
             antdMessage.error('Failed to load metadata')
         }
@@ -308,6 +339,20 @@ const UnifiedDailyReport = () => {
             setFilteredMaterials([])
         }
     }
+
+    // Derive BOQ-linked work item type IDs from loaded BOQ items
+    const boqWorkTypeIds: Set<number> = new Set(
+        boqItems
+            .map((bi: any) => bi.work_item_type_id)
+            .filter(Boolean)
+    )
+    // If a project is selected and BOQ is loaded, split work types into BOQ-linked vs extra
+    const boqLinkedWorkTypes = boqItems.length > 0
+        ? workItemTypes.filter(w => boqWorkTypeIds.has(w.id))
+        : workItemTypes  // no BOQ loaded yet — show all
+    const extraWorkTypes = boqItems.length > 0
+        ? workItemTypes.filter(w => !boqWorkTypeIds.has(w.id))
+        : []
 
     const handleProjectChange = async (projectId: number) => {
         try {
@@ -371,13 +416,62 @@ const UnifiedDailyReport = () => {
         const selected = panels.filter(p => ids.includes(p.id))
         setSelectedPanels(selected)
 
+        // Auto-populate panel work logs for all selected panels
         if (selected.length > 0) {
-            // Default to first selected panel if no complex logic needed
+            const newPanelLogs: PanelWorkLog[] = selected.map(panel => {
+                // Extract dimensions from panel
+                let dims: any = { depth: 0, height: 0, length: 0 }
+                try {
+                    dims = typeof panel.coordinates_json === 'string'
+                        ? JSON.parse(panel.coordinates_json)
+                        : (panel.coordinates_json || {})
+                } catch (e) { }
+
+                const panelDepth = Number(panel.design_depth || panel.depth || dims.depth || dims.height || 0)
+                const length = Number(panel.length || dims.length || 0)
+                const grabbingSqm = Number(panel.grabbing_qty) || (length * panelDepth)
+
+                return {
+                    tempId: `panel-${panel.id}-${Date.now()}`,
+                    drawing_panel_id: panel.id,
+                    panel_identifier: panel.panel_identifier,
+                    grabbing_depth: panelDepth,
+                    grabbing_sqm: grabbingSqm,
+                    grabbing_start_time: undefined,
+                    grabbing_end_time: undefined,
+                    concrete_start_time: undefined,
+                    concrete_end_time: undefined,
+                    concrete_grade: undefined,
+                    theoretical_concrete_qty: Number(panel.concrete_design_qty) || Number(panel.theoretical_concrete_volume) || undefined,
+                    cage_id_ref: undefined
+                }
+            })
+
+            setPanelWorkLogs(newPanelLogs)
+
+            // Also set form values for backward compatibility
             const currentPrimary = selected[0]
-            if (currentPrimary && currentPrimary.theoretical_concrete_volume) {
-                // Setting other fields is fine, just don't set 'drawing_panel_id' manually here
-                form.setFieldsValue({ theoretical_concrete_qty: currentPrimary.theoretical_concrete_volume })
+            let dims: any = { depth: 0, height: 0 }
+            try {
+                dims = typeof currentPrimary.coordinates_json === 'string'
+                    ? JSON.parse(currentPrimary.coordinates_json)
+                    : (currentPrimary.coordinates_json || {})
+            } catch (e) { }
+
+            const panelDepth = Number(currentPrimary.design_depth || currentPrimary.depth || dims.depth || dims.height || 0)
+
+            const updates: any = {}
+            if (currentPrimary?.concrete_design_qty || currentPrimary?.theoretical_concrete_volume) {
+                updates.theoretical_concrete_qty = Number(currentPrimary.concrete_design_qty) || Number(currentPrimary.theoretical_concrete_volume)
             }
+            if (panelDepth > 0) {
+                updates.grabbing_depth = panelDepth
+            }
+
+            form.setFieldsValue(updates)
+        } else {
+            // Clear panel work logs when no panels selected
+            setPanelWorkLogs([])
         }
     }
 
@@ -545,6 +639,85 @@ const UnifiedDailyReport = () => {
         setRmcLogs(newLogs)
     }
 
+    // Panel Work Log Functions
+    const addPanelWorkLog = () => {
+        setPanelWorkLogs([...panelWorkLogs, {
+            tempId: `panel-${Date.now()}`,
+            drawing_panel_id: undefined,
+            panel_identifier: '',
+            grabbing_depth: 0,
+            grabbing_sqm: 0
+        }])
+    }
+
+    const removePanelWorkLog = (index: number) => {
+        const removedLog = panelWorkLogs[index]
+        const newLogs = panelWorkLogs.filter((_, i) => i !== index)
+        setPanelWorkLogs(newLogs)
+
+        // Also remove from selectedPanels and form multi-select
+        if (removedLog.drawing_panel_id) {
+            const newSelectedPanels = selectedPanels.filter(p => p.id !== removedLog.drawing_panel_id)
+            setSelectedPanels(newSelectedPanels)
+
+            // Update form field
+            const newPanelIds = newSelectedPanels.map(p => p.id)
+            form.setFieldsValue({ drawing_panel_id: newPanelIds })
+        }
+    }
+
+    const updatePanelWorkLog = (index: number, field: string, value: any) => {
+        const newLogs = [...panelWorkLogs]
+        newLogs[index] = { ...newLogs[index], [field]: value }
+
+        // Auto-calculate grabbing_sqm when panel or depth changes
+        if (field === 'drawing_panel_id' || field === 'grabbing_depth') {
+            const log = newLogs[index]
+            if (log.drawing_panel_id && log.grabbing_depth) {
+                const panel = panels.find(p => p.id === log.drawing_panel_id)
+                if (panel) {
+                    let dims = { length: 0 }
+                    try {
+                        dims = typeof panel.coordinates_json === 'string'
+                            ? JSON.parse(panel.coordinates_json)
+                            : (panel.coordinates_json || {})
+                    } catch (e) { }
+                    const length = Number(panel.length || dims.length || 0)
+                    const panelDepth = Number(panel.design_depth || panel.depth || dims.depth || dims.height || 0)
+
+                    if (Number(log.grabbing_depth) === panelDepth && panel.grabbing_qty) {
+                        newLogs[index].grabbing_sqm = Number(panel.grabbing_qty)
+                    } else {
+                        newLogs[index].grabbing_sqm = length * Number(log.grabbing_depth)
+                    }
+                }
+            }
+
+            // Auto-set grabbing depth from panel depth when panel is selected
+            if (field === 'drawing_panel_id' && value) {
+                const panel = panels.find(p => p.id === value)
+                if (panel) {
+                    let dims: any = { depth: 0, height: 0, length: 0 }
+                    try {
+                        dims = typeof panel.coordinates_json === 'string'
+                            ? JSON.parse(panel.coordinates_json)
+                            : (panel.coordinates_json || {})
+                    } catch (e) { }
+                    const panelDepth = Number(panel.design_depth || panel.depth || dims.depth || dims.height || 0)
+                    if (panelDepth > 0) {
+                        newLogs[index].grabbing_depth = panelDepth
+                        // Recalculate SQM
+                        const length = Number(panel.length || dims.length || 0)
+                        newLogs[index].grabbing_sqm = Number(panel.grabbing_qty) || (length * panelDepth)
+                    }
+                    newLogs[index].panel_identifier = panel.panel_identifier
+                }
+            }
+        }
+
+        setPanelWorkLogs(newLogs)
+    }
+
     const calculateSummary = () => {
         const totalMaterialCost = items.reduce((sum, item) => {
             const material = materials.find(m => m.id === item.material_id)
@@ -591,26 +764,28 @@ const UnifiedDailyReport = () => {
             manpower_data: JSON.stringify(manpower),
             progress_photos: JSON.stringify(photoList.map(f => f.url || f.response?.url)),
             rmc_logs: rmcLogs,
-            // D-Wall Tech Fields
-            actual_depth: values.actual_depth,
-            verticality_x: values.verticality_x,
-            verticality_y: values.verticality_y,
-            slurry_density: values.slurry_density,
-            slurry_viscosity: values.slurry_viscosity,
-            slurry_sand_content: values.slurry_sand_content,
-            cage_id_ref: values.cage_id_ref,
-            start_time: values.start_time ? values.start_time.format('HH:mm') : undefined,
-            end_time: values.end_time ? values.end_time.format('HH:mm') : undefined,
-            slump_flow: values.slump_flow,
-            tremie_pipe_count: values.tremie_pipe_count,
-            theoretical_concrete_qty: values.theoretical_concrete_qty,
-            grabbing_start_time: values.grabbing_start_time ? values.grabbing_start_time.format('HH:mm') : undefined,
-            grabbing_end_time: values.grabbing_end_time ? values.grabbing_end_time.format('HH:mm') : undefined,
-            concrete_grade: values.concrete_grade,
-            grabbing_depth: values.grabbing_depth,
-            grabbing_sqm: values.grabbing_sqm,
-            concreting_depth: values.concreting_depth,
-            concreting_sqm: values.concreting_sqm,
+            // D-Wall Panel Work Logs (Panel-wise)
+            panel_work_logs: panelWorkLogs,
+            // Legacy D-Wall fields - set to null
+            actual_depth: null,
+            verticality_x: null,
+            verticality_y: null,
+            slurry_density: null,
+            slurry_viscosity: null,
+            slurry_sand_content: null,
+            cage_id_ref: null,
+            start_time: null,
+            end_time: null,
+            slump_flow: null,
+            tremie_pipe_count: null,
+            theoretical_concrete_qty: null,
+            grabbing_start_time: null,
+            grabbing_end_time: null,
+            concrete_grade: null,
+            grabbing_depth: null,
+            grabbing_sqm: null,
+            concreting_depth: null,
+            concreting_sqm: null,
             machinery_data: JSON.stringify(machinery),
             drawing_panel_id: (selectedPanels.length > 0 ? selectedPanels[0]?.id : undefined) || (values.drawing_panel_id?.[0]),
             items: items.map(it => ({
@@ -716,8 +891,25 @@ const UnifiedDailyReport = () => {
                     value={val}
                     onChange={v => updateItem(index, 'work_item_type_id', v)}
                     size="small"
+                    showSearch
+                    optionFilterProp="label"
                 >
-                    {workItemTypes.map(w => (
+                    {boqLinkedWorkTypes.length > 0 && (
+                        <Select.OptGroup label="📋 BOQ Work Types">
+                            {boqLinkedWorkTypes.map(w => (
+                                <Option key={w.id} value={w.id}>{w.name}</Option>
+                            ))}
+                        </Select.OptGroup>
+                    )}
+                    {extraWorkTypes.length > 0 && (
+                        <Select.OptGroup label="➕ Other / Extra Work">
+                            {extraWorkTypes.map(w => (
+                                <Option key={w.id} value={w.id}>{w.name}</Option>
+                            ))}
+                        </Select.OptGroup>
+                    )}
+                    {/* When no project selected — show all flat */}
+                    {boqItems.length === 0 && workItemTypes.map(w => (
                         <Option key={w.id} value={w.id}>{w.name}</Option>
                     ))}
                 </Select>
@@ -755,6 +947,8 @@ const UnifiedDailyReport = () => {
                     onChange={v => updateItem(index, 'drawing_panel_id', v)}
                     size="small"
                     allowClear
+                    showSearch
+                    optionFilterProp="children"
                 >
                     {(selectedPanels.length > 0 ? selectedPanels : panels).map((p: any) => (
                         <Option key={p.id} value={p.id}>{p.panel_identifier}</Option>
@@ -913,6 +1107,167 @@ const UnifiedDailyReport = () => {
         }
     ]
 
+    const panelWorkColumns = [
+        {
+            title: 'Panel',
+            dataIndex: 'drawing_panel_id',
+            width: '12%',
+            render: (val: any, _: any, index: number) => (
+                <Select
+                    value={val}
+                    onChange={v => updatePanelWorkLog(index, 'drawing_panel_id', v)}
+                    size="small"
+                    style={{ width: '100%' }}
+                    placeholder="Select panel"
+                >
+                    {panels.map(p => <Option key={p.id} value={p.id}>{p.panel_identifier}</Option>)}
+                </Select>
+            )
+        },
+        {
+            title: 'Grab Depth (m)',
+            dataIndex: 'grabbing_depth',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <InputNumber
+                    min={0}
+                    value={val}
+                    onChange={v => updatePanelWorkLog(index, 'grabbing_depth', v)}
+                    size="small"
+                    style={{ width: '100%' }}
+                    placeholder="Auto"
+                    disabled
+                />
+            )
+        },
+        {
+            title: 'Grab SQM',
+            dataIndex: 'grabbing_sqm',
+            width: '10%',
+            render: (val: any) => (
+                <InputNumber
+                    value={val?.toFixed(2)}
+                    size="small"
+                    style={{ width: '100%' }}
+                    disabled
+                />
+            )
+        },
+        {
+            title: 'Grab Start',
+            dataIndex: 'grabbing_start_time',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <TimePicker
+                    format="HH:mm"
+                    value={val ? dayjs(val, 'HH:mm') : null}
+                    onChange={(_, timeStr) => updatePanelWorkLog(index, 'grabbing_start_time', Array.isArray(timeStr) ? timeStr[0] : timeStr)}
+                    size="small"
+                    style={{ width: '100%' }}
+                />
+            )
+        },
+        {
+            title: 'Grab End',
+            dataIndex: 'grabbing_end_time',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <TimePicker
+                    format="HH:mm"
+                    value={val ? dayjs(val, 'HH:mm') : null}
+                    onChange={(_, timeStr) => updatePanelWorkLog(index, 'grabbing_end_time', Array.isArray(timeStr) ? timeStr[0] : timeStr)}
+                    size="small"
+                    style={{ width: '100%' }}
+                />
+            )
+        },
+        {
+            title: 'Conc Start',
+            dataIndex: 'concrete_start_time',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <TimePicker
+                    format="HH:mm"
+                    value={val ? dayjs(val, 'HH:mm') : null}
+                    onChange={(_, timeStr) => updatePanelWorkLog(index, 'concrete_start_time', Array.isArray(timeStr) ? timeStr[0] : timeStr)}
+                    size="small"
+                    style={{ width: '100%' }}
+                />
+            )
+        },
+        {
+            title: 'Conc End',
+            dataIndex: 'concrete_end_time',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <TimePicker
+                    format="HH:mm"
+                    value={val ? dayjs(val, 'HH:mm') : null}
+                    onChange={(_, timeStr) => updatePanelWorkLog(index, 'concrete_end_time', Array.isArray(timeStr) ? timeStr[0] : timeStr)}
+                    size="small"
+                    style={{ width: '100%' }}
+                />
+            )
+        },
+        {
+            title: 'Grade',
+            dataIndex: 'concrete_grade',
+            width: '8%',
+            render: (val: any, _: any, index: number) => (
+                <AutoComplete
+                    value={val}
+                    onChange={v => updatePanelWorkLog(index, 'concrete_grade', v)}
+                    size="small"
+                    style={{ width: '100%' }}
+                    options={[
+                        { value: 'M20' },
+                        { value: 'M25' },
+                        { value: 'M30' },
+                        { value: 'M35' },
+                        { value: 'M40' },
+                        { value: 'M50' },
+                    ]}
+                    placeholder="M25"
+                />
+            )
+        },
+        {
+            title: 'Theo Qty',
+            dataIndex: 'theoretical_concrete_qty',
+            width: '8%',
+            render: (val: any, _: any, index: number) => (
+                <InputNumber
+                    min={0}
+                    value={val}
+                    onChange={v => updatePanelWorkLog(index, 'theoretical_concrete_qty', v)}
+                    size="small"
+                    style={{ width: '100%' }}
+                    placeholder="cum"
+                />
+            )
+        },
+        {
+            title: 'Cage ID',
+            dataIndex: 'cage_id_ref',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <Input
+                    value={val}
+                    onChange={e => updatePanelWorkLog(index, 'cage_id_ref', e.target.value)}
+                    size="small"
+                    placeholder="CAGE-001"
+                />
+            )
+        },
+        {
+            title: '',
+            width: '5%',
+            render: (_: any, __: any, index: number) => (
+                <Button danger icon={<DeleteOutlined />} onClick={() => removePanelWorkLog(index)} type="link" size="small" />
+            )
+        }
+    ]
+
     const handlePrint = () => {
         window.print()
     }
@@ -974,7 +1329,7 @@ const UnifiedDailyReport = () => {
                             <Row gutter={24}>
                                 <Col xs={24} md={12}>
                                     <Form.Item label={<span style={getLabelStyle()}>Project Selection</span>} name="project_id" rules={[{ required: true }]}>
-                                        <Select placeholder="Select project" onChange={handleProjectChange} size="large">
+                                        <Select placeholder="Select project" onChange={handleProjectChange} size="large" showSearch optionFilterProp="children">
                                             {projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
                                         </Select>
                                     </Form.Item>
@@ -986,6 +1341,8 @@ const UnifiedDailyReport = () => {
                                             size="large"
                                             onChange={fetchStock}
                                             disabled={projectWarehouses.length === 0}
+                                            showSearch
+                                            optionFilterProp="children"
                                         >
                                             {projectWarehouses.map(w => <Option key={w.id} value={w.id}>{w.name} {w.warehouse_type === 'central' ? '(Central)' : '(Site)'}</Option>)}
                                         </Select>
@@ -999,9 +1356,58 @@ const UnifiedDailyReport = () => {
                                     </Form.Item>
                                 </Col>
                                 <Col xs={24} md={12}>
-                                    <Form.Item label={<span style={getLabelStyle()}>Primary Work Type</span>} name="work_item_type_id" rules={[{ required: true }]}>
-                                        <Select placeholder="Select work type" size="large" onChange={handleWorkTypeChange}>
-                                            {workItemTypes.map(wit => <Option key={wit.id} value={wit.id}>{wit.name}</Option>)}
+                                    <Form.Item
+                                        label={
+                                            <span style={getLabelStyle()}>
+                                                Primary Work Type
+                                                {boqLinkedWorkTypes.length > 0 && (
+                                                    <Tag color="blue" style={{ marginLeft: 8, fontSize: 10 }}>BOQ Filtered</Tag>
+                                                )}
+                                            </span>
+                                        }
+                                        name="work_item_type_id"
+                                        rules={[{ required: true }]}
+                                    >
+                                        <Select
+                                            placeholder="Select work type"
+                                            size="large"
+                                            onChange={handleWorkTypeChange}
+                                            showSearch
+                                            filterOption={(input, option) =>
+                                                (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+                                            }
+                                        >
+                                            {boqLinkedWorkTypes.length > 0 ? (
+                                                <>
+                                                    <Select.OptGroup label="📋 Project BOQ Work Types">
+                                                        {boqLinkedWorkTypes.map(wit => (
+                                                            <Option key={wit.id} value={wit.id} label={wit.name}>
+                                                                <Space>
+                                                                    {wit.name}
+                                                                    <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>BOQ</Tag>
+                                                                </Space>
+                                                            </Option>
+                                                        ))}
+                                                    </Select.OptGroup>
+                                                    {extraWorkTypes.length > 0 && (
+                                                        <Select.OptGroup label="➕ Other / Extra Work (Not in BOQ)">
+                                                            {extraWorkTypes.map(wit => (
+                                                                <Option key={wit.id} value={wit.id} label={wit.name}>
+                                                                    <Space>
+                                                                        {wit.name}
+                                                                        <Tag color="orange" style={{ fontSize: 10, margin: 0 }}>Extra</Tag>
+                                                                    </Space>
+                                                                </Option>
+                                                            ))}
+                                                        </Select.OptGroup>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                // No BOQ loaded — show all work types flat
+                                                workItemTypes.map(wit => (
+                                                    <Option key={wit.id} value={wit.id} label={wit.name}>{wit.name}</Option>
+                                                ))
+                                            )}
                                         </Select>
                                     </Form.Item>
                                 </Col>
@@ -1024,21 +1430,21 @@ const UnifiedDailyReport = () => {
                                     <Row gutter={16}>
                                         <Col span={8}>
                                             <Form.Item label={<span style={getLabelStyle()}>Building</span>} name="building_id">
-                                                <Select placeholder="Bldg" allowClear onChange={handleBuildingChange} size="large">
+                                                <Select placeholder="Bldg" allowClear onChange={handleBuildingChange} size="large" showSearch optionFilterProp="children">
                                                     {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
                                                 </Select>
                                             </Form.Item>
                                         </Col>
                                         <Col span={8}>
                                             <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
-                                                <Select placeholder="Floor" allowClear onChange={handleFloorChange} size="large">
+                                                <Select placeholder="Floor" allowClear onChange={handleFloorChange} size="large" showSearch optionFilterProp="children">
                                                     {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
                                                 </Select>
                                             </Form.Item>
                                         </Col>
                                         <Col span={8}>
                                             <Form.Item label={<span style={getLabelStyle()}>Zone</span>} name="zone_id">
-                                                <Select placeholder="Zone" allowClear size="large">
+                                                <Select placeholder="Zone" allowClear size="large" showSearch optionFilterProp="children">
                                                     {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
                                                 </Select>
                                             </Form.Item>
@@ -1047,42 +1453,48 @@ const UnifiedDailyReport = () => {
                                 )}
 
                                 {(structureType === 'panel' || structureType === 'both') && (
-                                    <Row gutter={16} style={{ marginTop: structureType === 'both' ? '16px' : '0' }}>
-                                        <Col span={12}>
-                                            <Form.Item label={<span style={getLabelStyle()}>Drawing</span>} name="drawing_id">
-                                                <Select
-                                                    placeholder="Select drawing"
-                                                    allowClear
-                                                    size="large"
-                                                    onChange={(val) => {
-                                                        if (val) {
-                                                            fetchPanels(val)
-                                                        } else {
-                                                            setPanels([])
-                                                            setSelectedPanels([])
-                                                            form.setFieldsValue({ drawing_panel_id: [] })
-                                                        }
-                                                    }}
-                                                >
-                                                    {drawings.map(d => <Option key={d.id} value={d.id}>{d.drawing_name || d.drawing_number}</Option>)}
-                                                </Select>
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={12}>
-                                            <Form.Item label={<span style={getLabelStyle()}>Panel(s)</span>} name="drawing_panel_id">
-                                                <Select
-                                                    mode="multiple"
-                                                    placeholder="Select panel(s)"
-                                                    allowClear
-                                                    size="large"
-                                                    onChange={handlePanelChange}
-                                                    style={{ width: '100%' }}
-                                                    options={panels.map(p => ({ label: p.panel_identifier, value: p.id }))}
-                                                />
-                                            </Form.Item>
+                                    <>
+                                        <Row gutter={16} style={{ marginTop: structureType === 'both' ? '16px' : '0' }}>
+                                            <Col span={selectedPanels.length > 0 ? 6 : 12}>
+                                                <Form.Item label={<span style={getLabelStyle()}>Drawing</span>} name="drawing_id">
+                                                    <Select
+                                                        placeholder="Select drawing"
+                                                        allowClear
+                                                        size="large"
+                                                        showSearch
+                                                        optionFilterProp="children"
+                                                        onChange={(val) => {
+                                                            if (val) {
+                                                                fetchPanels(val)
+                                                            } else {
+                                                                setPanels([])
+                                                                setSelectedPanels([])
+                                                                form.setFieldsValue({ drawing_panel_id: [] })
+                                                            }
+                                                        }}
+                                                    >
+                                                        {drawings.map(d => <Option key={d.id} value={d.id}>{d.drawing_name || d.drawing_number}</Option>)}
+                                                    </Select>
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={selectedPanels.length > 0 ? 18 : 12}>
+                                                <Form.Item label={<span style={getLabelStyle()}>Panel(s)</span>} name="drawing_panel_id">
+                                                    <Select
+                                                        mode="multiple"
+                                                        placeholder="Select panel(s)"
+                                                        allowClear
+                                                        size="large"
+                                                        onChange={handlePanelChange}
+                                                        style={{ width: '100%' }}
+                                                        options={panels.map(p => ({ label: p.panel_identifier, value: p.id }))}
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
 
-                                            {selectedPanels.length > 0 && (
-                                                <div style={{ marginTop: 12 }}>
+                                        {selectedPanels.length > 0 && (
+                                            <Row gutter={16} style={{ marginTop: 12 }}>
+                                                <Col span={24}>
                                                     <div style={{
                                                         padding: '12px 16px',
                                                         background: selectedPanels.length > 1 ? '#f0f9ff' : '#f8fafc',
@@ -1113,9 +1525,9 @@ const UnifiedDailyReport = () => {
                                                                             <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>Total Length</Text>
                                                                             <Text strong style={{ color: '#0369a1' }}>
                                                                                 {selectedPanels.reduce((sum, p) => {
-                                                                                    let d = { length: 0 };
+                                                                                    let d: any = {};
                                                                                     try { d = typeof p.coordinates_json === 'string' ? JSON.parse(p.coordinates_json) : (p.coordinates_json || {}) } catch (e) { }
-                                                                                    return sum + Number(d.length || 0)
+                                                                                    return sum + Number(p.length || d.length || 0)
                                                                                 }, 0).toFixed(2)} m
                                                                             </Text>
                                                                         </div>
@@ -1124,194 +1536,111 @@ const UnifiedDailyReport = () => {
                                                             </div>
                                                         </Space>
                                                     </div>
-                                                </div>
-                                            )}
 
-                                            {selectedPanels.map(panel => {
-                                                let dims = { length: 0, width: 0, depth: 0, height: 0 }
-                                                try {
-                                                    dims = JSON.parse(panel.coordinates_json || '{}')
-                                                } catch (e) { }
+                                                    <Row gutter={[12, 12]}>
+                                                        {selectedPanels.map(panel => {
+                                                            let dims = { length: 0, width: 0, depth: 0, height: 0 }
+                                                            try {
+                                                                dims = JSON.parse(panel.coordinates_json || '{}')
+                                                            } catch (e) { }
 
-                                                const length = Number(dims.length || 0)
-                                                const depth = Number(dims.depth || dims.height || 0)
-                                                const width = Number(dims.width || 0)
+                                                            const length = Number(panel.length || dims.length || 0)
+                                                            const depth = Number(panel.design_depth || panel.depth || dims.depth || dims.height || 0)
+                                                            const width = Number(panel.width || dims.width || 0)
 
-                                                const areaSqm = length * depth
-                                                const areaSqft = areaSqm * 10.764
-                                                const volCum = areaSqm * width
+                                                            const areaSqm = Number(panel.grabbing_qty) || (length * depth)
+                                                            const areaSqft = areaSqm * 10.764
+                                                            const volCum = Number(panel.concrete_design_qty) || (areaSqm * width)
 
-                                                let totalDone = 0
-                                                if (panel.consumptions && Array.isArray(panel.consumptions)) {
-                                                    panel.consumptions.forEach((c: any) => {
-                                                        if (c.items && Array.isArray(c.items)) {
-                                                            const txMaxWork = Math.max(...c.items.map((i: any) => Number(i.work_done_quantity || 0)))
-                                                            totalDone += txMaxWork
-                                                        }
-                                                    })
-                                                }
+                                                            let totalDone = 0
+                                                            if (panel.consumptions && Array.isArray(panel.consumptions)) {
+                                                                panel.consumptions.forEach((c: any) => {
+                                                                    if (c.items && Array.isArray(c.items)) {
+                                                                        const txMaxWork = Math.max(...c.items.map((i: any) => Number(i.work_done_quantity || 0)))
+                                                                        totalDone += txMaxWork
+                                                                    }
+                                                                })
+                                                            }
 
-                                                const percentDone = areaSqm > 0 ? (totalDone / areaSqm) * 100 : 0
+                                                            const percentDone = areaSqm > 0 ? (totalDone / areaSqm) * 100 : 0
 
-                                                return (
-                                                    <div key={panel.id} style={{ marginBottom: 8, padding: '12px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                                                        <Space direction="vertical" size={2} style={{ width: '100%' }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                                                                <Typography.Text strong>{panel.panel_identifier}</Typography.Text>
-                                                                <Typography.Text type="secondary">L: {length}m | D: {depth}m | W: {width}m</Typography.Text>
-                                                            </div>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: 4 }}>
-                                                                <Typography.Text type="secondary">Area:</Typography.Text>
-                                                                <Typography.Text strong style={{ color: theme.colors.primary.main }}>
-                                                                    {areaSqm.toFixed(2)} m² ({areaSqft.toFixed(2)} sqft)
-                                                                </Typography.Text>
-                                                            </div>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: 2 }}>
-                                                                <Typography.Text type="secondary">Comp:</Typography.Text>
-                                                                <Typography.Text strong style={{ color: percentDone >= 100 ? '#10b981' : '#f59e0b' }}>
-                                                                    {totalDone.toFixed(2)} m² ({Math.min(percentDone, 100).toFixed(0)}%)
-                                                                </Typography.Text>
-                                                            </div>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginTop: 2 }}>
-                                                                <Typography.Text type="secondary">Est Vol:</Typography.Text>
-                                                                <Typography.Text strong>
-                                                                    {volCum.toFixed(2)} m³
-                                                                </Typography.Text>
-                                                            </div>
-                                                            <div style={{ marginTop: 6, height: '4px', background: '#e2e8f0', borderRadius: '2px', overflow: 'hidden' }}>
-                                                                <div style={{
-                                                                    width: `${Math.min(percentDone, 100)}%`,
-                                                                    height: '100%',
-                                                                    background: percentDone >= 100 ? '#10b981' : theme.colors.primary.main,
-                                                                    transition: 'width 0.3s ease'
-                                                                }} />
-                                                            </div>
-                                                        </Space>
-                                                    </div>
-                                                )
-                                            })}
-                                        </Col>
-                                    </Row>
+                                                            return (
+                                                                <Col xs={24} sm={12} md={8} lg={6} key={panel.id}>
+                                                                    <div style={{
+                                                                        padding: '12px',
+                                                                        background: '#f8fafc',
+                                                                        borderRadius: 8,
+                                                                        border: '1px solid #e2e8f0',
+                                                                        height: '100%'
+                                                                    }}>
+                                                                        <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                                                                                <Typography.Text strong>{panel.panel_identifier}</Typography.Text>
+                                                                                <Typography.Text type="secondary" style={{ fontSize: '11px' }}>
+                                                                                    L: {length}m | D: {depth}m | W: {(width * 1000).toFixed(0)}mm
+                                                                                </Typography.Text>
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 4 }}>
+                                                                                <Typography.Text type="secondary">Area:</Typography.Text>
+                                                                                <Typography.Text strong style={{ color: theme.colors.primary.main }}>
+                                                                                    {areaSqm.toFixed(2)} m² ({areaSqft.toFixed(2)} sqft)
+                                                                                </Typography.Text>
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 2 }}>
+                                                                                <Typography.Text type="secondary">Comp:</Typography.Text>
+                                                                                <Typography.Text strong style={{ color: percentDone >= 100 ? '#10b981' : '#f59e0b' }}>
+                                                                                    {totalDone.toFixed(2)} m² ({Math.min(percentDone, 100).toFixed(0)}%)
+                                                                                </Typography.Text>
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 2 }}>
+                                                                                <Typography.Text type="secondary">Est Vol:</Typography.Text>
+                                                                                <Typography.Text strong>
+                                                                                    {volCum.toFixed(2)} m³
+                                                                                </Typography.Text>
+                                                                            </div>
+                                                                            <div style={{ marginTop: 6, height: '4px', background: '#e2e8f0', borderRadius: '2px', overflow: 'hidden' }}>
+                                                                                <div style={{
+                                                                                    width: `${Math.min(percentDone, 100)}%`,
+                                                                                    height: '100%',
+                                                                                    background: percentDone >= 100 ? '#10b981' : theme.colors.primary.main,
+                                                                                    transition: 'width 0.3s ease'
+                                                                                }} />
+                                                                            </div>
+                                                                        </Space>
+                                                                    </div>
+                                                                </Col>
+                                                            )
+                                                        })}
+                                                    </Row>
+                                                </Col>
+                                            </Row>
+                                        )}
+                                    </>
                                 )}
                             </SectionCard>
                         )}
 
-                        {/* 1C. D-Wall Specialized Logs (Appears if at least one Panel is selected) */}
+                        {/* 1C. D-Wall Specialized Logs (Panel-wise) */}
                         {selectedPanels.length > 0 && (
                             <>
-                                <SectionCard title="D-Wall Technical Logs (QC)" icon={<AuditOutlined />}>
-                                    <Row gutter={16}>
-                                        <Col span={6}>
-                                            <Form.Item label="Grabbing Depth (m)" name="grabbing_depth">
-                                                <InputNumber style={{ width: '100%' }} placeholder="0.00" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={6}>
-                                            <Form.Item label="Grabbing (SQM)" name="grabbing_sqm">
-                                                <InputNumber style={{ width: '100%' }} disabled size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={6}>
-                                            <Form.Item label="Grabbing Start" name="grabbing_start_time">
-                                                <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={6}>
-                                            <Form.Item label="Grabbing End" name="grabbing_end_time">
-                                                <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                    </Row>
-
-                                    <Row gutter={16}>
-                                        <Col span={6}>
-                                            <Form.Item label="Concreting Depth (m)" name="concreting_depth">
-                                                <InputNumber style={{ width: '100%' }} placeholder="0.00" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={6}>
-                                            <Form.Item label="Concreting (SQM)" name="concreting_sqm">
-                                                <InputNumber style={{ width: '100%' }} disabled size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={6}>
-                                            <Form.Item label="Concrete Start" name="start_time">
-                                                <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={6}>
-                                            <Form.Item label="Concrete End" name="end_time">
-                                                <TimePicker format="HH:mm" style={{ width: '100%' }} size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                    </Row>
-
-                                    <Row gutter={16}>
-                                        <Col span={8}>
-                                            <Form.Item label="Concrete Grade" name="concrete_grade">
-                                                <AutoComplete
-                                                    placeholder="Select or Type Grade"
-                                                    size="large"
-                                                    options={[
-                                                        { value: 'M20' },
-                                                        { value: 'M25' },
-                                                        { value: 'M30' },
-                                                        { value: 'M35' },
-                                                        { value: 'M40' },
-                                                        { value: 'M50' },
-                                                    ]}
-                                                    filterOption={(inputValue, option) =>
-                                                        option!.value.toUpperCase().indexOf(inputValue.toUpperCase()) !== -1
-                                                    }
-                                                />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={8}>
-                                            <Form.Item label="Theoretical Qty (cum)" name="theoretical_concrete_qty">
-                                                <InputNumber style={{ width: '100%' }} size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={8}>
-                                            <Form.Item label="Cage ID" name="cage_id_ref">
-                                                <Input placeholder="CAGE-001" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                    </Row>
-
-                                    <Divider dashed style={{ margin: '12px 0' }} />
-                                    <Typography.Text strong style={{ display: 'block', marginBottom: 12 }}>Quality & Slurry Parameters</Typography.Text>
-                                    <Row gutter={16}>
-                                        <Col span={4}>
-                                            <Form.Item label="Vert X (%)" name="verticality_x">
-                                                <InputNumber style={{ width: '100%' }} placeholder="< 0.5" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={4}>
-                                            <Form.Item label="Vert Y (%)" name="verticality_y">
-                                                <InputNumber style={{ width: '100%' }} placeholder="< 0.5" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={4}>
-                                            <Form.Item label="Slurry Dens" name="slurry_density">
-                                                <InputNumber style={{ width: '100%' }} placeholder="1.05" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={4}>
-                                            <Form.Item label="Sand %" name="slurry_sand_content">
-                                                <InputNumber style={{ width: '100%' }} placeholder="< 3" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={4}>
-                                            <Form.Item label="Viscosity" name="slurry_viscosity">
-                                                <InputNumber style={{ width: '100%' }} placeholder="32" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                        <Col span={4}>
-                                            <Form.Item label="Slump (mm)" name="slump_flow">
-                                                <InputNumber style={{ width: '100%' }} placeholder="200" size="large" />
-                                            </Form.Item>
-                                        </Col>
-                                    </Row>
+                                <SectionCard
+                                    title="D-Wall Technical Logs (Panel-wise QC)"
+                                    icon={<AuditOutlined />}
+                                    extra={<Button type="dashed" icon={<PlusOutlined />} onClick={addPanelWorkLog}>Add Extra Panel</Button>}
+                                >
+                                    <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', borderRadius: 8, fontSize: '13px' }}>
+                                        💡 <strong>Auto-populated from selected panels above.</strong> Each panel has its own row with pre-filled depth and SQM. Fill in times, grade, and cage ID for each panel.
+                                    </div>
+                                    <Table
+                                        dataSource={panelWorkLogs}
+                                        columns={panelWorkColumns}
+                                        pagination={false}
+                                        rowKey="tempId"
+                                        size="small"
+                                        bordered
+                                        scroll={{ x: 1200 }}
+                                        locale={{ emptyText: 'Select panels above to auto-populate panel work logs.' }}
+                                    />
                                 </SectionCard>
 
                                 <SectionCard
@@ -1327,13 +1656,15 @@ const UnifiedDailyReport = () => {
                                         size="small"
                                         bordered
                                     />
-                                    <div style={{ marginTop: 16, display: 'flex', gap: 24 }}>
-                                        <Form.Item label="Theoretical Qty (cum)" name="theoretical_concrete_qty" style={{ flex: 1 }}>
-                                            <InputNumber style={{ width: '100%' }} size="large" />
-                                        </Form.Item>
-                                        <Form.Item label="Tremie Pipes" name="tremie_pipe_count" style={{ flex: 1 }}>
-                                            <InputNumber style={{ width: '100%' }} size="large" />
-                                        </Form.Item>
+                                    <div style={{ marginTop: 16, padding: '12px', background: '#f8fafc', borderRadius: 8 }}>
+                                        <div style={{ marginBottom: 8 }}>
+                                            <Text type="secondary" style={{ fontSize: '12px' }}>Total RMC Delivered</Text>
+                                        </div>
+                                        <Statistic
+                                            value={rmcLogs.reduce((sum, log) => sum + (Number(log.quantity) || 0), 0).toFixed(2)}
+                                            suffix="cum"
+                                            valueStyle={{ fontSize: '20px', fontWeight: 600, color: theme.colors.primary.main }}
+                                        />
                                     </div>
                                 </SectionCard>
                             </>
@@ -1387,17 +1718,38 @@ const UnifiedDailyReport = () => {
                                         dataSource={manpower.filter(m => m.is_staff)}
                                         columns={[
                                             {
-                                                title: 'Designation / Name',
-                                                dataIndex: 'worker_type',
+                                                title: 'Staff Member',
+                                                dataIndex: 'user_id',
                                                 render: (val, _, idx) => (
-                                                    <Input
-                                                        placeholder="PM, Site Engineer..."
+                                                    <Select
+                                                        placeholder="Select staff member"
                                                         value={val}
-                                                        onChange={e => {
+                                                        onChange={v => {
                                                             const realIdx = manpower.findIndex(m => m === manpower.filter(x => x.is_staff)[idx]);
-                                                            updateManpower(realIdx, 'worker_type', e.target.value);
+                                                            const selectedUser = staffUsers.find(u => u.id === v);
+                                                            if (selectedUser) {
+                                                                updateManpower(realIdx, 'user_id', v);
+                                                                updateManpower(realIdx, 'staff_name', selectedUser.name);
+                                                                // Get role name from roles array
+                                                                const roleName = selectedUser.roles?.[0]?.name || 'Staff';
+                                                                updateManpower(realIdx, 'staff_role', roleName);
+                                                            }
                                                         }}
-                                                    />
+                                                        showSearch
+                                                        optionFilterProp="children"
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        {staffUsers.map(user => (
+                                                            <Option key={user.id} value={user.id}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                    <span>{user.name}</span>
+                                                                    <Tag color="blue" style={{ marginLeft: 8, fontSize: '11px' }}>
+                                                                        {user.roles?.[0]?.name || 'Staff'}
+                                                                    </Tag>
+                                                                </div>
+                                                            </Option>
+                                                        ))}
+                                                    </Select>
                                                 )
                                             },
                                             {
@@ -1444,14 +1796,41 @@ const UnifiedDailyReport = () => {
                                         dataSource={machinery}
                                         columns={[
                                             {
-                                                title: 'Machine Name',
-                                                dataIndex: 'name',
+                                                title: 'Equipment',
+                                                dataIndex: 'equipment_id',
                                                 render: (val, _, idx) => (
-                                                    <Input
-                                                        placeholder="Crane, Excavator..."
+                                                    <Select
+                                                        placeholder="Select equipment"
                                                         value={val}
-                                                        onChange={e => updateMachinery(idx, 'name', e.target.value)}
-                                                    />
+                                                        onChange={v => {
+                                                            const selectedEquip = equipmentList.find(e => e.id === v);
+                                                            if (selectedEquip) {
+                                                                updateMachinery(idx, 'equipment_id', v);
+                                                                updateMachinery(idx, 'equipment_name', selectedEquip.name);
+                                                                updateMachinery(idx, 'equipment_type', selectedEquip.equipment_type);
+                                                                updateMachinery(idx, 'registration_number', selectedEquip.registration_number);
+                                                            }
+                                                        }}
+                                                        showSearch
+                                                        optionFilterProp="children"
+                                                        style={{ width: '100%' }}
+                                                    >
+                                                        {equipmentList.map(equip => (
+                                                            <Option key={equip.id} value={equip.id}>
+                                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                    <span style={{ fontWeight: 500 }}>{equip.name}</span>
+                                                                    <div style={{ fontSize: '11px', color: '#666', display: 'flex', gap: 8 }}>
+                                                                        <Tag color="cyan" style={{ margin: 0, fontSize: '10px' }}>
+                                                                            {equip.equipment_type?.replace(/_/g, ' ').toUpperCase()}
+                                                                        </Tag>
+                                                                        {equip.registration_number && (
+                                                                            <span>Reg: {equip.registration_number}</span>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </Option>
+                                                        ))}
+                                                    </Select>
                                                 )
                                             },
                                             {
@@ -1644,7 +2023,7 @@ const UnifiedDailyReport = () => {
                     </Form>
                 </PageContainer>
             </div>
-        </div>
+        </div >
     )
 }
 

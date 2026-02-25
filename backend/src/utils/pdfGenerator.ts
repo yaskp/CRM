@@ -44,8 +44,23 @@ export const generateQuotationPDF = (quotation: any, stream: any) => {
     // Right Column
     doc.font('Helvetica-Bold').text('To:', rightX, startY)
     doc.font('Helvetica').text(quotation.lead?.company_name || quotation.lead?.name, rightX + 25, startY)
-    if (quotation.lead?.address) {
-        doc.text(quotation.lead.address, rightX + 25, startY + 15, { width: 200 })
+
+    // Construct full address
+    const addressParts: string[] = []
+    if (quotation.lead?.address) addressParts.push(quotation.lead.address)
+
+    const cityStateParts: string[] = []
+    if (quotation.lead?.city) cityStateParts.push(quotation.lead.city)
+    if (quotation.lead?.state) cityStateParts.push(quotation.lead.state)
+
+    if (cityStateParts.length > 0) {
+        let cityStateStr = cityStateParts.join(', ')
+        if (quotation.lead?.pincode) cityStateStr += ` - ${quotation.lead.pincode}`
+        addressParts.push(cityStateStr)
+    }
+
+    if (addressParts.length > 0) {
+        doc.text(addressParts.join('\n'), rightX + 25, startY + 15, { width: 200 })
     }
 
     doc.moveDown(2)
@@ -196,13 +211,12 @@ export const generateQuotationPDF = (quotation: any, stream: any) => {
 
         // Section Total Row
         doc.font('Helvetica-Bold');
-        doc.text('Total', 350, currentY + 5, { align: 'right', width: 130 });
-        drawCellText(sectionTotal.toFixed(2), colX.amount, currentY + 5, colWidths.amount, 'right');
+        doc.text('Total', 40, currentY + 6, { align: 'right', width: 410 });
+        drawCellText(sectionTotal.toFixed(2), colX.amount, currentY + 6, colWidths.amount, 'right');
         doc.rect(40, currentY, 515, 20).stroke();
 
         // Vertical lines for Total Row
-        // Only need minimal vertical lines here? Or match table structure. Let's just frame the Total value.
-        doc.moveTo(485, currentY).lineTo(485, currentY + 20).stroke() // Line before Amount
+        doc.moveTo(455, currentY).lineTo(455, currentY + 20).stroke() // Matches colX.amount
 
         return { nextY: currentY + 25, total: sectionTotal };
     };
@@ -238,10 +252,14 @@ export const generateQuotationPDF = (quotation: any, stream: any) => {
     const summaryStartX = 40;
     const summaryWidth = 515;
 
+    // Layout constants for summary
+    const summaryAmountX = 455;
+    const summaryAmountWidth = 95;
+
     // Header
     doc.rect(summaryStartX, y, summaryWidth, 25).fill('#666666').stroke();
     doc.fillColor('white').text('DESCRIPTION', summaryStartX + 10, y + 8);
-    doc.text('AMOUNT', 450, y + 8, { align: 'right', width: 100 });
+    doc.text('AMOUNT', summaryAmountX, y + 8, { align: 'right', width: summaryAmountWidth - 5 });
     y += 25;
 
     // Rows
@@ -250,7 +268,7 @@ export const generateQuotationPDF = (quotation: any, stream: any) => {
         doc.fillColor('black');
         if (labelId) doc.text(labelId, summaryStartX + 10, y + 5, { width: 30 });
         doc.text(label, summaryStartX + 50, y + 5);
-        doc.text(value.toFixed(2), 450, y + 5, { align: 'right', width: 100 });
+        doc.text(value.toFixed(2), summaryAmountX, y + 5, { align: 'right', width: summaryAmountWidth - 5 });
         y += 20;
     };
 
@@ -271,17 +289,20 @@ export const generateQuotationPDF = (quotation: any, stream: any) => {
     // Final Total
     doc.rect(summaryStartX, y, summaryWidth, 25).fill('#e0e0e0').stroke();
     doc.fillColor('black').font('Helvetica-Bold');
-    doc.text('GRAND TOTAL', summaryStartX + 50, y + 8);
-    doc.text(finalTotal.toFixed(2), 450, y + 8, { align: 'right', width: 100 });
-    y += 35;
+    doc.text('GRAND TOTAL (Excl. GST)', summaryStartX + 50, y + 8);
+    doc.text(finalTotal.toFixed(2), summaryAmountX, y + 8, { align: 'right', width: summaryAmountWidth - 5 });
+    y += 28;
+    doc.fontSize(8).font('Helvetica-Bold').text('* GST / Taxes extra as applicable', summaryStartX, y, { align: 'right', width: summaryWidth - 10 });
+    y += 15;
 
     // Note Section
     y += 30
     if (y > 720) { doc.addPage(); y = 50; }
 
     doc.font('Helvetica-Bold').text('NOTE:', 40, y)
-    doc.font('Helvetica').fontSize(9)
+    doc.font('Helvetica-Bold').fontSize(10)
     doc.text('1. GST will be charged extra as applicable.', 40, y + 15)
+    doc.font('Helvetica').fontSize(9)
     doc.text('2. This quotation is valid for 15 days.', 40, y + 28)
 
     y += 45
@@ -296,51 +317,124 @@ export const generateQuotationPDF = (quotation: any, stream: any) => {
     }
 
     // --- Scopes ---
+    // --- Scopes ---
+    const drawScopeSection = (title: string, scopeMatrix: any[], filterFn: (item: any) => boolean, bgColor: string) => {
+        // Prepare filtered list keeping categories
+        const sectionItems: any[] = [];
+        let currentHeader: any = null;
+        let lastHeaderAdded = false;
 
-    // Helper to ensure numbering
-    const ensureNumbering = (text: string): string => {
-        if (!text) return '';
-        const lines = text.split('\n').filter(l => l.trim().length > 0);
-        if (lines.length === 0) return '';
+        scopeMatrix.forEach((item) => {
+            if (item.is_category) {
+                currentHeader = item;
+                lastHeaderAdded = false;
+            } else if (filterFn(item)) {
+                if (currentHeader && !lastHeaderAdded) {
+                    sectionItems.push({ ...currentHeader, is_header: true });
+                    lastHeaderAdded = true;
+                }
+                sectionItems.push(item);
+            }
+        });
 
-        // If first line already has numbering pattern "1.", return as is to avoid double numbering
-        if (/^\d+\./.test(lines[0].trim())) {
-            return text;
+        if (sectionItems.length === 0) return y;
+
+        if (y + 40 > 750) { doc.addPage(); y = 50; } else { y += 15; }
+
+        // Section Title
+        doc.rect(40, y, 515, 18).fill(bgColor).stroke();
+        doc.fillColor('white').font('Helvetica-Bold').fontSize(9);
+        doc.text(title, 40, y + 5, { align: 'center', width: 515 });
+        y += 18;
+
+        doc.fillColor('black').font('Helvetica').fontSize(8);
+        sectionItems.forEach((item: any) => {
+            const descWidth = 490;
+            const descHeight = doc.heightOfString(item.description || '', { width: descWidth });
+            const rowHeight = descHeight + 6;
+
+            if (y + rowHeight > 750) {
+                doc.addPage();
+                y = 50;
+            }
+
+            if (item.is_header) {
+                doc.font('Helvetica-Bold').fontSize(8.5);
+                y += 5;
+                doc.text(item.description.toUpperCase(), 45, y, { width: descWidth });
+                y += 12;
+                doc.font('Helvetica').fontSize(8);
+            } else {
+                doc.text('•', 45, y + 2);
+                doc.text(item.description, 60, y + 2, { width: descWidth - 15 });
+                y += rowHeight;
+            }
+        });
+
+        return y;
+    };
+
+    const drawScopeMatrix = (scopeMatrix: any[]) => {
+        if (!scopeMatrix || scopeMatrix.length === 0) return y;
+
+        // Draw Client Section
+        y = drawScopeSection("CLIENT'S SCOPE OF WORK / RESPONSIBILITIES", scopeMatrix, (it) => !!it.client_scope, '#444444');
+
+        // Draw VHSHRI Section
+        y = drawScopeSection("CONTRACTOR'S (VHSHRI) SCOPE OF WORK / RESPONSIBILITIES", scopeMatrix, (it) => !!it.contractor_scope, '#0d9488');
+
+        return y + 20;
+    };
+
+    if (quotation.scope_matrix && Array.isArray(quotation.scope_matrix) && quotation.scope_matrix.length > 0) {
+        y = drawScopeMatrix(quotation.scope_matrix);
+    } else {
+        // Fallback for old scope text
+        // Helper to ensure numbering
+        const ensureNumbering = (text: string): string => {
+            if (!text) return '';
+            const lines = text.split('\n').filter(l => l.trim().length > 0);
+            if (lines.length === 0) return '';
+
+            // If first line already has numbering pattern "1.", return as is to avoid double numbering
+            if (/^\d+\./.test(lines[0].trim())) {
+                return text;
+            }
+
+            return lines.map((l, i) => {
+                return `${i + 1}. ${l.trim()}`;
+            }).join('\n');
         }
 
-        return lines.map((l, i) => {
-            return `${i + 1}. ${l.trim()}`;
-        }).join('\n');
-    }
+        // Client Scope
+        if (quotation.client_scope) {
+            const numberedScope = ensureNumbering(quotation.client_scope);
+            doc.font('Helvetica-Bold').fontSize(10);
+            const titleHeight = doc.heightOfString('CLIENT SCOPE (To be provided free of cost)', { width: 500 }) + 5
+            const contentHeight = doc.heightOfString(numberedScope, { width: 500 }) + 20
 
-    // Client Scope
-    if (quotation.client_scope) {
-        const numberedScope = ensureNumbering(quotation.client_scope);
-        doc.font('Helvetica-Bold').fontSize(10);
-        const titleHeight = doc.heightOfString('CLIENT SCOPE (To be provided free of cost)', { width: 500 }) + 5
-        const contentHeight = doc.heightOfString(numberedScope, { width: 500 }) + 20
+            if (y + titleHeight + contentHeight > 750) { doc.addPage(); y = 50; } else { y += 20; }
 
-        if (y + titleHeight + contentHeight > 750) { doc.addPage(); y = 50; } else { y += 20; }
+            doc.text('CLIENT SCOPE (To be provided free of cost)', 40, y, { underline: true })
+            y += titleHeight
+            doc.font('Helvetica').fontSize(9).text(numberedScope, 40, y, { width: 500 })
+            y += contentHeight
+        }
 
-        doc.text('CLIENT SCOPE (To be provided free of cost)', 40, y, { underline: true })
-        y += titleHeight
-        doc.font('Helvetica').fontSize(9).text(numberedScope, 40, y, { width: 500 })
-        y += contentHeight
-    }
+        // Contractor Scope
+        if (quotation.contractor_scope) {
+            const numberedScope = ensureNumbering(quotation.contractor_scope);
+            doc.font('Helvetica-Bold').fontSize(10);
+            const titleHeight = doc.heightOfString('VHSHRI SCOPE', { width: 500 }) + 5
+            const contentHeight = doc.heightOfString(numberedScope, { width: 500 }) + 20
 
-    // Contractor Scope
-    if (quotation.contractor_scope) {
-        const numberedScope = ensureNumbering(quotation.contractor_scope);
-        doc.font('Helvetica-Bold').fontSize(10);
-        const titleHeight = doc.heightOfString('VHSHRI SCOPE', { width: 500 }) + 5
-        const contentHeight = doc.heightOfString(numberedScope, { width: 500 }) + 20
+            if (y + titleHeight + contentHeight > 750) { doc.addPage(); y = 50; } else { y += 20; }
 
-        if (y + titleHeight + contentHeight > 750) { doc.addPage(); y = 50; } else { y += 20; }
-
-        doc.text('VHSHRI SCOPE', 40, y, { underline: true })
-        y += titleHeight
-        doc.font('Helvetica').fontSize(9).text(numberedScope, 40, y, { width: 500, align: 'left' })
-        y += contentHeight
+            doc.text('VHSHRI SCOPE', 40, y, { underline: true })
+            y += titleHeight
+            doc.font('Helvetica').fontSize(9).text(numberedScope, 40, y, { width: 500, align: 'left' })
+            y += contentHeight
+        }
     }
 
     // --- Annexure (Terms) ---
@@ -452,8 +546,23 @@ export const generateWorkOrderPDF = (workOrder: any, stream: any) => {
     // Check if Vendor or Internal
     if (workOrder.vendor) {
         doc.font('Helvetica').text(workOrder.vendor.name, rightX + 25, startY)
-        if (workOrder.vendor.address) {
-            doc.text(workOrder.vendor.address, rightX + 25, startY + 15, { width: 200 })
+
+        // Construct full vendor address
+        const addressParts: string[] = []
+        if (workOrder.vendor.address) addressParts.push(workOrder.vendor.address)
+
+        const cityStateParts: string[] = []
+        if (workOrder.vendor.city) cityStateParts.push(workOrder.vendor.city)
+        if (workOrder.vendor.state) cityStateParts.push(workOrder.vendor.state)
+
+        if (cityStateParts.length > 0) {
+            let cityStateStr = cityStateParts.join(', ')
+            if (workOrder.vendor.pincode) cityStateStr += ` - ${workOrder.vendor.pincode}`
+            addressParts.push(cityStateStr)
+        }
+
+        if (addressParts.length > 0) {
+            doc.text(addressParts.join('\n'), rightX + 25, startY + 15, { width: 205 })
         }
     } else {
         doc.font('Helvetica').text('Internal Execution Team', rightX + 25, startY)
@@ -729,9 +838,22 @@ export const generatePurchaseOrderPDF = (po: any, stream: any) => {
     doc.font('Helvetica').text(po.vendor?.name || '', rightValueX, startY)
 
     let vendorY = startY + 15
-    if (po.vendor?.address) {
-        doc.font('Helvetica').text(po.vendor.address, rightValueX, vendorY, { width: 160 })
-        vendorY += doc.heightOfString(po.vendor.address, { width: 160 }) + 5
+    const vendorAddressParts: string[] = []
+    if (po.vendor?.address) vendorAddressParts.push(po.vendor.address)
+
+    const vendorCityStateParts: string[] = []
+    if (po.vendor?.city) vendorCityStateParts.push(po.vendor.city)
+    if (po.vendor?.state) vendorCityStateParts.push(po.vendor.state)
+
+    if (vendorCityStateParts.length > 0) {
+        let cityStateStr = vendorCityStateParts.join(', ')
+        if (po.vendor?.pincode) cityStateStr += ` - ${po.vendor.pincode}`
+        vendorAddressParts.push(cityStateStr)
+    }
+
+    if (vendorAddressParts.length > 0) {
+        doc.font('Helvetica').text(vendorAddressParts.join('\n'), rightValueX, vendorY, { width: 160 })
+        vendorY += doc.heightOfString(vendorAddressParts.join('\n'), { width: 160 }) + 5
     } else {
         vendorY += 15
     }
@@ -966,7 +1088,24 @@ export const generateDPRPDF = (dpr: any, stream: any) => {
 
     // Get client name from either client association or direct field
     const clientName = dpr.project?.client?.name || dpr.project?.client_name || '-'
-    const location = dpr.project?.site_location || dpr.project?.site_address || '-'
+
+    // Construct full site location
+    const siteParts: string[] = []
+    if (dpr.project?.site_address || dpr.project?.site_location) {
+        siteParts.push(dpr.project.site_address || dpr.project.site_location)
+    }
+
+    const siteCityState: string[] = []
+    if (dpr.project?.site_city) siteCityState.push(dpr.project.site_city)
+    if (dpr.project?.site_state) siteCityState.push(dpr.project.site_state)
+
+    if (siteCityState.length > 0) {
+        let cityStateStr = siteCityState.join(', ')
+        if (dpr.project?.site_pincode) cityStateStr += ` - ${dpr.project.site_pincode}`
+        siteParts.push(cityStateStr)
+    }
+
+    const location = siteParts.length > 0 ? siteParts.join(', ') : '-';
 
     // Row 1: Client | Location
     doc.font('Helvetica-Bold').fontSize(9)
@@ -1146,7 +1285,7 @@ export const generateDPRPDF = (dpr: any, stream: any) => {
     currentLeftY += 18
 
     // Panel Rows
-    const drawPanelRow = (label, val) => {
+    const drawPanelRow = (label: string, val: any) => {
         const rH = 16
         doc.font('Helvetica').fontSize(8).text(label, leftX + 2, currentLeftY + 4, { width: (leftW * 0.6) - 2 })
         doc.moveTo(leftX + (leftW * 0.6), currentLeftY).lineTo(leftX + (leftW * 0.6), currentLeftY + rH).stroke()

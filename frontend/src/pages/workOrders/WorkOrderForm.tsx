@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Form, Button, Card, message, Select, Input, InputNumber, Space, Table, Typography, Divider, Row, Col } from 'antd'
+﻿import { useState, useEffect } from 'react'
+import { Form, Button, Card, message, Select, Input, InputNumber, Space, Table, Typography, Divider, Row, Col, Checkbox } from 'antd'
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -57,6 +57,7 @@ const WorkOrderForm = () => {
   const [vendors, setVendors] = useState<any[]>([])
   const [annexures, setAnnexures] = useState<any[]>([])
   const [clientInfo, setClientInfo] = useState<any>(null)
+  const [scopeMatrix, setScopeMatrix] = useState<any[]>([])
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const location = useLocation()
@@ -92,7 +93,8 @@ const WorkOrderForm = () => {
 
         form.setFieldsValue({
           payment_terms: q.payment_terms,
-          discount_percentage: q.discount_percentage
+          discount_percentage: q.discount_percentage,
+          remarks: q.remarks
         })
 
         if (q.items && q.items.length > 0) {
@@ -113,10 +115,13 @@ const WorkOrderForm = () => {
 
         if (q.client_scope || q.contractor_scope || q.terms_conditions || q.annexure) {
           form.setFieldsValue({
-            client_scope: q.client_scope,
-            contractor_scope: q.contractor_scope,
             terms_conditions: q.terms_conditions || (q.annexure?.clauses?.join('\n') || '')
           })
+        }
+
+        // Load scope_matrix from quotation if available
+        if (q.scope_matrix && Array.isArray(q.scope_matrix)) {
+          setScopeMatrix(q.scope_matrix.map((it: any, idx: number) => ({ ...it, key: it.key || Date.now() + idx })))
         }
       }
     } catch (error) {
@@ -200,6 +205,11 @@ const WorkOrderForm = () => {
         amount: Number(item.amount)
       }))
       setItems(parsedItems)
+
+      // Load scope_matrix
+      if (wo.scope_matrix && Array.isArray(wo.scope_matrix)) {
+        setScopeMatrix(wo.scope_matrix.map((it: any, idx: number) => ({ ...it, key: it.key || Date.now() + idx })))
+      }
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch work order')
     }
@@ -255,8 +265,7 @@ const WorkOrderForm = () => {
         })),
         discount_percentage: discount,
         payment_terms: values.payment_terms,
-        client_scope: values.client_scope,
-        contractor_scope: values.contractor_scope,
+        scope_matrix: scopeMatrix,
         terms_conditions: values.terms_conditions,
         po_wo_document_url: values.po_wo_document_url,
         status: values.status,
@@ -525,29 +534,61 @@ const WorkOrderForm = () => {
 
         <div style={{ marginTop: theme.spacing.lg }}>
           <SectionCard title="Terms & Conditions" icon={<FileTextOutlined />}>
-            <div style={twoColumnGridStyle}>
-              <Form.Item label={<span style={getLabelStyle()}>Client Scope</span>}>
-                <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Select placeholder="Select from Master" style={{ width: 200 }} onChange={(val) => applyTemplate(val, 'client_scope')} allowClear>
-                    {annexures.filter(a => a.type === 'client_scope').map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
-                  </Select>
+            {/* SCOPE MATRIX - Read-only, loaded from Quotation */}
+            {scopeMatrix.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Text strong>Scope Matrix</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>(loaded from quotation — read-only)</Text>
                 </div>
-                <Form.Item name="client_scope" noStyle>
-                  <TextArea rows={6} placeholder="Scope details..." style={largeInputStyle} />
-                </Form.Item>
-              </Form.Item>
+                <Table
+                  dataSource={scopeMatrix}
+                  pagination={false}
+                  size="small"
+                  bordered
+                  rowKey="key"
+                  columns={[
+                    {
+                      title: 'Description of Item',
+                      dataIndex: 'description',
+                      render: (text: string, record: any) => (
+                        <span style={{ fontWeight: record.is_category ? 'bold' : 'normal', fontSize: record.is_category ? 15 : 14 }}>
+                          {text}
+                        </span>
+                      )
+                    },
+                    {
+                      title: 'Client',
+                      key: 'client_scope',
+                      width: 80,
+                      align: 'center' as const,
+                      render: (_: any, record: any) => !record.is_category && (
+                        <Checkbox checked={record.client_scope} disabled />
+                      )
+                    },
+                    {
+                      title: 'VHSHRI',
+                      key: 'contractor_scope',
+                      width: 80,
+                      align: 'center' as const,
+                      render: (_: any, record: any) => !record.is_category && (
+                        <Checkbox checked={record.contractor_scope} disabled />
+                      )
+                    },
+                    {
+                      title: 'Remarks',
+                      dataIndex: 'remarks',
+                      width: 200,
+                      render: (text: string, record: any) => !record.is_category && (
+                        <Text type="secondary">{text}</Text>
+                      )
+                    },
+                  ]}
+                />
+              </div>
+            )}
 
-              <Form.Item label={<span style={getLabelStyle()}>VHSHRI Scope</span>}>
-                <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Select placeholder="Select from Master" style={{ width: 200 }} onChange={(val) => applyTemplate(val, 'contractor_scope')} allowClear>
-                    {annexures.filter(a => a.type === 'contractor_scope').map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
-                  </Select>
-                </div>
-                <Form.Item name="contractor_scope" noStyle>
-                  <TextArea rows={6} placeholder="Scope details..." style={largeInputStyle} />
-                </Form.Item>
-              </Form.Item>
-            </div>
+            <Divider />
 
             <div style={twoColumnGridStyle}>
               <Form.Item label={<span style={getLabelStyle()}>Terms & Conditions</span>}>

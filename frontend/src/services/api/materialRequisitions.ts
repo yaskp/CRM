@@ -43,6 +43,8 @@ export const materialRequisitionService = {
         priority?: string
         from_date?: string
         to_date?: string
+        page?: number
+        limit?: number
     }) => {
         const response = await api.get('/requisitions', { params })
         return response.data
@@ -57,12 +59,18 @@ export const materialRequisitionService = {
     // Create requisition
     createRequisition: async (data: {
         project_id: number
-        from_warehouse_id: number
+        requested_by: string
         required_date?: string
+        priority?: string
+        purpose?: string
+        remarks?: string
         items: Array<{
             material_id: number
             requested_quantity: number
             unit: string
+            estimated_rate?: number
+            specification?: string
+            remarks?: string
         }>
     }) => {
         const response = await api.post('/requisitions', data)

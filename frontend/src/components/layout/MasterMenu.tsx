@@ -144,10 +144,6 @@ const MasterMenu = () => {
         {
           key: '/master/work-templates',
           label: 'Work Templates',
-        },
-        {
-          key: '/master/work-item-types',
-          label: 'Work Item Types',
         }
       ])
     },

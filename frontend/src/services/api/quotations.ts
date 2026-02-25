@@ -3,6 +3,7 @@ import api from './auth'
 export const quotationService = {
   getQuotations: async (params?: {
     lead_id?: number
+    project_id?: number
     status?: string
     page?: number
     limit?: number

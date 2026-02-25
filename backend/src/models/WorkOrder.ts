@@ -13,6 +13,7 @@ interface WorkOrderAttributes {
   payment_terms?: string
   client_scope?: string
   contractor_scope?: string
+  scope_matrix?: any
   terms_conditions?: string
   remarks?: string
   status: 'draft' | 'approved' | 'active' | 'completed'
@@ -31,6 +32,11 @@ class WorkOrder extends Model<WorkOrderAttributes, WorkOrderCreationAttributes> 
   public discount_percentage?: number
   public final_amount!: number
   public payment_terms?: string
+  public client_scope?: string
+  public contractor_scope?: string
+  public scope_matrix?: any
+  public terms_conditions?: string
+  public remarks?: string
   public status!: WorkOrderAttributes['status']
   public readonly created_at!: Date
 }
@@ -82,7 +88,7 @@ WorkOrder.init(
       defaultValue: 0,
     },
     payment_terms: {
-      type: DataTypes.STRING(200),
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     client_scope: {
@@ -91,6 +97,10 @@ WorkOrder.init(
     },
     contractor_scope: {
       type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    scope_matrix: {
+      type: DataTypes.JSON,
       allowNull: true,
     },
     terms_conditions: {

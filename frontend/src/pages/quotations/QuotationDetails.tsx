@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Descriptions, Tag, Button, Space, message, Row, Col, Typography, Divider, Table, Modal, Form, Input, DatePicker, Select, Switch, Radio } from 'antd'
+import { Card, Tag, Button, Space, Row, Col, Typography, Divider, Table, Modal, Form, Input, DatePicker, Select, Switch, App } from 'antd'
 import {
     ArrowLeftOutlined,
     EditOutlined,
@@ -23,7 +23,7 @@ import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import StateSelect from '../../components/common/StateSelect'
 import { theme } from '../../styles/theme'
-import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
 
 const { Text } = Typography
 const { Option } = Select;
@@ -31,6 +31,7 @@ const { Option } = Select;
 const QuotationDetails = () => {
     const { id } = useParams()
     const navigate = useNavigate()
+    const { message } = App.useApp()
     const [loading, setLoading] = useState(false)
     const [quotation, setQuotation] = useState<any>(null)
 
@@ -152,7 +153,13 @@ const QuotationDetails = () => {
                 warehouse_pincode: quotation.lead?.pincode,
                 warehouse_gstin: quotation.lead?.gstin || (quotation.lead?.client?.gstin),
                 warehouse_incharge_name: quotation.lead?.name,
-                warehouse_incharge_phone: quotation.lead?.phone
+                warehouse_incharge_phone: quotation.lead?.phone,
+                // New Fields for Client Master
+                company_name: quotation.lead?.company_name || '',
+                contact_person: quotation.lead?.name,
+                email: quotation.lead?.email,
+                phone: quotation.lead?.phone,
+                contract_value: quotation?.final_amount?.toLocaleString(),
             })
         }
         setIsCreateProjectModalVisible(true)
@@ -185,6 +192,10 @@ const QuotationDetails = () => {
                 navigate('/sales/projects')
             }
         } catch (error: any) {
+            if (error?.errorFields && error.errorFields.length > 0) {
+                message.error(error.errorFields[0].errors[0]);
+                return;
+            }
             message.error(error.response?.data?.message || 'Failed to create project')
         } finally {
             setCreatingProject(false)
@@ -248,7 +259,7 @@ const QuotationDetails = () => {
             key: 'description',
             width: 320,
             render: (text: string, record: any) => (
-                <div>
+                <div style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                     <Text strong>{text}</Text>
                     {record.material && (
                         <div style={{ fontSize: '12px', color: theme.colors.neutral.gray500 }}>
@@ -264,7 +275,7 @@ const QuotationDetails = () => {
             key: 'quantity',
             width: 120,
             align: 'right' as const,
-            render: (qty: number, record: any) => `${Number(qty).toFixed(2)}`
+            render: (qty: number) => `${Number(qty).toFixed(2)}`
         },
         {
             title: 'Unit',
@@ -403,6 +414,7 @@ const QuotationDetails = () => {
                             columns={itemColumns}
                             pagination={false}
                             rowKey="id"
+                            scroll={{ x: 'max-content' }}
                             summary={() => {
                                 return (
                                     <>
@@ -429,7 +441,8 @@ const QuotationDetails = () => {
                                                 <Text strong style={{ fontSize: '16px', color: theme.colors.primary.main }}>Final Amount</Text>
                                             </Table.Summary.Cell>
                                             <Table.Summary.Cell index={1} align="right">
-                                                <Text strong style={{ fontSize: '16px', color: theme.colors.primary.main }}>₹ {Number(quotation.final_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+                                                <Text strong style={{ fontSize: '18px', color: theme.colors.primary.main }}>₹ {Number(quotation.final_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
+                                                <div style={{ fontSize: '11px', color: '#888', marginTop: '2px' }}>* GST Extra as applicable</div>
                                             </Table.Summary.Cell>
                                         </Table.Summary.Row>
                                     </>
@@ -440,27 +453,112 @@ const QuotationDetails = () => {
 
 
 
-                    {(quotation.client_scope || quotation.contractor_scope) && (
-                        <SectionCard title="Scope of Work" icon={<ToolOutlined />} style={{ marginTop: '16px' }}>
-                            <Row gutter={[24, 24]}>
-                                {quotation.client_scope && (
-                                    <Col xs={24} md={12}>
-                                        <Text strong style={{ display: 'block', marginBottom: '8px', textDecoration: 'underline' }}>
-                                            CLIENT SCOPE (To be provided free of cost)
-                                        </Text>
-                                        <Text style={{ whiteSpace: 'pre-wrap' }}>{quotation.client_scope}</Text>
-                                    </Col>
-                                )}
-                                {quotation.contractor_scope && (
-                                    <Col xs={24} md={12}>
-                                        <Text strong style={{ display: 'block', marginBottom: '8px', textDecoration: 'underline' }}>
-                                            VHSHRI SCOPE
-                                        </Text>
-                                        <Text style={{ whiteSpace: 'pre-wrap' }}>{quotation.contractor_scope}</Text>
-                                    </Col>
-                                )}
+                    {(quotation.scope_matrix && Array.isArray(quotation.scope_matrix) && quotation.scope_matrix.length > 0) ? (
+                        <SectionCard title="Scope of Work Responsibilities" icon={<ToolOutlined />} style={{ marginTop: '16px' }}>
+                            <Row gutter={[32, 32]}>
+                                <Col xs={24} md={12}>
+                                    <div style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '8px', marginBottom: '12px' }}>
+                                        <Text strong style={{ fontSize: '16px', color: '#444' }}>CLIENT'S RESPONSIBILITIES</Text>
+                                    </div>
+                                    {(() => {
+                                        const list: any[] = [];
+                                        let currentHeader: any = null;
+                                        let lastHeaderAdded = false;
+                                        quotation.scope_matrix.forEach((item: any) => {
+                                            if (item.is_category) {
+                                                currentHeader = item;
+                                                lastHeaderAdded = false;
+                                            } else if (item.client_scope) {
+                                                if (currentHeader && !lastHeaderAdded) {
+                                                    list.push({ ...currentHeader, is_header: true });
+                                                    lastHeaderAdded = true;
+                                                }
+                                                list.push(item);
+                                            }
+                                        });
+                                        if (list.length === 0) return <Text type="secondary">No specific client responsibilities defined.</Text>;
+                                        return list.map((it, idx) => (
+                                            <div key={idx} style={{
+                                                marginBottom: it.is_header ? '4px' : '6px',
+                                                marginTop: it.is_header ? '12px' : '0',
+                                                paddingLeft: it.is_header ? '0' : '12px'
+                                            }}>
+                                                {it.is_header ? (
+                                                    <Text strong style={{ fontSize: '13px', color: '#1890ff', textTransform: 'uppercase' }}>{it.description}</Text>
+                                                ) : (
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                                        <Text style={{ marginRight: '8px', color: '#52c41a' }}>✓</Text>
+                                                        <Text style={{ flex: 1 }}>{it.description}</Text>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ));
+                                    })()}
+                                </Col>
+                                <Col xs={24} md={12}>
+                                    <div style={{ borderBottom: '2px solid #f0f0f0', paddingBottom: '8px', marginBottom: '12px' }}>
+                                        <Text strong style={{ fontSize: '16px', color: '#0d9488' }}>VHSHRI'S RESPONSIBILITIES</Text>
+                                    </div>
+                                    {(() => {
+                                        const list: any[] = [];
+                                        let currentHeader: any = null;
+                                        let lastHeaderAdded = false;
+                                        quotation.scope_matrix.forEach((item: any) => {
+                                            if (item.is_category) {
+                                                currentHeader = item;
+                                                lastHeaderAdded = false;
+                                            } else if (item.contractor_scope) {
+                                                if (currentHeader && !lastHeaderAdded) {
+                                                    list.push({ ...currentHeader, is_header: true });
+                                                    lastHeaderAdded = true;
+                                                }
+                                                list.push(item);
+                                            }
+                                        });
+                                        if (list.length === 0) return <Text type="secondary">No specific contractor responsibilities defined.</Text>;
+                                        return list.map((it, idx) => (
+                                            <div key={idx} style={{
+                                                marginBottom: it.is_header ? '4px' : '6px',
+                                                marginTop: it.is_header ? '12px' : '0',
+                                                paddingLeft: it.is_header ? '0' : '12px'
+                                            }}>
+                                                {it.is_header ? (
+                                                    <Text strong style={{ fontSize: '13px', color: '#0d9488', textTransform: 'uppercase' }}>{it.description}</Text>
+                                                ) : (
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+                                                        <Text style={{ marginRight: '8px', color: '#0d9488' }}>✓</Text>
+                                                        <Text style={{ flex: 1 }}>{it.description}</Text>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ));
+                                    })()}
+                                </Col>
                             </Row>
                         </SectionCard>
+                    ) : (
+                        (quotation.client_scope || quotation.contractor_scope) && (
+                            <SectionCard title="Scope of Work" icon={<ToolOutlined />} style={{ marginTop: '16px' }}>
+                                <Row gutter={[24, 24]}>
+                                    {quotation.client_scope && (
+                                        <Col xs={24} md={12}>
+                                            <Text strong style={{ display: 'block', marginBottom: '8px', textDecoration: 'underline' }}>
+                                                CLIENT SCOPE (To be provided free of cost)
+                                            </Text>
+                                            <Text style={{ whiteSpace: 'pre-wrap' }}>{quotation.client_scope}</Text>
+                                        </Col>
+                                    )}
+                                    {quotation.contractor_scope && (
+                                        <Col xs={24} md={12}>
+                                            <Text strong style={{ display: 'block', marginBottom: '8px', textDecoration: 'underline' }}>
+                                                VHSHRI SCOPE
+                                            </Text>
+                                            <Text style={{ whiteSpace: 'pre-wrap' }}>{quotation.contractor_scope}</Text>
+                                        </Col>
+                                    )}
+                                </Row>
+                            </SectionCard>
+                        )
                     )}
 
                     {quotation.remarks && (
@@ -616,11 +714,25 @@ const QuotationDetails = () => {
                         // Sync logic: If Store creation is enabled, auto-fill details from Project/Client section if they are empty
                         if (allValues.warehouse_action === 'create_new' && (changedValues.warehouse_type || changedValues.warehouse_action || changedValues.location || changedValues.city || changedValues.state || changedValues.gstin || changedValues.pincode)) {
                             const updates: any = {};
-                            if (!allValues.warehouse_address) updates.warehouse_address = allValues.location;
-                            if (!allValues.warehouse_city) updates.warehouse_city = allValues.city;
-                            if (!allValues.warehouse_state) updates.warehouse_state = allValues.state;
-                            if (!allValues.warehouse_pincode) updates.warehouse_pincode = allValues.pincode;
-                            if (!allValues.warehouse_gstin) updates.warehouse_gstin = allValues.gstin;
+
+                            // Auto-sync unless properly touched or explicitly synced via checkbox
+                            const isSameAsSite = form.getFieldValue('same_as_site_location');
+
+                            if (isSameAsSite || !form.isFieldTouched('warehouse_address')) updates.warehouse_address = allValues.location;
+                            if (isSameAsSite || !form.isFieldTouched('warehouse_city')) updates.warehouse_city = allValues.city;
+                            if (isSameAsSite || !form.isFieldTouched('warehouse_state')) updates.warehouse_state = allValues.state;
+                            if (isSameAsSite || !form.isFieldTouched('warehouse_pincode')) updates.warehouse_pincode = allValues.pincode;
+                            if (isSameAsSite || !form.isFieldTouched('warehouse_gstin')) updates.warehouse_gstin = allValues.gstin;
+
+                            // If checkbox is toggled ON, force sync immediately
+                            if (changedValues.same_as_site_location === true) {
+                                updates.warehouse_address = allValues.location;
+                                updates.warehouse_city = allValues.city;
+                                updates.warehouse_state = allValues.state;
+                                updates.warehouse_pincode = allValues.pincode;
+                                // GSTIN might be different? usually same client. Let's sync it too if not explicitly different.
+                                updates.warehouse_gstin = allValues.gstin;
+                            }
 
                             if (Object.keys(updates).length > 0) {
                                 form.setFieldsValue(updates);
@@ -658,7 +770,6 @@ const QuotationDetails = () => {
                                     <Input
                                         prefix="₹"
                                         disabled
-                                        defaultValue={quotation?.final_amount?.toLocaleString()}
                                         style={{ color: theme.colors.neutral.gray800 }}
                                     />
                                 </Form.Item>
@@ -726,6 +837,42 @@ const QuotationDetails = () => {
                                 </div>
 
                                 <Form.Item
+                                    name="company_name"
+                                    label="Client Company Name"
+                                    rules={[{ required: true, message: 'Please enter company name' }]}
+                                >
+                                    <Input placeholder="Enter Company Name" />
+                                </Form.Item>
+
+                                <Form.Item
+                                    name="contact_person"
+                                    label="Primary Contact Person"
+                                    rules={[{ required: true, message: 'Please enter contact person name' }]}
+                                >
+                                    <Input placeholder="Enter Contact Person" />
+                                </Form.Item>
+
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="email"
+                                            label="Email Address"
+                                            rules={[{ type: 'email', message: 'Invalid email' }]}
+                                        >
+                                            <Input placeholder="Enter Email" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="phone"
+                                            label="Phone Number"
+                                        >
+                                            <Input placeholder="Enter Phone" />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+
+                                <Form.Item
                                     name="client_group_id"
                                     label="Client Group (Optional)"
                                 >
@@ -747,7 +894,7 @@ const QuotationDetails = () => {
                                             label="Client Type"
                                             initialValue="company"
                                         >
-                                            <Select>
+                                            <Select showSearch optionFilterProp="children">
                                                 <Option value="company">Company</Option>
                                                 <Option value="individual">Individual</Option>
                                                 <Option value="government">Government</Option>
@@ -834,7 +981,7 @@ const QuotationDetails = () => {
                         <Row gutter={16}>
                             <Col span={12}>
                                 <Form.Item name="warehouse_action" label="Store Setup Strategy">
-                                    <Select placeholder="Select action">
+                                    <Select showSearch optionFilterProp="children" placeholder="Select action">
                                         <Option value="none">Don't create or link store</Option>
                                         <Option value="create_new">Create New Store</Option>
                                         <Option value="link_existing">Link Existing Store</Option>
@@ -844,7 +991,7 @@ const QuotationDetails = () => {
                             {warehouseAction === 'create_new' && (
                                 <Col span={12}>
                                     <Form.Item name="warehouse_type" label="Store Category">
-                                        <Select placeholder="Select category">
+                                        <Select showSearch optionFilterProp="children" placeholder="Select category">
                                             <Option value="site">🏗️ Site Store</Option>
                                             <Option value="regional">📍 Regional Store</Option>
                                             <Option value="fabrication">⚙️ Fabrication Yard</Option>
@@ -888,6 +1035,18 @@ const QuotationDetails = () => {
                                         </Form.Item>
                                     </Col>
                                 </Row>
+
+                                <Form.Item
+                                    name="same_as_site_location"
+                                    valuePropName="checked"
+                                    initialValue={true}
+                                >
+                                    <Switch
+                                        checkedChildren="Same as Site Location"
+                                        unCheckedChildren="Different Address"
+                                        defaultChecked
+                                    />
+                                </Form.Item>
 
                                 <Form.Item
                                     name="warehouse_address"

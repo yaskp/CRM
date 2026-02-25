@@ -12,14 +12,15 @@ export interface Annexure {
     quality_terms?: string
     warranty_terms?: string
     penalty_clause?: string
-    type: 'client_scope' | 'contractor_scope' | 'payment_terms' | 'general_terms' | 'purchase_order'
+    scope_matrix?: any[]
+    type: 'client_scope' | 'contractor_scope' | 'payment_terms' | 'general_terms' | 'purchase_order' | 'scope_matrix'
     is_active: boolean
     created_at: string
 }
 
 export const annexureService = {
-    getAnnexures: async () => {
-        const response = await api.get('/annexures')
+    getAnnexures: async (params?: { page?: number; limit?: number; search?: string }) => {
+        const response = await api.get('/annexures', { params })
         return response.data
     },
 

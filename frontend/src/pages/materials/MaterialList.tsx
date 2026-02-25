@@ -9,13 +9,15 @@ import {
     FilterOutlined,
     CheckCircleOutlined,
     CloseCircleOutlined,
-    AppstoreOutlined
+    AppstoreOutlined,
+    UploadOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
 import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
+import CSVImportModal from '../../components/common/CSVImportModal'
 
 const { Search } = Input
 const { Option } = Select
@@ -39,17 +41,25 @@ const MaterialList = () => {
     const [loading, setLoading] = useState(false)
     const [searchText, setSearchText] = useState('')
     const [categoryFilter, setCategoryFilter] = useState('')
+    const [importModalVisible, setImportModalVisible] = useState(false)
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
+    const [total, setTotal] = useState(0)
+    const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, categories: 0 })
     const navigate = useNavigate()
 
     useEffect(() => {
-        fetchMaterials()
-    }, [searchText, categoryFilter])
+        fetchMaterials(currentPage, pageSize)
+    }, [searchText, categoryFilter, currentPage, pageSize])
 
-    const fetchMaterials = async () => {
+    const fetchMaterials = async (page = currentPage, limit = pageSize) => {
         setLoading(true)
         try {
             const token = localStorage.getItem('token')
-            const params: any = {}
+            const params: any = {
+                page,
+                limit
+            }
             if (searchText) params.search = searchText
             if (categoryFilter) params.category = categoryFilter
 
@@ -58,6 +68,10 @@ const MaterialList = () => {
                 params
             })
             setMaterials(response.data.materials || [])
+            setTotal(response.data.pagination?.total || 0)
+            if (response.data.stats) {
+                setStats(response.data.stats)
+            }
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch materials')
         } finally {
@@ -87,13 +101,7 @@ const MaterialList = () => {
         })
     }
 
-    const getStats = () => {
-        const active = materials.filter(m => m.is_active).length
-        const categories = new Set(materials.map(m => m.category)).size
-        return { total: materials.length, active, inactive: materials.length - active, categories }
-    }
-
-    const stats = getStats()
+    // Stats are now fetched from backend directly!
 
     const columns = [
         {
@@ -148,6 +156,20 @@ const MaterialList = () => {
             render: (rate: number) => rate ? <Tag color="green">{rate}%</Tag> : '-',
         },
         {
+            title: 'Std. Rate',
+            dataIndex: 'standard_rate',
+            key: 'standard_rate',
+            width: 120,
+            render: (rate: number) => rate ? `₹${Number(rate).toLocaleString()}` : '-',
+        },
+        {
+            title: 'Base UOM',
+            dataIndex: 'uom',
+            key: 'uom',
+            width: 100,
+            render: (uom: string) => uom || '-',
+        },
+        {
             title: 'Status',
             dataIndex: 'is_active',
             key: 'is_active',
@@ -199,6 +221,40 @@ const MaterialList = () => {
     ]
 
     const categories = ['Cement', 'Steel', 'Sand', 'Aggregate', 'Bricks', 'Paint', 'Electrical', 'Plumbing', 'Hardware', 'Other']
+
+    const importColumns = [
+        { title: 'Material Code', dataIndex: 'material_code', key: 'material_code', required: true },
+        { title: 'Name', dataIndex: 'name', key: 'name', required: true },
+        { title: 'Category', dataIndex: 'category', key: 'category' },
+        { title: 'Allowed Units', dataIndex: 'unit', key: 'unit', required: true, tooltip: 'Comma separated list if multiple (e.g. "Bag, MT")' },
+        { title: 'Base UOM', dataIndex: 'uom', key: 'uom', required: true, tooltip: 'Primary unit for tracking inventory' },
+        { title: 'HSN Code', dataIndex: 'hsn_code', key: 'hsn_code' },
+        { title: 'GST Rate', dataIndex: 'gst_rate', key: 'gst_rate' },
+        { title: 'Standard Rate', dataIndex: 'standard_rate', key: 'standard_rate' },
+    ]
+
+    const templateData = [
+        {
+            material_code: 'MAT001',
+            name: 'OPC 53 Grade Cement',
+            category: 'Cement',
+            unit: 'Bag, MT',
+            uom: 'Bag',
+            hsn_code: '2523',
+            gst_rate: '28',
+            standard_rate: '450'
+        },
+        {
+            material_code: 'MAT002',
+            name: 'TMT Steel 12mm',
+            category: 'Steel',
+            unit: 'MT, KG',
+            uom: 'MT',
+            hsn_code: '7214',
+            gst_rate: '18',
+            standard_rate: '65000'
+        }
+    ]
 
     return (
         <PageContainer>
@@ -305,23 +361,35 @@ const MaterialList = () => {
                             size="large"
                             allowClear
                             suffixIcon={<FilterOutlined style={prefixIconStyle} />}
-                            onChange={(value) => setCategoryFilter(value || '')}
+                            onChange={(value) => {
+                                setCategoryFilter(value || '')
+                                setCurrentPage(1)
+                            }}
                         >
                             {categories.map(cat => (
                                 <Option key={cat} value={cat}>{cat}</Option>
                             ))}
                         </Select>
-                        <Button onClick={fetchMaterials} size="large">Refresh</Button>
+                        <Button onClick={() => fetchMaterials(1)} size="large">Refresh</Button>
                     </Space>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => navigate('/master/materials/new')}
-                        size="large"
-                        style={getPrimaryButtonStyle(150)}
-                    >
-                        Add Material
-                    </Button>
+                    <Space>
+                        <Button
+                            icon={<UploadOutlined />}
+                            onClick={() => setImportModalVisible(true)}
+                            size="large"
+                        >
+                            Import CSV
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => navigate('/master/materials/new')}
+                            size="large"
+                            style={getPrimaryButtonStyle(150)}
+                        >
+                            Add Material
+                        </Button>
+                    </Space>
                 </div>
             </Card>
 
@@ -340,12 +408,30 @@ const MaterialList = () => {
                     rowKey="id"
                     scroll={{ x: 1400 }}
                     pagination={{
-                        pageSize: 10,
+                        current: currentPage,
+                        pageSize: pageSize,
+                        total: total,
                         showSizeChanger: true,
                         showTotal: (total) => `Total ${total} materials`,
+                        onChange: (page, size) => {
+                            setCurrentPage(page)
+                            setPageSize(size)
+                        }
                     }}
                 />
             </Card>
+
+            <CSVImportModal
+                visible={importModalVisible}
+                onCancel={() => setImportModalVisible(false)}
+                onSuccess={() => {
+                    fetchMaterials()
+                }}
+                title="Materials"
+                apiEndpoint="http://localhost:5000/api/materials/import"
+                columns={importColumns}
+                templateData={templateData}
+            />
         </PageContainer>
     )
 }

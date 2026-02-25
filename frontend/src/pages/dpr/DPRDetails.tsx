@@ -145,9 +145,9 @@ const DPRDetails = () => {
                       {(() => {
                         try {
                           const dims = JSON.parse(log.drawingPanel.coordinates_json || '{}')
-                          const length = Number(dims.length || 0)
-                          const depth = Number(dims.depth || dims.height || 0)
-                          const width = Number(dims.width || 0)
+                          const length = Number(log.drawingPanel.length || dims.length || 0)
+                          const depth = Number(log.drawingPanel.design_depth || log.drawingPanel.depth || dims.depth || dims.height || 0)
+                          const width = Number(log.drawingPanel.width || dims.width || 0)
                           const areaSqm = length * depth
                           const areaSqft = areaSqm * 10.764
 

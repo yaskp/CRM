@@ -11,7 +11,9 @@ import {
 import { workTemplateService } from '../../services/api/workTemplates'
 import { workItemTypeService } from '../../services/api/workItemTypes'
 import { unitService } from '../../services/api/units'
+import CSVImportModal from '../../components/common/CSVImportModal'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
+
 const WorkTemplateList = () => {
     const [loading, setLoading] = useState(false)
     const [templates, setTemplates] = useState<any[]>([])
@@ -20,21 +22,38 @@ const WorkTemplateList = () => {
     const [isModalVisible, setIsModalVisible] = useState(false)
     const [editingTemplate, setEditingTemplate] = useState<any>(null)
     const [searchText, setSearchText] = useState('')
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0
+    })
+    const [importModalVisible, setImportModalVisible] = useState(false)
     const [form] = Form.useForm()
     const [itemTypeForm] = Form.useForm()
     const [isItemTypeModalVisible, setIsItemTypeModalVisible] = useState(false)
 
     useEffect(() => {
-        fetchTemplates()
         fetchWorkItemTypes()
         fetchUnits()
     }, [])
 
+    useEffect(() => {
+        fetchTemplates()
+    }, [pagination.current, pagination.pageSize, searchText])
+
     const fetchTemplates = async () => {
         setLoading(true)
         try {
-            const response = await workTemplateService.getTemplates()
+            const response = await workTemplateService.getTemplates({
+                page: pagination.current,
+                limit: pagination.pageSize,
+                search: searchText
+            })
             setTemplates(response.templates || [])
+            setPagination(prev => ({
+                ...prev,
+                total: response.pagination?.total || 0
+            }))
         } catch (error) {
             message.error('Failed to fetch templates')
         } finally {
@@ -44,7 +63,7 @@ const WorkTemplateList = () => {
 
     const fetchWorkItemTypes = async () => {
         try {
-            const response = await workItemTypeService.getWorkItemTypes()
+            const response = await workItemTypeService.getWorkItemTypes({ limit: 1000 })
             setWorkItemTypes(response.data || [])
         } catch (error) {
             console.error('Failed to fetch work item types')
@@ -53,7 +72,7 @@ const WorkTemplateList = () => {
 
     const fetchUnits = async () => {
         try {
-            const response = await unitService.getUnits()
+            const response = await unitService.getUnits({ limit: 1000 })
             setUnits(response.units || response.data || [])
         } catch (error) {
             console.error('Failed to fetch units')
@@ -86,8 +105,12 @@ const WorkTemplateList = () => {
             }
             setIsModalVisible(false)
             fetchTemplates()
-        } catch (error) {
-            // Validation failed
+        } catch (error: any) {
+            if (error?.errorFields && error.errorFields.length > 0) {
+                message.error(error.errorFields[0].errors[0]);
+                return;
+            }
+            message.error(error.response?.data?.message || 'Operation failed')
         }
     }
 
@@ -101,8 +124,12 @@ const WorkTemplateList = () => {
                 setIsItemTypeModalVisible(false)
                 itemTypeForm.resetFields()
             }
-        } catch (error) {
-            console.error(error)
+        } catch (error: any) {
+            if (error?.errorFields && error.errorFields.length > 0) {
+                message.error(error.errorFields[0].errors[0]);
+                return;
+            }
+            message.error(error.response?.data?.message || 'Operation failed')
         }
     }
 
@@ -142,9 +169,7 @@ const WorkTemplateList = () => {
         },
     ]
 
-    const filteredTemplates = templates.filter(t =>
-        t.name.toLowerCase().includes(searchText.toLowerCase())
-    )
+
 
     return (
         <PageContainer>
@@ -153,13 +178,18 @@ const WorkTemplateList = () => {
                 subtitle="Define standard sets of work items (e.g. D-Wall, Column) to quickly populate quotations"
                 icon={<LayoutOutlined />}
                 extra={
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => {
-                        setEditingTemplate(null)
-                        form.resetFields()
-                        setIsModalVisible(true)
-                    }}>
-                        Add New Template
-                    </Button>
+                    <Space>
+                        <Button icon={<LayoutOutlined />} onClick={() => setImportModalVisible(true)}>
+                            Import CSV
+                        </Button>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => {
+                            setEditingTemplate(null)
+                            form.resetFields()
+                            setIsModalVisible(true)
+                        }}>
+                            Add New Template
+                        </Button>
+                    </Space>
                 }
             />
 
@@ -168,16 +198,24 @@ const WorkTemplateList = () => {
                     <Input
                         placeholder="Search templates..."
                         prefix={<SearchOutlined />}
-                        onChange={e => setSearchText(e.target.value)}
+                        onChange={e => {
+                            setSearchText(e.target.value)
+                            setPagination(prev => ({ ...prev, current: 1 }))
+                        }}
                         style={{ width: 300 }}
                     />
                 </div>
                 <Table
                     columns={columns}
-                    dataSource={filteredTemplates}
+                    dataSource={templates}
                     rowKey="id"
                     loading={loading}
-                    pagination={{ pageSize: 10 }}
+                    pagination={pagination}
+                    onChange={(newPagination) => setPagination(prev => ({
+                        ...prev,
+                        current: newPagination.current || 1,
+                        pageSize: newPagination.pageSize || 10
+                    }))}
                 />
             </Card>
 
@@ -234,7 +272,7 @@ const WorkTemplateList = () => {
                                                                 form.setFieldsValue({ items: currentItems });
                                                             }
                                                         }}
-                                                        dropdownRender={(menu) => (
+                                                        popupRender={(menu) => (
                                                             <>
                                                                 {menu}
                                                                 <Divider style={{ margin: '8px 0' }} />
@@ -349,7 +387,27 @@ const WorkTemplateList = () => {
                     </Form.Item>
                 </Form>
             </Modal>
-        </PageContainer>
+
+            <CSVImportModal
+                visible={importModalVisible}
+                onCancel={() => setImportModalVisible(false)}
+                onSuccess={() => fetchTemplates()}
+                title="Work Templates"
+                apiEndpoint="http://localhost:5000/api/work-templates/import"
+                columns={[
+                    { title: 'Template Name', dataIndex: 'name', key: 'name', required: true },
+                    { title: 'Description', dataIndex: 'description', key: 'description' },
+                    { title: 'Work Item Code', dataIndex: 'work_item_code', key: 'work_item_code' },
+                    { title: 'Item Category', dataIndex: 'item_type', key: 'item_type' },
+                    { title: 'Item Description', dataIndex: 'item_description', key: 'item_description' },
+                    { title: 'Item Unit', dataIndex: 'item_unit', key: 'item_unit' },
+                ]}
+                templateData={[
+                    { name: 'D-Wall Panel', description: 'Standard Panel', work_item_code: 'GW', item_type: 'labour', item_description: 'Guide Wall Construction', item_unit: 'RMT' },
+                    { name: 'D-Wall Panel', description: 'Standard Panel', work_item_code: 'DWE', item_type: 'labour', item_description: 'D-Wall Excavation', item_unit: 'SQM' },
+                ]}
+            />
+        </PageContainer >
     )
 }
 

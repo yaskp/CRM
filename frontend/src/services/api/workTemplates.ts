@@ -20,8 +20,8 @@ export interface WorkTemplate {
 }
 
 export const workTemplateService = {
-    getTemplates: async () => {
-        const response = await axios.get('/work-templates')
+    getTemplates: async (params?: { page?: number; limit?: number; search?: string }) => {
+        const response = await axios.get('/work-templates', { params })
         return response.data
     },
 

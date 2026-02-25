@@ -41,6 +41,7 @@ class Warehouse extends Model<WarehouseAttributes, WarehouseCreationAttributes> 
   public state?: string
   public state_code?: string
   public pincode?: string
+  public gstin?: string
   public incharge_name?: string
   public incharge_phone?: string
   public readonly created_at!: Date
@@ -58,7 +59,7 @@ Warehouse.init(
       allowNull: false,
     },
     code: {
-      type: DataTypes.STRING(20),
+      type: DataTypes.STRING(50),
       allowNull: false,
       unique: true,
     },

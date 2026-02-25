@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Button, Card, DatePicker, Table, InputNumber, message, Space, Modal, Typography, Tag, Divider } from 'antd'
+import { Form, Input, Select, Button, Card, DatePicker, Table, InputNumber, message, Space, Modal, Typography, Tag } from 'antd'
 import {
     PlusOutlined,
     DeleteOutlined,
@@ -10,12 +10,11 @@ import {
     InboxOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { materialRequisitionService } from '../../services/api/materialRequisitions'
 import { materialService } from '../../services/api/materials'
 import { projectService } from '../../services/api/projects'
-import { warehouseService } from '../../services/api/warehouses'
 import { unitService } from '../../services/api/units'
-import { projectHierarchyService } from '../../services/api/projectHierarchy'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
@@ -25,8 +24,7 @@ import {
     getLabelStyle,
     flexBetweenStyle,
     actionCardStyle,
-    twoColumnGridStyle,
-    threeColumnGridStyle
+    twoColumnGridStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
@@ -49,25 +47,16 @@ interface Project {
     project_code?: string
 }
 
-interface Warehouse {
-    id: number
-    name: string
-    code: string
-}
-
 const MaterialRequisitionForm = () => {
+    const { user } = useAuth()
     const [form] = Form.useForm()
     const [modalForm] = Form.useForm()
     const [loading, setLoading] = useState(false)
     const [materials, setMaterials] = useState<Material[]>([])
     const [units, setUnits] = useState<any[]>([])
     const [projects, setProjects] = useState<Project[]>([])
-    const [warehouses, setWarehouses] = useState<Warehouse[]>([])
     const [items, setItems] = useState<any[]>([])
     const [showAddItem, setShowAddItem] = useState(false)
-    const [buildings, setBuildings] = useState<any[]>([])
-    const [floors, setFloors] = useState<any[]>([])
-    const [zones, setZones] = useState<any[]>([])
     const navigate = useNavigate()
     const { id } = useParams()
     const isEdit = !!id
@@ -76,7 +65,6 @@ const MaterialRequisitionForm = () => {
         fetchMaterials()
         fetchUnits()
         fetchProjects()
-        fetchWarehouses()
         if (isEdit) {
             fetchRequisition()
         }
@@ -84,7 +72,7 @@ const MaterialRequisitionForm = () => {
 
     const fetchUnits = async () => {
         try {
-            const response = await unitService.getUnits()
+            const response = await unitService.getUnits({ limit: 1000 })
             setUnits(response.data || response.units || [])
         } catch (error) {
             console.error('Failed to fetch units:', error)
@@ -109,15 +97,6 @@ const MaterialRequisitionForm = () => {
         }
     }
 
-    const fetchWarehouses = async () => {
-        try {
-            const response = await warehouseService.getWarehouses()
-            setWarehouses(response.warehouses || [])
-        } catch (error) {
-            console.error('Failed to fetch warehouses:', error)
-        }
-    }
-
     const fetchRequisition = async () => {
         try {
             const response = await materialRequisitionService.getRequisitionById(Number(id))
@@ -125,16 +104,12 @@ const MaterialRequisitionForm = () => {
 
             form.setFieldsValue({
                 project_id: requisition.project_id,
-                from_warehouse_id: requisition.from_warehouse_id,
+                requested_by: requisition.requested_by || user?.name,
                 required_date: dayjs(requisition.required_date),
                 priority: requisition.priority,
                 purpose: requisition.purpose,
                 remarks: requisition.remarks,
             })
-
-            if (requisition.project_id) {
-                projectHierarchyService.getBuildings(requisition.project_id).then(res => setBuildings(res.data || []))
-            }
 
             setItems(requisition.items || [])
         } catch (error: any) {
@@ -155,12 +130,6 @@ const MaterialRequisitionForm = () => {
             specification: values.specification,
             remarks: values.item_remarks,
             material: material,
-            building_id: values.building_id,
-            floor_id: values.floor_id,
-            zone_id: values.zone_id,
-            building_name: buildings.find(b => b.id === values.building_id)?.name,
-            floor_name: floors.find(f => f.id === values.floor_id)?.name,
-            zone_name: zones.find(z => z.id === values.zone_id)?.name,
         }
 
         setItems([...items, newItem])
@@ -183,7 +152,7 @@ const MaterialRequisitionForm = () => {
         try {
             const data = {
                 project_id: values.project_id,
-                from_warehouse_id: values.from_warehouse_id,
+                requested_by: values.requested_by,
                 required_date: values.required_date.format('YYYY-MM-DD'),
                 priority: values.priority,
                 purpose: values.purpose,
@@ -195,9 +164,6 @@ const MaterialRequisitionForm = () => {
                     estimated_rate: item.estimated_rate,
                     specification: item.specification,
                     remarks: item.remarks,
-                    building_id: item.building_id,
-                    floor_id: item.floor_id,
-                    zone_id: item.zone_id,
                 })),
             }
 
@@ -239,17 +205,10 @@ const MaterialRequisitionForm = () => {
             render: (qty: number, record: any) => <Text strong>{qty} {record.unit}</Text>,
         },
         {
-            title: 'Location / Details',
+            title: 'Details',
             key: 'details',
             render: (_: any, record: any) => (
                 <div style={{ fontSize: '12px', color: theme.colors.neutral.gray600 }}>
-                    {(record.building_name || record.building_id) && (
-                        <Tag color="cyan" style={{ marginBottom: 4 }}>
-                            {record.building_name || `B-${record.building_id}`}
-                            {record.floor_name ? ` > ${record.floor_name}` : ''}
-                            {record.zone_name ? ` > ${record.zone_name}` : ''}
-                        </Tag>
-                    )}
                     {record.specification && <div>Spec: {record.specification}</div>}
                     {record.remarks && <div>Note: {record.remarks}</div>}
                 </div>
@@ -286,6 +245,7 @@ const MaterialRequisitionForm = () => {
                 initialValues={{
                     priority: 'medium',
                     required_date: dayjs().add(7, 'days'),
+                    requested_by: user?.name || '',
                 }}
             >
                 <div style={twoColumnGridStyle}>
@@ -303,9 +263,6 @@ const MaterialRequisitionForm = () => {
                                 style={largeInputStyle}
                                 onChange={(val) => {
                                     form.setFieldsValue({ project_id: val });
-                                    projectHierarchyService.getBuildings(val).then(res => setBuildings(res.data || []));
-                                    setFloors([]);
-                                    setZones([]);
                                 }}
                             >
                                 {projects.map(project => (
@@ -317,27 +274,19 @@ const MaterialRequisitionForm = () => {
                         </Form.Item>
 
                         <Form.Item
-                            label={<span style={getLabelStyle()}>From Warehouse / Source</span>}
-                            name="from_warehouse_id"
-                            rules={[{ required: true, message: 'Please select warehouse' }]}
+                            label={<span style={getLabelStyle()}>Requested By</span>}
+                            name="requested_by"
                         >
-                            <Select
-                                placeholder="Select warehouse"
-                                showSearch
-                                optionFilterProp="children"
+                            <Input
                                 size="large"
                                 style={largeInputStyle}
-                            >
-                                {warehouses.map(warehouse => (
-                                    <Option key={warehouse.id} value={warehouse.id}>
-                                        {warehouse.name} ({warehouse.code})
-                                    </Option>
-                                ))}
-                            </Select>
+                                disabled
+                                placeholder="Your name"
+                            />
                         </Form.Item>
 
-                        <InfoCard title="💡 Selection Tip">
-                            Materials will be checked for availability in the selected source warehouse upon approval.
+                        <InfoCard title="📋 Approval Workflow">
+                            After submission, this requisition will be sent for approval. Once approved, the procurement team will create Purchase Orders and arrange material delivery.
                         </InfoCard>
                     </SectionCard>
 
@@ -480,42 +429,6 @@ const MaterialRequisitionForm = () => {
                                 {units.map(unit => (
                                     <Option key={unit.id} value={unit.code}>{unit.name} ({unit.code})</Option>
                                 ))}
-                            </Select>
-                        </Form.Item>
-                    </div>
-
-                    <Divider orientation="left" style={{ fontSize: 13, color: theme.colors.neutral.gray500 }}>Location (Optional)</Divider>
-                    <div style={threeColumnGridStyle}>
-                        <Form.Item label={<span style={getLabelStyle()}>Building/Tower</span>} name="building_id">
-                            <Select
-                                placeholder="Select Building"
-                                allowClear
-                                onChange={(val) => {
-                                    setFloors([]);
-                                    setZones([]);
-                                    modalForm.setFieldsValue({ floor_id: undefined, zone_id: undefined });
-                                    if (val) projectHierarchyService.getFloors(val).then(res => setFloors(res.data || []));
-                                }}
-                            >
-                                {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
-                            </Select>
-                        </Form.Item>
-                        <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
-                            <Select
-                                placeholder="Select Floor"
-                                allowClear
-                                onChange={(val) => {
-                                    setZones([]);
-                                    modalForm.setFieldsValue({ zone_id: undefined });
-                                    if (val) projectHierarchyService.getZones(val).then(res => setZones(res.data || []));
-                                }}
-                            >
-                                {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
-                            </Select>
-                        </Form.Item>
-                        <Form.Item label={<span style={getLabelStyle()}>Zone/Flat</span>} name="zone_id">
-                            <Select placeholder="Select Zone" allowClear>
-                                {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
                             </Select>
                         </Form.Item>
                     </div>

@@ -13,7 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { userService } from '../../services/api/users'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
-import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { getPrimaryButtonStyle, prefixIconStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
 const { Search } = Input
@@ -22,20 +22,24 @@ const { Text } = Typography
 const UserList = () => {
     const [users, setUsers] = useState([])
     const [loading, setLoading] = useState(false)
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
+    const [total, setTotal] = useState(0)
     const [searchText, setSearchText] = useState('')
     const navigate = useNavigate()
 
     useEffect(() => {
-        fetchUsers()
-    }, [searchText])
+        fetchUsers(currentPage, pageSize)
+    }, [searchText, currentPage, pageSize])
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (page = currentPage, limit = pageSize) => {
         setLoading(true)
         try {
-            const params: any = {}
+            const params: any = { page, limit }
             if (searchText) params.search = searchText
             const response = await userService.getUsers(params)
             setUsers(response.users || [])
+            setTotal(response.pagination?.total || 0)
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch users')
         } finally {
@@ -224,7 +228,10 @@ const UserList = () => {
                     <Search
                         placeholder="Search by name or email"
                         allowClear
-                        onSearch={setSearchText}
+                        onSearch={(value) => {
+                            setSearchText(value)
+                            setCurrentPage(1)
+                        }}
                         style={{ width: 300 }}
                         prefix={<SearchOutlined style={prefixIconStyle} />}
                         size="large"
@@ -255,6 +262,17 @@ const UserList = () => {
                     loading={loading}
                     rowKey="id"
                     scroll={{ x: 1000 }}
+                    pagination={{
+                        current: currentPage,
+                        pageSize: pageSize,
+                        total: total,
+                        showSizeChanger: true,
+                        showTotal: (total) => `Total ${total} users`,
+                        onChange: (page, size) => {
+                            setCurrentPage(page)
+                            setPageSize(size)
+                        }
+                    }}
                 />
             </Card>
         </PageContainer>

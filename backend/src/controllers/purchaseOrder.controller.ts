@@ -249,17 +249,22 @@ export const rejectPurchaseOrder = async (req: AuthRequest, res: Response, next:
     }
 }
 
+import { getPagination, getPaginationData } from '../utils/pagination'
+
 export const getPurchaseOrders = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { vendor_id, status, project_id } = req.query
+        const { vendor_id, status, project_id, page, limit } = req.query
+        const { limit: l, offset, page: p } = getPagination({ page: page as any, limit: limit as any })
         const where: any = {}
 
         if (vendor_id) where.vendor_id = vendor_id
         if (status) where.status = status
         if (project_id) where.project_id = project_id
 
-        const orders = await PurchaseOrder.findAll({
+        const { count, rows: orders } = await PurchaseOrder.findAndCountAll({
             where,
+            limit: l,
+            offset,
             order: [['created_at', 'DESC']],
             include: [
                 'project', 'vendor', 'creator', 'items', 'warehouse', 'annexure',
@@ -280,7 +285,8 @@ export const getPurchaseOrders = async (req: AuthRequest, res: Response, next: N
 
         res.json({
             success: true,
-            purchaseOrders: ordersWithPayments
+            purchaseOrders: ordersWithPayments,
+            pagination: getPaginationData(count, p, l)
         })
     } catch (error) {
         next(error)

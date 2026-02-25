@@ -5,7 +5,8 @@ import {
     getAllUnits,
     createUnit,
     updateUnit,
-    deleteUnit
+    deleteUnit,
+    importUnits
 } from '../controllers/unit.controller'
 
 const router = Router()
@@ -14,6 +15,7 @@ router.use(authenticate)
 
 router.get('/', getAllUnits)
 router.post('/', createUnit)
+router.post('/import', importUnits)
 router.put('/:id', updateUnit)
 router.delete('/:id', deleteUnit)
 

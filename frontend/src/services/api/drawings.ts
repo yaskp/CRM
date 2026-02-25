@@ -11,6 +11,20 @@ export interface MarkPanelRequest {
   panel_identifier: string
   coordinates_json?: any
   panel_type?: string
+  length?: number
+  width?: number
+  design_depth?: number
+  top_rl?: number
+  bottom_rl?: number
+  reinforcement_ton?: number
+  no_of_anchors?: number
+  anchor_length?: number
+  anchor_capacity?: number
+  concrete_design_qty?: number
+  grabbing_qty?: number
+  stop_end_area?: number
+  guide_wall_rm?: number
+  ramming_qty?: number
 }
 
 export interface UpdatePanelProgressRequest {
@@ -71,6 +85,21 @@ export const drawingService = {
 
   updatePanelProgress: async (panelId: number, data: UpdatePanelProgressRequest) => {
     const response = await api.put(`/drawings/panels/${panelId}/progress`, data)
+    return response.data
+  },
+
+  updatePanel: async (panelId: number, data: Partial<MarkPanelRequest>) => {
+    const response = await api.put(`/drawings/panels/${panelId}`, data)
+    return response.data
+  },
+
+  bulkUpdatePanels: async (panelIds: number[], updates: Partial<MarkPanelRequest>) => {
+    const response = await api.put(`/drawings/panels/bulk`, { panelIds, updates })
+    return response.data
+  },
+
+  deletePanel: async (panelId: number) => {
+    const response = await api.delete(`/drawings/panels/${panelId}`)
     return response.data
   },
 }

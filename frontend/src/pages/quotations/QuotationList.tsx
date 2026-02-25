@@ -88,7 +88,10 @@ const QuotationList = () => {
       setStatusModalVisible(false)
       fetchQuotations()
     } catch (error: any) {
-      if (error?.errorFields) return // Validation failed
+      if (error?.errorFields && error.errorFields.length > 0) {
+        message.error(error.errorFields[0].errors[0]);
+        return;
+      }
       message.error(error.response?.data?.message || 'Failed to update status')
     } finally {
       setUpdatingStatus(false)
@@ -440,7 +443,7 @@ const QuotationList = () => {
         onCancel={() => setStatusModalVisible(false)}
         onOk={handleStatusUpdate}
         confirmLoading={updatingStatus}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={form} layout="vertical" preserve={false}>
           <Form.Item

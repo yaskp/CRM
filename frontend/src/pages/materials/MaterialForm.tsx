@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Button, Card, InputNumber, Switch, message, Typography } from 'antd'
+import { Form, Input, Select, Button, Card, InputNumber, Switch, Typography, App } from 'antd'
 import { InboxOutlined, TagOutlined, NumberOutlined, PercentageOutlined, FileTextOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import axios from 'axios'
@@ -12,6 +12,7 @@ const { TextArea } = Input
 const { Text } = Typography
 
 const MaterialForm = () => {
+    const { message } = App.useApp()
     const [form] = Form.useForm()
     const [loading, setLoading] = useState(false)
     const [units, setUnits] = useState<any[]>([])
@@ -28,7 +29,7 @@ const MaterialForm = () => {
 
     const fetchUnits = async () => {
         try {
-            const response = await unitService.getUnits()
+            const response = await unitService.getUnits({ limit: 1000 })
             setUnits(response.data || [])
         } catch (error) {
             console.error('Failed to fetch units')
@@ -165,6 +166,45 @@ const MaterialForm = () => {
 
                     <InfoCard title="💡 Material Code">
                         Use a unique, descriptive code (e.g., CEM-OPC-53 for Cement OPC 53 Grade). Codes must be uppercase.
+                    </InfoCard>
+                </SectionCard>
+
+                <SectionCard title="Pricing & Inventory" icon={<NumberOutlined />}>
+                    <div style={twoColumnGridStyle}>
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Standard Rate (₹)</span>}
+                            name="standard_rate"
+                        >
+                            <InputNumber
+                                prefix={<NumberOutlined style={prefixIconStyle} />}
+                                style={{ width: '100%', ...largeInputStyle }}
+                                size="large"
+                                min={0}
+                                placeholder="e.g., 450"
+                            />
+                        </Form.Item>
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Base UOM</span>}
+                            name="uom"
+                            rules={[{ required: true, message: 'Please select base UOM' }]}
+                            tooltip="The primary unit for inventory tracking"
+                        >
+                            <Select
+                                placeholder="Select base UOM"
+                                showSearch
+                                size="large"
+                                style={largeInputStyle}
+                                optionFilterProp="children"
+                            >
+                                {units.map((unit: any) => (
+                                    <Option key={unit.id} value={unit.code}>{unit.name} ({unit.code})</Option>
+                                ))}
+                            </Select>
+                        </Form.Item>
+                    </div>
+                    <InfoCard title="🏢 Inventory Tracking">
+                        Standard rate helps in estimating purchase orders and valuation. Base UOM is used as the primary reference for stock.
                     </InfoCard>
                 </SectionCard>
 

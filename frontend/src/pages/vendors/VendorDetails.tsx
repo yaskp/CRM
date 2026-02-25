@@ -10,7 +10,9 @@ import {
     BankOutlined,
     SafetyOutlined,
     HistoryOutlined,
-    DollarOutlined
+    DollarOutlined,
+    IdcardOutlined,
+    UserOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { vendorService } from '../../services/api/vendors'
@@ -106,20 +108,55 @@ const VendorDetails = () => {
                                     {vendor.is_active ? 'Active' : 'Inactive'}
                                 </Tag>
                             </Descriptions.Item>
-                            <Descriptions.Item label="Contact Person">
-                                {vendor.contact_person || '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Phone">
-                                {vendor.phone ? <><PhoneOutlined /> {vendor.phone}</> : '-'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="Email">
-                                {vendor.email ? <><MailOutlined /> {vendor.email}</> : '-'}
-                            </Descriptions.Item>
                             <Descriptions.Item label="Registered Since">
                                 {new Date(vendor.created_at).toLocaleDateString()}
                             </Descriptions.Item>
                         </Descriptions>
                     </SectionCard>
+
+                    {vendor.contacts && vendor.contacts.length > 0 && (
+                        <SectionCard title="Contact Persons" icon={<IdcardOutlined />}>
+                            <Row gutter={[16, 16]}>
+                                {vendor.contacts.map((contact: any, index: number) => (
+                                    <Col xs={24} sm={12} key={contact.id || index}>
+                                        <Card size="small" style={{ borderRadius: 8, height: '100%' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                                                <div style={{
+                                                    backgroundColor: '#e6f7ff',
+                                                    padding: 8,
+                                                    borderRadius: '50%',
+                                                    marginRight: 12
+                                                }}>
+                                                    <UserOutlined style={{ color: '#1890ff' }} />
+                                                </div>
+                                                <div>
+                                                    <Text strong>{contact.contact_name}</Text>
+                                                    <div style={{ fontSize: 12, color: '#8c8c8c' }}>{contact.designation || 'No Designation'}</div>
+                                                </div>
+                                            </div>
+                                            <Divider style={{ margin: '8px 0' }} />
+                                            <div style={{ fontSize: 13 }}>
+                                                <div style={{ marginBottom: 4 }}>
+                                                    <PhoneOutlined style={{ marginRight: 8, color: '#8c8c8c' }} />
+                                                    {contact.phone || 'N/A'}
+                                                </div>
+                                                <div style={{ marginBottom: 4 }}>
+                                                    <MailOutlined style={{ marginRight: 8, color: '#8c8c8c' }} />
+                                                    {contact.email || 'N/A'}
+                                                </div>
+                                                <div>
+                                                    <IdcardOutlined style={{ marginRight: 8, color: '#8c8c8c' }} />
+                                                    {contact.aadhar_number ? (
+                                                        <Text style={{ fontSize: 13 }}>{contact.aadhar_number}</Text>
+                                                    ) : 'N/A'}
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    </Col>
+                                ))}
+                            </Row>
+                        </SectionCard>
+                    )}
 
                     <div style={{ marginTop: 24 }}>
                         <Tabs
@@ -175,6 +212,14 @@ const VendorDetails = () => {
                             </Descriptions.Item>
                             <Descriptions.Item label={<Text type="secondary">PAN</Text>}>
                                 {vendor.pan_number || '-'}
+                            </Descriptions.Item>
+                            <Descriptions.Item label={<Text type="secondary">MSME</Text>}>
+                                {vendor.is_msme ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <Tag color="purple">Registered ({vendor.msme_category})</Tag>
+                                        <Text copyable style={{ fontSize: 13 }}>{vendor.msme_number}</Text>
+                                    </div>
+                                ) : <Text type="secondary">Not Registered</Text>}
                             </Descriptions.Item>
                             <Divider style={{ margin: '12px 0' }} />
                             <Descriptions.Item label={<Text type="secondary">Bank Name</Text>}>

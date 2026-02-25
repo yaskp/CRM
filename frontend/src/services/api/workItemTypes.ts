@@ -2,8 +2,8 @@
 import api from './auth'
 
 export const workItemTypeService = {
-    getWorkItemTypes: async () => {
-        const response = await api.get('/work-item-types')
+    getWorkItemTypes: async (params?: { search?: string; page?: number; limit?: number }) => {
+        const response = await api.get('/work-item-types', { params })
         return response.data
     },
 

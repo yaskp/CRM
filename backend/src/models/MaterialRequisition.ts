@@ -5,11 +5,13 @@ interface MaterialRequisitionAttributes {
   id: number
   requisition_number: string
   project_id: number
-  from_warehouse_id: number
+  from_warehouse_id?: number
   requested_by: number
   requested_date: Date
   required_date?: Date
   priority: 'low' | 'medium' | 'high' | 'urgent'
+  purpose?: string
+  remarks?: string
   status: 'pending' | 'approved' | 'partially_issued' | 'issued' | 'rejected'
   approved_by?: number
   boq_id?: number
@@ -22,11 +24,13 @@ class MaterialRequisition extends Model<MaterialRequisitionAttributes, MaterialR
   public id!: number
   public requisition_number!: string
   public project_id!: number
-  public from_warehouse_id!: number
+  public from_warehouse_id?: number
   public requested_by!: number
   public requested_date!: Date
   public required_date?: Date
   public priority!: MaterialRequisitionAttributes['priority']
+  public purpose?: string
+  public remarks?: string
   public status!: MaterialRequisitionAttributes['status']
   public approved_by?: number
   public readonly created_at!: Date
@@ -55,7 +59,7 @@ MaterialRequisition.init(
     },
     from_warehouse_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: 'warehouses',
         key: 'id',
@@ -81,6 +85,14 @@ MaterialRequisition.init(
       type: DataTypes.ENUM('low', 'medium', 'high', 'urgent'),
       defaultValue: 'medium',
       allowNull: false,
+    },
+    purpose: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    remarks: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
     status: {
       type: DataTypes.ENUM('pending', 'approved', 'partially_issued', 'issued', 'rejected'),

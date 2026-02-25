@@ -26,6 +26,9 @@ const { Text } = Typography
 const VendorList = () => {
     const [vendors, setVendors] = useState([])
     const [loading, setLoading] = useState(false)
+    const [currentPage, setCurrentPage] = useState(1)
+    const [pageSize, setPageSize] = useState(10)
+    const [total, setTotal] = useState(0)
     const [filters, setFilters] = useState({
         vendor_type: '',
         is_active: true,
@@ -34,14 +37,15 @@ const VendorList = () => {
     const navigate = useNavigate()
 
     useEffect(() => {
-        fetchVendors()
-    }, [filters])
+        fetchVendors(currentPage, pageSize)
+    }, [filters, currentPage, pageSize])
 
-    const fetchVendors = async () => {
+    const fetchVendors = async (page = currentPage, limit = pageSize) => {
         setLoading(true)
         try {
-            const response = await vendorService.getVendors(filters)
+            const response = await vendorService.getVendors({ ...filters, page, limit })
             setVendors(response.vendors || [])
+            setTotal(response.pagination?.total || 0)
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch vendors')
         } finally {
@@ -90,6 +94,7 @@ const VendorList = () => {
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
+            width: 250,
             sorter: (a: any, b: any) => a.name.localeCompare(b.name),
             render: (name: string) => <Text strong>{name}</Text>,
         },
@@ -97,7 +102,7 @@ const VendorList = () => {
             title: 'Type',
             dataIndex: 'vendor_type',
             key: 'vendor_type',
-            width: 180,
+            width: 150,
             render: (type: string) => (
                 <Tag color={vendorTypeColors[type] || 'blue'} style={{ fontWeight: 500 }}>
                     {vendorTypeLabels[type] || type}
@@ -105,28 +110,55 @@ const VendorList = () => {
             ),
         },
         {
-            title: 'Contact Person',
-            dataIndex: 'contact_person',
-            key: 'contact_person',
-            ellipsis: true,
+            title: 'Contact Persons',
+            dataIndex: 'contacts',
+            key: 'contacts',
+            width: 200,
+            render: (contacts: any[], record: any) => {
+                const primaryContact = contacts?.[0]?.contact_name || record.contact_person
+                if (primaryContact) {
+                    return (
+                        <div>
+                            <Text strong>{primaryContact}</Text>
+                            {contacts && contacts.length > 1 && (
+                                <div style={{ fontSize: 11, color: '#8c8c8c' }}>+ {contacts.length - 1} more</div>
+                            )}
+                        </div>
+                    )
+                }
+                return <Text type="secondary">N/A</Text>
+            }
         },
         {
             title: 'Phone',
             dataIndex: 'phone',
             key: 'phone',
-            width: 140,
-            render: (phone: string) => phone ? (
-                <span><PhoneOutlined style={{ marginRight: 4, color: theme.colors.neutral.gray400 }} />{phone}</span>
-            ) : '-',
+            width: 150,
+            render: (phone: string, record: any) => {
+                const displayPhone = phone || (record.contacts?.[0]?.phone)
+                return displayPhone ? (
+                    <span>
+                        <PhoneOutlined style={{ marginRight: 4, color: theme.colors.neutral.gray400 }} />
+                        {displayPhone}
+                    </span>
+                ) : '-'
+            },
         },
         {
             title: 'Email',
             dataIndex: 'email',
             key: 'email',
+            width: 200,
             ellipsis: true,
-            render: (email: string) => email ? (
-                <span><MailOutlined style={{ marginRight: 4, color: theme.colors.neutral.gray400 }} />{email}</span>
-            ) : '-',
+            render: (email: string, record: any) => {
+                const displayEmail = email || (record.contacts?.[0]?.email)
+                return displayEmail ? (
+                    <span title={displayEmail}>
+                        <MailOutlined style={{ marginRight: 4, color: theme.colors.neutral.gray400 }} />
+                        {displayEmail}
+                    </span>
+                ) : '-'
+            },
         },
         {
             title: 'Status',
@@ -161,7 +193,7 @@ const VendorList = () => {
                     <Button
                         type="link"
                         icon={<EditOutlined />}
-                        onClick={() => navigate(`/master/vendors/${record.id}`)}
+                        onClick={() => navigate(`/master/vendors/${record.id}/edit`)}
                         style={{ padding: 0 }}
                     >
                         Edit
@@ -331,9 +363,15 @@ const VendorList = () => {
                     loading={loading}
                     rowKey="id"
                     pagination={{
-                        pageSize: 10,
+                        current: currentPage,
+                        pageSize: pageSize,
+                        total: total,
                         showSizeChanger: true,
                         showTotal: (total) => `Total ${total} vendors`,
+                        onChange: (page, size) => {
+                            setCurrentPage(page)
+                            setPageSize(size)
+                        }
                     }}
                     scroll={{ x: 1000 }}
                 />

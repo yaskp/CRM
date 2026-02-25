@@ -159,7 +159,12 @@ export const getDrawing = async (req: AuthRequest, res: Response, next: NextFunc
 export const markPanel = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params
-    const { panel_identifier, coordinates_json, panel_type } = req.body
+    const {
+      panel_identifier, coordinates_json, panel_type,
+      length, width, design_depth, top_rl, bottom_rl,
+      reinforcement_ton, no_of_anchors, anchor_length, anchor_capacity,
+      concrete_design_qty, grabbing_qty, stop_end_area, guide_wall_rm, ramming_qty
+    } = req.body
 
     if (!panel_identifier) {
       throw createError('Panel identifier is required', 400)
@@ -175,6 +180,20 @@ export const markPanel = async (req: AuthRequest, res: Response, next: NextFunct
       panel_identifier,
       coordinates_json: JSON.stringify(coordinates_json),
       panel_type,
+      length,
+      width,
+      design_depth,
+      top_rl,
+      bottom_rl,
+      reinforcement_ton,
+      no_of_anchors,
+      anchor_length,
+      anchor_capacity,
+      concrete_design_qty,
+      grabbing_qty,
+      stop_end_area,
+      guide_wall_rm,
+      ramming_qty,
       created_by: req.user!.id,
     })
 
@@ -208,6 +227,20 @@ export const bulkCreatePanels = async (req: AuthRequest, res: Response, next: Ne
         panel_identifier: p.panel_identifier,
         panel_type: p.panel_type || 'Primary',
         coordinates_json: JSON.stringify(p.dimensions || {}),
+        length: p.length || p.dimensions?.length,
+        width: p.width || p.dimensions?.width,
+        design_depth: p.depth || p.dimensions?.depth, // Mapping 'depth' to 'design_depth'
+        top_rl: p.top_rl,
+        bottom_rl: p.bottom_rl,
+        reinforcement_ton: p.reinforcement_ton,
+        no_of_anchors: p.no_of_anchors,
+        anchor_length: p.anchor_length,
+        anchor_capacity: p.anchor_capacity,
+        concrete_design_qty: p.concrete_design_qty,
+        grabbing_qty: p.grabbing_qty,
+        stop_end_area: p.stop_end_area,
+        guide_wall_rm: p.guide_wall_rm,
+        ramming_qty: p.ramming_qty,
         created_by: req.user!.id
       }))
     )
@@ -285,3 +318,167 @@ export const updatePanelProgress = async (req: AuthRequest, res: Response, next:
   }
 }
 
+export const updatePanel = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { panelId } = req.params
+    const {
+      panel_identifier, panel_type,
+      length, width, design_depth, top_rl, bottom_rl,
+      reinforcement_ton, no_of_anchors, anchor_length, anchor_capacity,
+      concrete_design_qty, grabbing_qty, stop_end_area, guide_wall_rm, ramming_qty
+    } = req.body
+
+    const panel = await DrawingPanel.findByPk(panelId, {
+      include: [
+        { association: 'dprRecords', required: false },
+        { association: 'consumptions', required: false }
+      ]
+    })
+    if (!panel) {
+      throw createError('Panel not found', 404)
+    }
+
+    // Safety check: block edits if DPR or consumption records exist
+    const panelData = panel as any
+    const hasDPR = panelData.dprRecords && panelData.dprRecords.length > 0
+    const hasCons = panelData.consumptions && panelData.consumptions.length > 0
+    if (hasDPR || hasCons) {
+      throw createError('Cannot edit panel: DPR or material consumption records already exist for this panel.', 400)
+    }
+
+    // Update coordinates_json to keep it in sync with top-level params
+    let updatedCoordinatesJson = panel.coordinates_json;
+    try {
+      const existingDims = typeof panel.coordinates_json === 'string'
+        ? JSON.parse(panel.coordinates_json)
+        : (panel.coordinates_json || {});
+
+      const newDims = { ...existingDims };
+      if (length !== undefined) newDims.length = length;
+      if (width !== undefined) newDims.width = width;
+      if (design_depth !== undefined) {
+        newDims.depth = design_depth;
+        newDims.height = design_depth; // Keep height in sync for backward compatibility
+      }
+
+      updatedCoordinatesJson = JSON.stringify(newDims);
+    } catch (e) { }
+
+    await panel.update({
+      panel_identifier,
+      panel_type,
+      length,
+      width,
+      design_depth,
+      top_rl,
+      bottom_rl,
+      reinforcement_ton,
+      no_of_anchors,
+      anchor_length,
+      anchor_capacity,
+      concrete_design_qty,
+      grabbing_qty,
+      stop_end_area,
+      guide_wall_rm,
+      ramming_qty,
+      coordinates_json: updatedCoordinatesJson
+    })
+
+    res.json({
+      success: true,
+      message: 'Panel updated successfully',
+      panel,
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const bulkUpdatePanels = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { panelIds, updates } = req.body
+    if (!panelIds || !Array.isArray(panelIds) || panelIds.length === 0) {
+      throw createError('panelIds array is required', 400)
+    }
+    const panels = await DrawingPanel.findAll({
+      where: { id: panelIds },
+      include: [
+        { association: 'dprRecords', required: false },
+        { association: 'consumptions', required: false }
+      ]
+    })
+    const blockedPanels: string[] = []
+    for (const panel of panels) {
+      const pd = panel as any
+      if ((pd.dprRecords && pd.dprRecords.length > 0) || (pd.consumptions && pd.consumptions.length > 0)) {
+        blockedPanels.push(pd.panel_identifier)
+      }
+    }
+    if (blockedPanels.length > 0) {
+      throw createError(`Cannot bulk edit - panels with DPR/consumption records: ${blockedPanels.join(', ')}`, 400)
+    }
+    const updatePayload: any = {}
+    const allowedFields = ['panel_type', 'length', 'width', 'design_depth', 'top_rl', 'bottom_rl', 'reinforcement_ton', 'no_of_anchors', 'anchor_length', 'anchor_capacity', 'concrete_design_qty', 'grabbing_qty', 'stop_end_area', 'guide_wall_rm', 'ramming_qty']
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined && updates[field] !== null && updates[field] !== '') {
+        updatePayload[field] = updates[field]
+      }
+    }
+    if (Object.keys(updatePayload).length === 0) {
+      throw createError('No valid fields to update', 400)
+    }
+
+    // Update each panel sequentially to merge their coordinates_json properly
+    for (const panel of panels) {
+      let updatedCoordinatesJson = panel.coordinates_json;
+      if (updatePayload.length !== undefined || updatePayload.width !== undefined || updatePayload.design_depth !== undefined) {
+        try {
+          const existingDims = typeof panel.coordinates_json === 'string'
+            ? JSON.parse(panel.coordinates_json)
+            : (panel.coordinates_json || {});
+
+          const newDims = { ...existingDims };
+          if (updatePayload.length !== undefined) newDims.length = updatePayload.length;
+          if (updatePayload.width !== undefined) newDims.width = updatePayload.width;
+          if (updatePayload.design_depth !== undefined) {
+            newDims.depth = updatePayload.design_depth;
+            newDims.height = updatePayload.design_depth; // Keep height in sync
+          }
+
+          updatedCoordinatesJson = JSON.stringify(newDims);
+        } catch (e) { }
+      }
+
+      await panel.update({
+        ...updatePayload,
+        ...(updatedCoordinatesJson !== panel.coordinates_json ? { coordinates_json: updatedCoordinatesJson } : {})
+      });
+    }
+
+    res.json({ success: true, message: `${panels.length} panels updated successfully`, count: panels.length })
+  } catch (error) {
+    next(error)
+  }
+}
+export const deletePanel = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { panelId } = req.params
+    const panel = await DrawingPanel.findByPk(panelId, {
+      include: [
+        { association: 'dprRecords', required: false },
+        { association: 'consumptions', required: false }
+      ]
+    })
+    if (!panel) {
+      throw createError('Panel not found', 404)
+    }
+    const pd = panel as any
+    if ((pd.dprRecords && pd.dprRecords.length > 0) || (pd.consumptions && pd.consumptions.length > 0)) {
+      throw createError('Cannot delete panel: DPR or material consumption records already exist for this panel.', 400)
+    }
+    await panel.destroy()
+    res.json({ success: true, message: 'Panel deleted successfully' })
+  } catch (error) {
+    next(error)
+  }
+}

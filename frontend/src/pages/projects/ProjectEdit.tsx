@@ -6,6 +6,7 @@ import {
     BankOutlined,
     CalendarOutlined,
     FileTextOutlined,
+    EditOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { projectService } from '../../services/api/projects'
@@ -82,9 +83,23 @@ const ProjectEdit = () => {
             form.setFieldsValue({
                 ...project,
                 start_date: project.start_date ? dayjs(project.start_date) : null,
-                end_date: project.end_date ? dayjs(project.end_date) : null,
-                // If client is linked, select the group? logic might be complex, leaving group filter clear for now.
+                end_date: (project.expected_end_date || project.end_date) ? dayjs(project.expected_end_date || project.end_date) : null,
+                client_ho_address: project.client_ho_address || project.client?.address,
+                site_location: project.site_location || project.location,
+                site_city: project.site_city || project.city,
+                site_state: project.site_state || project.state,
             })
+
+            // If project has client, fetch client details to get group
+            if (project.client_id) {
+                try {
+                    const cRes = await clientService.getClient(project.client_id);
+                    if (cRes.client && cRes.client.client_group_id) {
+                        setSelectedGroupId(cRes.client.client_group_id);
+                        await fetchClients(cRes.client.client_group_id);
+                    }
+                } catch (e) { console.error("Could not fetch client details for group", e) }
+            }
 
         } catch (error: any) {
             console.error('Failed to fetch data:', error)
@@ -129,7 +144,10 @@ const ProjectEdit = () => {
                 site_location: form.getFieldValue('site_location') || fullLead.address,
                 site_city: form.getFieldValue('site_city') || fullLead.city,
                 site_state: form.getFieldValue('site_state') || fullLead.state,
-                client_id: fullLead.client_id || undefined
+                client_id: fullLead.client_id || undefined,
+                client_contact_person: fullLead.name,
+                client_email: fullLead.email,
+                client_phone: fullLead.phone
             };
 
             // If lead has an approved/accepted quotation, pre-fill contract value
@@ -219,6 +237,13 @@ const ProjectEdit = () => {
                                         </Select.Option>
                                     ))}
                                 </Select>
+                                {form.getFieldValue('client_id') && (
+                                    <Button
+                                        icon={<EditOutlined />}
+                                        onClick={() => navigate(`/sales/clients/${form.getFieldValue('client_id')}/edit`)}
+                                        title="Edit Client Details"
+                                    />
+                                )}
                             </div>
                         </Form.Item>
 
@@ -305,7 +330,7 @@ const ProjectEdit = () => {
                             name="site_state"
                         >
                             <StateSelect
-                                onChange={(val, code) => {
+                                onChange={(val) => {
                                     form.setFieldsValue({ site_state: val })
                                 }}
                             />
@@ -319,11 +344,46 @@ const ProjectEdit = () => {
                             name="client_ho_address"
                         >
                             <TextArea
-                                rows={4}
+                                rows={2}
                                 placeholder="Enter client head office address"
                                 style={largeInputStyle}
                             />
                         </Form.Item>
+
+                        <Form.Item
+                            label={<span style={getLabelStyle()}>Contact Person Name</span>}
+                            name="client_contact_person"
+                        >
+                            <Input
+                                placeholder="Enter contact person name"
+                                size="large"
+                                style={largeInputStyle}
+                            />
+                        </Form.Item>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>Contact Email</span>}
+                                name="client_email"
+                            >
+                                <Input
+                                    placeholder="Enter email"
+                                    size="large"
+                                    style={largeInputStyle}
+                                />
+                            </Form.Item>
+
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>Contact Phone</span>}
+                                name="client_phone"
+                            >
+                                <Input
+                                    placeholder="Enter phone"
+                                    size="large"
+                                    style={largeInputStyle}
+                                />
+                            </Form.Item>
+                        </div>
 
                         <Form.Item
                             label={<span style={getLabelStyle()}>Client GSTIN</span>}
@@ -355,7 +415,7 @@ const ProjectEdit = () => {
                             tooltip="State where the construction site is located (used for GST calculation)"
                         >
                             <StateSelect
-                                onChange={(val, code) => {
+                                onChange={(_, code) => {
                                     form.setFieldsValue({ site_state_code: code })
                                 }}
                             />

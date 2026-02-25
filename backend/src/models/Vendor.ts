@@ -1,5 +1,6 @@
 import { DataTypes, Model, Optional } from 'sequelize'
 import { sequelize } from '../database/connection'
+import VendorContact from './VendorContact'
 
 interface VendorAttributes {
   id: number
@@ -21,6 +22,9 @@ interface VendorAttributes {
   branch?: string
   bank_details?: string
   is_active: boolean
+  is_msme?: boolean
+  msme_number?: string
+  msme_category?: string
   created_at?: Date
 }
 
@@ -46,7 +50,12 @@ class Vendor extends Model<VendorAttributes, VendorCreationAttributes> implement
   public branch?: string
   public bank_details?: string
   public is_active!: boolean
+  public is_msme!: boolean
+  public msme_number?: string
+  public msme_category?: string
   public readonly created_at!: Date
+
+  public readonly contacts?: VendorContact[]
 }
 
 Vendor.init(
@@ -128,6 +137,18 @@ Vendor.init(
       type: DataTypes.BOOLEAN,
       defaultValue: true,
     },
+    is_msme: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
+    msme_number: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    msme_category: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
     created_at: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
@@ -139,5 +160,15 @@ Vendor.init(
     timestamps: false,
   }
 )
+
+Vendor.hasMany(VendorContact, {
+  foreignKey: 'vendor_id',
+  as: 'contacts',
+})
+
+VendorContact.belongsTo(Vendor, {
+  foreignKey: 'vendor_id',
+  as: 'vendor',
+})
 
 export default Vendor

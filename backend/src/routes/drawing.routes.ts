@@ -7,6 +7,9 @@ import {
   bulkCreatePanels,
   getPanels,
   updatePanelProgress,
+  updatePanel,
+  bulkUpdatePanels,
+  deletePanel,
 } from '../controllers/drawing.controller'
 import { authenticate } from '../middleware/auth.middleware'
 import { hasPermission } from '../middleware/rbac.middleware'
@@ -21,7 +24,10 @@ router.get('/:id', getDrawing)
 router.post('/:id/panels', hasPermission('projects.update'), markPanel)
 router.post('/:id/panels/bulk', hasPermission('projects.update'), bulkCreatePanels)
 router.get('/:id/panels', getPanels)
+router.put('/panels/bulk', hasPermission('projects.update'), bulkUpdatePanels)
 router.put('/panels/:panelId/progress', hasPermission('projects.update'), updatePanelProgress)
+router.put('/panels/:panelId', hasPermission('projects.update'), updatePanel)
+router.delete('/panels/:panelId', hasPermission('projects.update'), deletePanel)
 
 export default router
 

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { Op } from 'sequelize'
 import Vendor from '../models/Vendor'
+import VendorContact from '../models/VendorContact'
 import ProjectVendor from '../models/ProjectVendor'
 import { createError } from '../middleware/errorHandler'
 import { AuthRequest } from '../middleware/auth.middleware'
@@ -9,7 +10,8 @@ import { getStateCodeFromGST, getStateNameFromCode } from '../utils/gstCalculato
 // Get all vendors
 export const getVendors = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { vendor_type, is_active, search } = req.query
+        const { vendor_type, is_active, search, page = 1, limit = 10 } = req.query
+        const offset = (Number(page) - 1) * Number(limit)
 
         const where: any = {}
 
@@ -29,9 +31,18 @@ export const getVendors = async (req: Request, res: Response, next: NextFunction
             ]
         }
 
-        const vendors = await Vendor.findAll({
+        const { count, rows: vendors } = await Vendor.findAndCountAll({
             where,
+            include: [
+                {
+                    model: VendorContact,
+                    as: 'contacts',
+                }
+            ],
+            limit: Number(limit),
+            offset,
             order: [['name', 'ASC']],
+            distinct: true,
         })
 
         const vendorsWithState = vendors.map(v => {
@@ -45,6 +56,12 @@ export const getVendors = async (req: Request, res: Response, next: NextFunction
         res.json({
             success: true,
             vendors: vendorsWithState,
+            pagination: {
+                total: count,
+                page: Number(page),
+                limit: Number(limit),
+                pages: Math.ceil(count / Number(limit))
+            }
         })
     } catch (error) {
         next(error)
@@ -62,6 +79,10 @@ export const getVendor = async (req: Request, res: Response, next: NextFunction)
                     association: 'projects',
                     attributes: ['id', 'name', 'project_code'],
                 },
+                {
+                    model: VendorContact,
+                    as: 'contacts',
+                }
             ],
         })
 
@@ -104,6 +125,9 @@ export const createVendor = async (req: AuthRequest, res: Response, next: NextFu
             branch,
             bank_details,
             state_code,
+            is_msme,
+            msme_number,
+            msme_category,
         } = req.body
 
         if (!name || !vendor_type) {
@@ -137,7 +161,21 @@ export const createVendor = async (req: AuthRequest, res: Response, next: NextFu
             branch,
             bank_details,
             is_active: true,
+            is_msme: is_msme || false,
+            msme_number,
+            msme_category,
         })
+
+        // Handle contacts if provided
+        const { contacts } = req.body
+        if (contacts && Array.isArray(contacts)) {
+            await Promise.all(contacts.map((contact: any) =>
+                VendorContact.create({
+                    ...contact,
+                    vendor_id: vendor.id
+                })
+            ))
+        }
 
         res.status(201).json({
             success: true,
@@ -172,6 +210,10 @@ export const updateVendor = async (req: Request, res: Response, next: NextFuncti
             bank_details,
             state_code,
             is_active,
+            is_msme,
+            msme_number,
+            msme_category,
+            contacts,
         } = req.body
 
         const vendor = await Vendor.findByPk(id)
@@ -207,7 +249,35 @@ export const updateVendor = async (req: Request, res: Response, next: NextFuncti
             branch,
             bank_details,
             is_active,
+            is_msme,
+            msme_number,
+            msme_category,
         })
+
+        // Handle contacts update
+        if (contacts && Array.isArray(contacts)) {
+            // Get existing contact IDs
+            const existingContacts = await VendorContact.findAll({ where: { vendor_id: id } })
+            const existingContactIds = existingContacts.map(c => c.id)
+
+            // Normalize updated contacts (some might be new, some existing)
+            const updatedContactIds = contacts.filter((c: any) => c.id).map((c: any) => Number(c.id))
+
+            // Remove contacts that are not in the updated list
+            const contactIdsToRemove = existingContactIds.filter(cid => !updatedContactIds.includes(cid))
+            if (contactIdsToRemove.length > 0) {
+                await VendorContact.destroy({ where: { id: contactIdsToRemove } })
+            }
+
+            // Update or create contacts
+            await Promise.all(contacts.map((contact: any) => {
+                if (contact.id) {
+                    return VendorContact.update(contact, { where: { id: contact.id } })
+                } else {
+                    return VendorContact.create({ ...contact, vendor_id: Number(id) })
+                }
+            }))
+        }
 
         res.json({
             success: true,

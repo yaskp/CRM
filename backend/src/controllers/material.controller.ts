@@ -3,10 +3,11 @@ import { AuthRequest } from '../middleware/auth.middleware'
 import Material from '../models/Material'
 import { createError } from '../middleware/errorHandler'
 import { Op } from 'sequelize'
+import { sequelize } from '../database/connection'
 
 export const createMaterial = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { code, material_code, name, category, unit, hsn_code, gst_rate } = req.body
+    const { code, material_code, name, category, unit, hsn_code, gst_rate, standard_rate, uom } = req.body
 
     // Allow 'code' alias for 'material_code'
     const finalMaterialCode = material_code || code
@@ -22,6 +23,8 @@ export const createMaterial = async (req: AuthRequest, res: Response, next: Next
       unit,
       hsn_code,
       gst_rate,
+      standard_rate,
+      uom,
       is_active: true,
     })
 
@@ -59,6 +62,17 @@ export const getMaterials = async (req: AuthRequest, res: Response, next: NextFu
       order: [['name', 'ASC']],
     })
 
+    const totalMaterials = await Material.count()
+    const activeMaterials = await Material.count({ where: { is_active: true } })
+    const uniqueCategories = await Material.count({ distinct: true, col: 'category' })
+
+    const stats = {
+      total: totalMaterials,
+      active: activeMaterials,
+      inactive: totalMaterials - activeMaterials,
+      categories: uniqueCategories
+    }
+
     res.json({
       success: true,
       materials: rows,
@@ -68,6 +82,7 @@ export const getMaterials = async (req: AuthRequest, res: Response, next: NextFu
         limit: Number(limit),
         pages: Math.ceil(count / Number(limit)),
       },
+      stats
     })
   } catch (error) {
     next(error)
@@ -95,7 +110,7 @@ export const getMaterial = async (req: AuthRequest, res: Response, next: NextFun
 export const updateMaterial = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params
-    const { name, category, unit, hsn_code, gst_rate, is_active } = req.body
+    const { name, category, unit, hsn_code, gst_rate, is_active, standard_rate, uom } = req.body
 
     const material = await Material.findByPk(id)
     if (!material) {
@@ -108,6 +123,8 @@ export const updateMaterial = async (req: AuthRequest, res: Response, next: Next
       unit,
       hsn_code,
       gst_rate,
+      standard_rate,
+      uom,
       is_active,
     })
 
@@ -138,6 +155,86 @@ export const deleteMaterial = async (req: AuthRequest, res: Response, next: Next
     })
   } catch (error) {
     next(error)
+  }
+}
+
+export const importMaterials = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { items } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      throw createError('No items provided for import', 400);
+    }
+
+    const results = {
+      success: [] as any[],
+      errors: [] as any[],
+      duplicates: [] as any[]
+    };
+
+    for (const item of items) {
+      try {
+        let { material_code, name, category, unit, hsn_code, gst_rate, standard_rate, uom } = item;
+
+        if (!material_code || !name || !unit || !uom) {
+          results.errors.push({
+            item,
+            error: 'Material code, name, unit, and base uom (uom) are required'
+          });
+          continue;
+        }
+
+        // Handle multiple units if provided as comma separated string
+        if (typeof unit === 'string') {
+          unit = unit.split(',').map(u => u.trim());
+        }
+
+        // Check for duplicates in database
+        const existing = await Material.findOne({
+          where: { material_code },
+          transaction
+        });
+
+        if (existing) {
+          results.duplicates.push({
+            item,
+            error: `Material code ${material_code} already exists`
+          });
+          continue;
+        }
+
+        const material = await Material.create({
+          material_code,
+          name,
+          category,
+          unit,
+          hsn_code,
+          gst_rate: gst_rate || 0,
+          standard_rate: standard_rate || 0,
+          uom,
+          is_active: true
+        }, { transaction });
+
+        results.success.push(material);
+      } catch (error: any) {
+        results.errors.push({
+          item,
+          error: error.message || 'Internal error'
+        });
+      }
+    }
+
+    await transaction.commit();
+
+    res.json({
+      success: true,
+      message: `Import completed: ${results.success.length} imported, ${results.duplicates.length} duplicates skipped, ${results.errors.length} errors`,
+      data: results
+    });
+  } catch (error) {
+    await transaction.rollback();
+    next(error);
   }
 }
 

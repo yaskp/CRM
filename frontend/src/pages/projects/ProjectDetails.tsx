@@ -14,7 +14,9 @@ import {
   DownloadOutlined,
   ApartmentOutlined,
   HistoryOutlined,
-  TeamOutlined
+  TeamOutlined,
+  AuditOutlined,
+  SafetyCertificateOutlined
 } from '@ant-design/icons'
 import { projectService } from '../../services/api/projects'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
@@ -23,6 +25,7 @@ import { theme } from '../../styles/theme'
 import ProjectStructure from './ProjectStructure'
 import ProjectPanels from './ProjectPanels'
 import ProjectBOQManager from './ProjectBOQ'
+import ProjectQuotationBOQ from './ProjectQuotationBOQ'
 import ProjectInventory from './ProjectInventory'
 import ProjectTeam from './ProjectTeam'
 
@@ -232,6 +235,33 @@ const ProjectDetails = () => {
                       </div>
                     </Col>
                   </Row>
+
+                  {/* Quick Actions Row */}
+                  <Divider style={{ margin: '16px 0' }} />
+                  <Space size="middle" style={{ marginBottom: 16 }}>
+                    <Button
+                      type="primary"
+                      icon={<SafetyCertificateOutlined />}
+                      onClick={() => navigate(`/operations/work-orders/new`, { state: { project_id: Number(id) } })}
+                    >
+                      Create Work Order
+                    </Button>
+                    <Button
+                      icon={<EditOutlined />}
+                      onClick={() => navigate(`/sales/projects/${id}/edit`)}
+                    >
+                      Update Details
+                    </Button>
+                    {project.client_id && (
+                      <Button
+                        icon={<BankOutlined />}
+                        onClick={() => navigate(`/sales/clients/${project.client_id}/edit`)}
+                        style={getSecondaryButtonStyle()}
+                      >
+                        Edit Client Master
+                      </Button>
+                    )}
+                  </Space>
                 </Card>
 
                 {/* Detailed Information */}
@@ -278,7 +308,7 @@ const ProjectDetails = () => {
                               </div>
                             </Descriptions.Item>
                             <Descriptions.Item label={<Text strong>Contact Person</Text>}>
-                              {project.client.contacts && project.client.contacts.length > 0 ? (
+                              {project.client?.contacts && project.client.contacts.length > 0 ? (
                                 (() => {
                                   const primary = project.client.contacts.find((c: any) => c.is_primary) || project.client.contacts[0]
                                   return (
@@ -294,7 +324,15 @@ const ProjectDetails = () => {
                                     </div>
                                   )
                                 })()
-                              ) : 'No contacts linked'}
+                              ) : project.client_contact_person ? (
+                                <div>
+                                  <Text strong>{project.client_contact_person}</Text>
+                                  <div style={{ fontSize: 13, color: theme.colors.neutral.gray600 }}>
+                                    {project.client_email && <div>✉ {project.client_email}</div>}
+                                    {project.client_phone && <div>☎ {project.client_phone}</div>}
+                                  </div>
+                                </div>
+                              ) : 'No contact linked'}
                             </Descriptions.Item>
                           </>
                         ) : (
@@ -447,26 +485,7 @@ const ProjectDetails = () => {
                   </Col>
                 </Row>
 
-                {/* Action Buttons */}
-                <Card
-                  style={{
-                    marginTop: theme.spacing.lg,
-                    borderRadius: theme.borderRadius.md,
-                    boxShadow: theme.shadows.md,
-                    border: `1px solid ${theme.colors.neutral.gray100}`,
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                    <Button
-                      icon={<EditOutlined />}
-                      size="large"
-                      style={getPrimaryButtonStyle()}
-                      onClick={() => navigate(`/sales/projects/${id}/edit`)}
-                    >
-                      Edit Project
-                    </Button>
-                  </div>
-                </Card>
+                {/* Action Buttons Removed from bottom as they are now in Overview */}
               </>
             )
           },
@@ -514,15 +533,27 @@ const ProjectDetails = () => {
             )
           },
           {
-            key: 'boq',
+            key: 'design_qty',
             label: (
               <span>
                 <FileTextOutlined />
-                BOQ & Budget
+                Design Qty.
               </span>
             ),
             children: (
               <ProjectBOQManager projectId={Number(id)} />
+            )
+          },
+          {
+            key: 'boq',
+            label: (
+              <span>
+                <AuditOutlined />
+                BoQ
+              </span>
+            ),
+            children: (
+              <ProjectQuotationBOQ projectId={Number(id)} />
             )
           },
           {

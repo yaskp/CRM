@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Form, Input, Button, Card, message, Select, InputNumber, Divider, Row, Col, Typography, Space, DatePicker, Checkbox, Tag } from 'antd'
 import {
     FileDoneOutlined,
@@ -121,7 +121,7 @@ const PurchaseOrderForm = () => {
                 vendorService.getVendors(),
                 materialService.getMaterials(),
                 warehouseService.getWarehouses(),
-                annexureService.getAnnexures(),
+                annexureService.getAnnexures({ limit: 999 }),
                 masterService.getBranches()
             ])
 
@@ -141,9 +141,13 @@ const PurchaseOrderForm = () => {
             setMaterials(getValue(materialsRes, 'materials'))
             setWarehouses(getValue(warehousesRes, 'warehouses'))
 
-            // Annexures needs special filtering
+            // Annexures needs special filtering — T&C includes purchase_order, general_terms and terms_conditions types
             const allTerms = getValue(termsRes, 'annexures')
-            setAnnexures(Array.isArray(allTerms) ? allTerms.filter((a: any) => a.type === 'purchase_order' || a.name.includes('PO Terms')) : [])
+            setAnnexures(Array.isArray(allTerms) ? allTerms.filter((a: any) =>
+                ['purchase_order', 'general_terms', 'terms_conditions'].includes(a.type) ||
+                a.name.toLowerCase().includes('terms') ||
+                a.name.toLowerCase().includes('condition')
+            ) : [])
             setPaymentTermsTemplates(Array.isArray(allTerms) ? allTerms.filter((a: any) => a.type === 'payment_terms') : [])
 
             setBranches(getValue(branchesRes, 'branches'))
@@ -360,49 +364,54 @@ const PurchaseOrderForm = () => {
         }
     }
 
+    // Derived: filter warehouses based on delivery type
+    const filteredWarehouses = (() => {
+        if (selectedDeliveryType === 'direct_to_site') {
+            // Only site warehouses, prefer those linked to the selected project
+            const siteWarehouses = warehouses.filter(w => w.type === 'site')
+            if (selectedProjectId) {
+                const projectSite = siteWarehouses.filter(w => w.project_id === selectedProjectId)
+                return projectSite.length > 0 ? projectSite : siteWarehouses
+            }
+            return siteWarehouses
+        } else if (selectedDeliveryType === 'central_warehouse') {
+            return warehouses.filter(w => w.type === 'central' || w.type === 'regional')
+        }
+        return warehouses // 'mixed' or fallback
+    })()
+
     useEffect(() => {
-        // Auto-fill address if Project is selected and delivery is Direct to Site
-        if (selectedProjectId && selectedDeliveryType === 'direct_to_site' && !isEditMode) {
-            const project = projects.find(p => p.id === selectedProjectId)
-            if (project) {
+        if (isEditMode) return // Don't overwrite in edit mode
+
+        const project = projects.find(p => p.id === selectedProjectId)
+        const warehouse = warehouses.find(w => w.id === selectedWarehouseId)
+
+        if (selectedDeliveryType === 'direct_to_site') {
+            // Prefer the site warehouse linked to this project (seeded from project, has pincode)
+            const linkedWarehouse = warehouse ||
+                warehouses.find(w => w.type === 'site' && w.project_id === selectedProjectId)
+
+            form.setFieldsValue({
+                shipping_street: linkedWarehouse?.address || project?.site_address || project?.site_location || '',
+                shipping_city: linkedWarehouse?.city || project?.site_city || '',
+                shipping_state: linkedWarehouse?.state_code || getStateCodeFromGST(linkedWarehouse?.gstin) || project?.site_state_code || '',
+                shipping_pincode: linkedWarehouse?.pincode || project?.site_pincode || ''
+            })
+
+        } else if (selectedDeliveryType === 'central_warehouse' && warehouse) {
+            const linkedProject = warehouse.project_id ? projects.find(p => p.id === warehouse.project_id) : undefined
+            const address = warehouse.address || linkedProject?.site_address || linkedProject?.site_location || ''
+
+            if (address) {
                 form.setFieldsValue({
-                    shipping_street: project.site_address || project.site_location || '',
-                    shipping_city: project.site_city || '',
-                    shipping_state: project.site_state_code || '',
-                    shipping_pincode: project.site_pincode || ''
+                    shipping_street: address,
+                    shipping_city: warehouse.city || linkedProject?.site_city || '',
+                    shipping_state: warehouse.state_code || getStateCodeFromGST(warehouse.gstin) || linkedProject?.site_state_code || '',
+                    shipping_pincode: warehouse.pincode || linkedProject?.site_pincode || ''
                 })
             }
         }
-    }, [selectedProjectId, selectedDeliveryType, projects, form, isEditMode])
-
-    useEffect(() => {
-        // Only auto-fill address if NOT in edit mode (or if address is empty)
-        // If in edit mode, we trust the fetched PO address unless user changes warehouse
-        if (selectedWarehouseId && selectedDeliveryType === 'central_warehouse' && !isEditMode) {
-            const warehouse = warehouses.find(w => w.id === selectedWarehouseId)
-            if (warehouse) {
-                let address = warehouse.address || ''
-
-                // If warehouse doesn't have specific address but is linked to a project, try project site address
-                if (!address && warehouse.project_id) {
-                    const project = projects.find(p => p.id === warehouse.project_id)
-                    if (project) {
-                        address = project.site_address || project.site_location || ''
-                    }
-                }
-
-                if (address) {
-                    form.setFieldsValue({
-                        shipping_street: address,
-                        shipping_city: warehouse.city || (warehouse.project_id ? projects.find(p => p.id === warehouse.project_id)?.site_city : ''),
-                        shipping_state: warehouse.state_code || getStateCodeFromGST(warehouse.gstin) || (warehouse.project_id ? projects.find(p => p.id === warehouse.project_id)?.site_state_code : ''),
-                        shipping_pincode: warehouse.pincode || (warehouse.project_id ? projects.find(p => p.id === warehouse.project_id)?.site_pincode : '')
-                    })
-                }
-            }
-        }
-    }, [selectedWarehouseId, selectedDeliveryType, warehouses, projects, form, isEditMode])
-
+    }, [selectedProjectId, selectedWarehouseId, selectedDeliveryType, projects, warehouses, form, isEditMode])
     const calculateTotals = () => {
         let subtotal = 0
         let totalCGST = 0
@@ -692,35 +701,51 @@ const PurchaseOrderForm = () => {
                         <Form.Item
                             label={
                                 <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                                    <span style={getLabelStyle()}>Ship At (Warehouse/Site)</span>
+                                    <span style={getLabelStyle()}>
+                                        {selectedDeliveryType === 'direct_to_site' ? 'Ship At (Project Site)' :
+                                            selectedDeliveryType === 'central_warehouse' ? 'Ship At (Central Warehouse)' :
+                                                'Ship At (Warehouse / Site)'}
+                                    </span>
                                     {selectedWarehouseId && (
-                                        <Tag color="orange">
+                                        <Tag color={selectedDeliveryType === 'direct_to_site' ? 'orange' : 'purple'}>
                                             {warehouses.find(w => w.id === selectedWarehouseId)?.name}
                                         </Tag>
                                     )}
                                 </div>
                             }
                             name="warehouse_id"
-                            rules={[{ required: !selectedDeliveryType || selectedDeliveryType === 'central_warehouse', message: 'Please select a delivery warehouse' }]}
+                            rules={[{ required: selectedDeliveryType !== 'mixed', message: 'Please select a delivery location' }]}
                         >
                             <Select
-                                placeholder="Select Warehouse"
+                                placeholder={
+                                    selectedDeliveryType === 'direct_to_site' ? 'Select Project Site...' :
+                                        selectedDeliveryType === 'central_warehouse' ? 'Select Central Warehouse...' :
+                                            'Select Warehouse or Site...'
+                                }
                                 size="large"
                                 style={largeInputStyle}
                                 showSearch
                                 optionFilterProp="children"
-                                suffixIcon={<BankOutlined />}
+                                suffixIcon={selectedDeliveryType === 'direct_to_site' ? <ShopOutlined /> : <BankOutlined />}
+                                notFoundContent={
+                                    <Text type="secondary">
+                                        {selectedDeliveryType === 'direct_to_site' ? 'No site warehouses found for this project' :
+                                            selectedDeliveryType === 'central_warehouse' ? 'No central warehouses available' :
+                                                'No warehouses found'}
+                                    </Text>
+                                }
                             >
-                                {warehouses
-                                    .filter(w => w.type === 'central' || w.project_id === selectedProjectId)
-                                    .map((w: any) => (
-                                        <Option key={w.id} value={w.id}>
-                                            <Space>
-                                                {w.type === 'site' ? <ShopOutlined style={{ color: '#fa8c16' }} /> : <BankOutlined style={{ color: '#722ed1' }} />}
-                                                {w.name} ({w.code})
-                                            </Space>
-                                        </Option>
-                                    ))}
+                                {filteredWarehouses.map((w: any) => (
+                                    <Option key={w.id} value={w.id}>
+                                        <Space>
+                                            {w.type === 'site' ? <ShopOutlined style={{ color: '#fa8c16' }} /> : <BankOutlined style={{ color: '#722ed1' }} />}
+                                            {w.name} ({w.code})
+                                            {w.type === 'site' && w.project_id === selectedProjectId && (
+                                                <Tag color="orange" style={{ marginLeft: 4, fontSize: 10 }}>This Project</Tag>
+                                            )}
+                                        </Space>
+                                    </Option>
+                                ))}
                             </Select>
                         </Form.Item>
                     </div>

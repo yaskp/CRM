@@ -2,10 +2,13 @@ import api from './auth'
 
 export const vendorService = {
     // Get all vendors
+    // Get all vendors
     getVendors: async (filters?: {
         vendor_type?: string
         is_active?: boolean
         search?: string
+        page?: number
+        limit?: number
     }) => {
         const response = await api.get('/vendors', { params: filters })
         return response.data
@@ -28,6 +31,10 @@ export const vendorService = {
         gst_number?: string
         pan_number?: string
         bank_details?: string
+        is_msme?: boolean
+        msme_number?: string
+        msme_category?: string
+        contacts?: any[]
     }) => {
         const response = await api.post('/vendors', data)
         return response.data

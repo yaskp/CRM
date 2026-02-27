@@ -59,6 +59,7 @@ import WorkTemplateItem from './WorkTemplateItem'
 import DPRRmcLog from './DPRRmcLog'
 import FinancialTransaction from './FinancialTransaction'
 import PaymentAllocation from './PaymentAllocation'
+import DrawingPanelAnchor from './DrawingPanelAnchor'
 
 // Define associations
 InventoryLedger.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
@@ -234,7 +235,9 @@ DrawingPanel.belongsTo(Drawing, { foreignKey: 'drawing_id', as: 'drawing' })
 DrawingPanel.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
 DrawingPanel.hasMany(StoreTransaction, { foreignKey: 'drawing_panel_id', as: 'consumptions' })
 DrawingPanel.hasMany(PanelProgress, { foreignKey: 'panel_id', as: 'progress' })
+DrawingPanel.hasMany(DrawingPanelAnchor, { foreignKey: 'drawing_panel_id', as: 'anchors' })
 PanelProgress.belongsTo(DrawingPanel, { foreignKey: 'panel_id', as: 'panel' })
+DrawingPanelAnchor.belongsTo(DrawingPanel, { foreignKey: 'drawing_panel_id', as: 'panel' })
 PanelProgress.belongsTo(User, { foreignKey: 'updated_by', as: 'updater' })
 
 // Notifications
@@ -397,6 +400,7 @@ export {
   WorkTemplateItem,
   DPRRmcLog,
   FinancialTransaction,
-  PaymentAllocation
+  PaymentAllocation,
+  DrawingPanelAnchor
 }
 

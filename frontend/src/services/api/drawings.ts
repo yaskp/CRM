@@ -25,6 +25,12 @@ export interface MarkPanelRequest {
   stop_end_area?: number
   guide_wall_rm?: number
   ramming_qty?: number
+  anchor_layers?: {
+    layer_name?: string
+    no_of_anchors?: number
+    anchor_length?: number
+    anchor_capacity?: number
+  }[]
 }
 
 export interface UpdatePanelProgressRequest {
@@ -100,6 +106,11 @@ export const drawingService = {
 
   deletePanel: async (panelId: number) => {
     const response = await api.delete(`/drawings/panels/${panelId}`)
+    return response.data
+  },
+
+  bulkDeletePanels: async (panelIds: number[]) => {
+    const response = await api.delete('/drawings/panels/bulk', { data: { panelIds } })
     return response.data
   },
 }

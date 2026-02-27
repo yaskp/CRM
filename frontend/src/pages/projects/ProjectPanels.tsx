@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react'
-import { Card, Button, Modal, Form, Input, Select, Space, Typography, message, Empty, Row, Col, Upload, Tabs, Table, Tag, Statistic, Divider, Progress } from 'antd'
+import { Card, Button, Modal, Form, Input, Select, Space, Typography, message, Empty, Row, Col, Upload, Tabs, Table, Tag, Progress, Tooltip, Popconfirm } from 'antd'
 import {
     PlusOutlined,
     FileImageOutlined,
     UploadOutlined,
     EyeOutlined,
-    AppstoreOutlined
+    AppstoreOutlined,
+    EditOutlined,
+    DeleteOutlined
 } from '@ant-design/icons'
 import { drawingService } from '../../services/api/drawings'
 import api from '../../services/api/auth'
 import { theme } from '../../styles/theme'
 import DrawingVisualizer from './DrawingVisualizer'
+import AddPanelModal from '../../components/panels/AddPanelModal'
+import BatchPanelModal from '../../components/panels/BatchPanelModal'
+import EditPanelModal from '../../components/panels/EditPanelModal'
+import BulkEditModal from '../../components/panels/BulkEditModal'
+import { useAuth } from '../../context/AuthContext'
 
 const { Text, Title } = Typography
 const { Option } = Select
@@ -20,6 +27,9 @@ interface ProjectPanelsProps {
 }
 
 const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
+    const { user } = useAuth()
+    const isAdmin = user?.roles?.some(r => ['Admin', 'SuperAdmin'].includes(r))
+
     const [drawings, setDrawings] = useState<any[]>([])
     const [selectedDrawing, setSelectedDrawing] = useState<any>(null)
     const [panels, setPanels] = useState<any[]>([])
@@ -27,19 +37,13 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
     const [modalVisible, setModalVisible] = useState(false)
     const [panelModalVisible, setPanelModalVisible] = useState(false)
     const [batchModalVisible, setBatchModalVisible] = useState(false)
+    const [editModalVisible, setEditModalVisible] = useState(false)
+    const [editingPanel, setEditingPanel] = useState<any>(null)
+    const [bulkEditModalVisible, setBulkEditModalVisible] = useState(false)
+    const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
+    const [bulkEditInitialValues, setBulkEditInitialValues] = useState<any>(null)
 
     const [form] = Form.useForm()
-    const [panelForm] = Form.useForm()
-    const [batchForm] = Form.useForm()
-
-    // Calculated fields state
-    const [calculatedValues, setCalculatedValues] = useState({
-        concrete_volume: 0,
-        grabbing_qty: 0,
-        stop_end_area: 0,
-        guide_wall_rm: 0,
-        ramming_qty: 0
-    })
 
     const [fileList, setFileList] = useState<any[]>([])
 
@@ -80,85 +84,13 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
         }
     }
 
-    const onFormValuesChange = (changedValues: any, allValues: any) => {
-        let L = Number(allValues.length || 0)
-        let W = Number(allValues.width || 0)
-        let D = Number(allValues.depth || 0)
-
-        // Auto-calculate Depth from RLs if RLs changed
-        if (changedValues.top_rl || changedValues.bottom_rl) {
-            const top = Number(allValues.top_rl)
-            const bottom = Number(allValues.bottom_rl)
-            if (!isNaN(top) && !isNaN(bottom)) {
-                D = Number((top - bottom).toFixed(2))
-                panelForm.setFieldsValue({ depth: D })
-            }
-        }
-
-        // Use updated D for calculations
-        const concrete = Number((L * W * D).toFixed(2))
-        const grab = Number((L * D).toFixed(2))
-        const stopEnd = Number((L * D).toFixed(2))
-        const guideWall = Number(L.toFixed(2))
-        const ramming = Number((L * W).toFixed(2))
-
-        panelForm.setFieldsValue({
-            concrete_design_qty: concrete,
-            grabbing_qty: grab,
-            stop_end_area: stopEnd,
-            guide_wall_rm: guideWall,
-            ramming_qty: ramming
-        })
-
-        setCalculatedValues({
-            concrete_volume: concrete,
-            grabbing_qty: grab,
-            stop_end_area: stopEnd,
-            guide_wall_rm: guideWall,
-            ramming_qty: ramming
-        })
-    }
-
     const handleAddPanel = async (values: any) => {
         setLoading(true)
         try {
             let drawingId = selectedDrawing?.id;
-            // Ensure drawing exists logic can be added here if needed, but UI enforces selection
-
-            const L = Number(values.length)
-            const W = Number(values.width)
-            const D = Number(values.depth)
-
-            const payload = {
-                panel_identifier: values.panel_identifier,
-                panel_type: values.panel_type,
-                length: L,
-                width: W,
-                design_depth: D,
-                top_rl: Number(values.top_rl),
-                bottom_rl: Number(values.bottom_rl),
-                reinforcement_ton: Number(values.reinforcement_ton),
-                no_of_anchors: Number(values.no_of_anchors),
-                anchor_length: Number(values.anchor_length),
-                anchor_capacity: Number(values.anchor_capacity),
-                concrete_design_qty: Number((L * W * D).toFixed(2)),
-                grabbing_qty: Number((L * D).toFixed(2)),
-                stop_end_area: Number((L * D).toFixed(2)),
-                guide_wall_rm: Number(L.toFixed(2)),
-                ramming_qty: Number((L * W).toFixed(2))
-            }
-
-            await drawingService.markPanel(drawingId, payload)
+            await drawingService.markPanel(drawingId, values)
             message.success('Panel details added')
             setPanelModalVisible(false)
-            panelForm.resetFields()
-            setCalculatedValues({
-                concrete_volume: 0,
-                grabbing_qty: 0,
-                stop_end_area: 0,
-                guide_wall_rm: 0,
-                ramming_qty: 0
-            })
             fetchPanels(drawingId)
         } catch (error) {
             message.error('Failed to add panel')
@@ -172,50 +104,159 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
         try {
             let drawingId = selectedDrawing?.id;
 
-            const { prefix, start_no, end_no, panel_type, length, width, depth, top_rl, bottom_rl, reinforcement_ton, no_of_anchors, anchor_length, anchor_capacity } = values
+            const { prefix, start_no, end_no, panel_type } = values
             const panelsToCreate = []
 
-            const L = Number(length)
-            const W = Number(width)
-            const D = Number(depth)
-            const concrete = Number((L * W * D).toFixed(2))
-            const grab = Number((L * D).toFixed(2))
-            const stopEnd = Number((L * D).toFixed(2))
-            const guideWall = Number(L.toFixed(2))
-            const ramming = Number((L * W).toFixed(2))
-
-            for (let i = start_no; i <= end_no; i++) {
+            for (let i = Number(start_no); i <= Number(end_no); i++) {
                 panelsToCreate.push({
                     panel_identifier: `${prefix}${i}`,
                     panel_type,
-                    length: L,
-                    width: W,
-                    depth: D,
-                    top_rl: Number(top_rl),
-                    bottom_rl: Number(bottom_rl),
-                    reinforcement_ton: Number(reinforcement_ton),
-                    no_of_anchors: Number(no_of_anchors),
-                    anchor_length: Number(anchor_length),
-                    anchor_capacity: Number(anchor_capacity),
-                    concrete_design_qty: concrete,
-                    grabbing_qty: grab,
-                    stop_end_area: stopEnd,
-                    guide_wall_rm: guideWall,
-                    ramming_qty: ramming,
-                    dimensions: { length: L, width: W, depth: D }
+                    length: values.length,
+                    width: values.width,
+                    design_depth: values.depth,
+                    top_rl: values.top_rl,
+                    bottom_rl: values.bottom_rl,
+                    reinforcement_ton: values.reinforcement_ton,
+                    concrete_design_qty: values.concrete_design_qty,
+                    grabbing_qty: values.grabbing_qty,
+                    stop_end_area: values.stop_end_area,
+                    guide_wall_rm: values.guide_wall_rm,
+                    ramming_qty: values.ramming_qty,
+                    anchors: values.anchors // Dynamic layers
                 })
             }
 
             await drawingService.bulkCreatePanels(drawingId, panelsToCreate)
             message.success(`Successfully generated ${panelsToCreate.length} panels`)
             setBatchModalVisible(false)
-            batchForm.resetFields()
             fetchPanels(drawingId)
         } catch (error) {
             message.error('Failed to generate sequence')
         } finally {
             setLoading(false)
         }
+    }
+
+    const handleOpenEdit = (panel: any) => {
+        setEditingPanel(panel)
+        setEditModalVisible(true)
+    }
+
+    const handleUpdatePanel = async (values: any) => {
+        if (!editingPanel) return
+        setLoading(true)
+        try {
+            await drawingService.updatePanel(editingPanel.id, values)
+            message.success('Panel updated successfully')
+            setEditModalVisible(false)
+            setEditingPanel(null)
+            fetchPanels(selectedDrawing.id)
+        } catch (error: any) {
+            message.error(error?.response?.data?.message || 'Failed to update panel')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleBulkEdit = async (values: any) => {
+        setLoading(true)
+        try {
+            const ids = selectedRowKeys.map(k => Number(k))
+            const L = values.length ? Number(values.length) : undefined
+            const W = values.width ? Number(values.width) : undefined
+            const D = values.depth ? Number(values.depth) : undefined
+
+            const updates: any = {}
+            if (values.panel_type) updates.panel_type = values.panel_type
+            if (L) updates.length = L
+            if (W) updates.width = W
+            if (D) updates.design_depth = D
+            if (values.top_rl) updates.top_rl = Number(values.top_rl)
+            if (values.bottom_rl) updates.bottom_rl = Number(values.bottom_rl)
+            if (values.reinforcement_ton) updates.reinforcement_ton = Number(values.reinforcement_ton)
+            if (values.no_of_anchors) updates.no_of_anchors = Number(values.no_of_anchors)
+            if (values.anchor_length) updates.anchor_length = Number(values.anchor_length)
+            if (values.anchor_capacity) updates.anchor_capacity = Number(values.anchor_capacity)
+
+            if (L && W && D) {
+                updates.concrete_design_qty = Number((L * W * D).toFixed(2))
+                updates.grabbing_qty = Number((L * D).toFixed(2))
+                updates.stop_end_area = Number((L * D).toFixed(2))
+                updates.guide_wall_rm = Number(L.toFixed(2))
+                updates.ramming_qty = Number((L * W).toFixed(2))
+            }
+
+            await drawingService.bulkUpdatePanels(ids, updates)
+            message.success(`${ids.length} panels updated successfully`)
+            setBulkEditModalVisible(false)
+            setBulkEditInitialValues(null)
+            setSelectedRowKeys([])
+            fetchPanels(selectedDrawing.id)
+        } catch (error: any) {
+            message.error(error?.response?.data?.message || 'Bulk update failed')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleBulkDelete = async () => {
+        if (selectedRowKeys.length === 0) return
+
+        Modal.confirm({
+            title: `Delete ${selectedRowKeys.length} panels?`,
+            content: 'This action cannot be undone. All selected panels will be permanently removed.',
+            okText: 'Yes, Delete',
+            okType: 'danger',
+            cancelText: 'No',
+            onOk: async () => {
+                setLoading(true)
+                try {
+                    const ids = selectedRowKeys.map(k => Number(k))
+                    await drawingService.bulkDeletePanels(ids)
+                    message.success(`${ids.length} panels deleted successfully`)
+                    setSelectedRowKeys([])
+                    if (selectedDrawing) fetchPanels(selectedDrawing.id)
+                } catch (error: any) {
+                    message.error(error?.response?.data?.message || 'Bulk delete failed')
+                } finally {
+                    setLoading(false)
+                }
+            }
+        })
+    }
+
+    const handleDeletePanel = async (panelId: number) => {
+        try {
+            await drawingService.deletePanel(panelId)
+            message.success('Panel deleted')
+            if (selectedDrawing) fetchPanels(selectedDrawing.id)
+        } catch (error: any) {
+            message.error(error?.response?.data?.message || 'Failed to delete panel')
+        }
+    }
+
+    const openBulkEditWithPreFill = () => {
+        const selected = panels.filter(p => selectedRowKeys.includes(p.id))
+        if (selected.length === 0) return
+
+        const getCommon = (key: string) => {
+            const vals = selected.map((p: any) => p[key])
+            return vals.every(v => String(v) === String(vals[0])) ? vals[0] : undefined
+        }
+
+        setBulkEditInitialValues({
+            panel_type: getCommon('panel_type'),
+            length: getCommon('length'),
+            width: getCommon('width'),
+            depth: getCommon('design_depth'),
+            top_rl: getCommon('top_rl'),
+            bottom_rl: getCommon('bottom_rl'),
+            reinforcement_ton: getCommon('reinforcement_ton'),
+            no_of_anchors: getCommon('no_of_anchors'),
+            anchor_length: getCommon('anchor_length'),
+            anchor_capacity: getCommon('anchor_capacity'),
+        })
+        setBulkEditModalVisible(true)
     }
 
     const ensureDrawing = async () => {
@@ -385,117 +426,218 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                             </Space>
                                         </Empty>
                                     ) : (
-                                        <Table
-                                            dataSource={panels}
-                                            rowKey="id"
-                                            pagination={{
-                                                pageSize: 20,
-                                                showSizeChanger: true,
-                                                showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} panels`
-                                            }}
-                                            columns={[
-                                                {
-                                                    title: 'Panel',
-                                                    dataIndex: 'panel_identifier',
-                                                    key: 'panel_identifier',
-                                                    width: 100,
-                                                    fixed: 'left',
-                                                    render: (text) => <Text strong>{text}</Text>
-                                                },
-                                                {
-                                                    title: 'Type',
-                                                    dataIndex: 'panel_type',
-                                                    key: 'panel_type',
-                                                    width: 100,
-                                                },
-                                                {
-                                                    title: 'Dimensions',
-                                                    children: [
-                                                        { title: 'L (m)', dataIndex: 'length', key: 'length', width: 80, render: (v: any) => Number(v).toFixed(2) },
-                                                        { title: 'W (m)', dataIndex: 'width', key: 'width', width: 80, render: (v: any) => Number(v).toFixed(2) },
-                                                        { title: 'D (m)', dataIndex: 'design_depth', key: 'design_depth', width: 80, render: (v: any) => Number(v).toFixed(1) },
-                                                    ]
-                                                },
-                                                {
-                                                    title: 'Area (m²)',
-                                                    key: 'area',
-                                                    width: 100,
-                                                    render: (_, record: any) => {
-                                                        const area = (Number(record.length) * Number(record.design_depth || 0)).toFixed(2)
-                                                        return <Text>{area}</Text>
-                                                    }
-                                                },
-                                                {
-                                                    title: 'Progress (DPR)',
-                                                    key: 'progress',
-                                                    width: 200,
-                                                    render: (_, record) => {
-                                                        const dprs = record.dprRecords || []
-                                                        const consumptions = record.consumptions || []
-                                                        const allLogs = [...consumptions, ...dprs]
-
-                                                        let percent = 0
-                                                        let status = 'active'
-
-                                                        // Calc Logic
-                                                        const hasConcrete = consumptions.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0)
-                                                        const hasRebar = allLogs.some((l: any) => l.cage_id_ref)
-                                                        const maxDepth = Math.max(0, ...allLogs.map((l: any) => Number(l.actual_depth || 0)))
-                                                        const designDepth = Number(record.design_depth || 1)
-
-                                                        if (hasConcrete) {
-                                                            percent = 100
-                                                            status = 'success'
-                                                        } else if (hasRebar) {
-                                                            percent = 90
-                                                        } else if (maxDepth > 0) {
-                                                            const ratio = Math.min((maxDepth / designDepth), 1)
-                                                            percent = Math.round(ratio * 80)
+                                        <>
+                                            {selectedRowKeys.length > 0 && (
+                                                <div style={{ marginBottom: 16, background: '#e6f7ff', padding: '10px 16px', borderRadius: '6px', border: '1px solid #91d5ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <Text strong>{selectedRowKeys.length} panel{selectedRowKeys.length > 1 ? 's' : ''} selected</Text>
+                                                    <Space>
+                                                        <Button size="small" onClick={() => setSelectedRowKeys([])}>Clear</Button>
+                                                        <Button
+                                                            danger
+                                                            size="small"
+                                                            icon={<DeleteOutlined />}
+                                                            onClick={handleBulkDelete}
+                                                        >
+                                                            Delete ({selectedRowKeys.length})
+                                                        </Button>
+                                                        <Button
+                                                            type="primary"
+                                                            size="small"
+                                                            onClick={() => openBulkEditWithPreFill()}
+                                                        >
+                                                            Bulk Edit ({selectedRowKeys.length})
+                                                        </Button>
+                                                    </Space>
+                                                </div>
+                                            )}
+                                            <Table
+                                                dataSource={panels}
+                                                rowKey="id"
+                                                rowSelection={{
+                                                    selectedRowKeys,
+                                                    onChange: setSelectedRowKeys,
+                                                    getCheckboxProps: (record: any) => ({
+                                                        disabled: !isAdmin && ((record.dprRecords?.length > 0) || (record.consumptions?.length > 0))
+                                                    })
+                                                }}
+                                                pagination={{
+                                                    pageSize: 20,
+                                                    showSizeChanger: true,
+                                                    showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} panels`
+                                                }}
+                                                columns={[
+                                                    {
+                                                        title: 'Panel',
+                                                        dataIndex: 'panel_identifier',
+                                                        key: 'panel_identifier',
+                                                        width: 100,
+                                                        fixed: 'left',
+                                                        render: (text) => <Text strong>{text}</Text>
+                                                    },
+                                                    {
+                                                        title: 'Type',
+                                                        dataIndex: 'panel_type',
+                                                        key: 'panel_type',
+                                                        width: 100,
+                                                    },
+                                                    {
+                                                        title: 'Dimensions',
+                                                        children: [
+                                                            { title: 'L (m)', dataIndex: 'length', key: 'length', width: 80, render: (v: any) => Number(v).toFixed(2) },
+                                                            { title: 'W (m)', dataIndex: 'width', key: 'width', width: 80, render: (v: any) => Number(v).toFixed(2) },
+                                                            { title: 'D (m)', dataIndex: 'design_depth', key: 'design_depth', width: 80, render: (v: any) => Number(v).toFixed(1) },
+                                                        ]
+                                                    },
+                                                    {
+                                                        title: 'Anchors',
+                                                        children: [
+                                                            {
+                                                                title: 'Nos',
+                                                                key: 'anchor_nos',
+                                                                width: 70,
+                                                                render: (_: any, record: any) => {
+                                                                    const layers = record.anchors || []
+                                                                    if (layers.length > 0) {
+                                                                        const total = layers.reduce((sum: number, a: any) => sum + Number(a.no_of_anchors || 0), 0)
+                                                                        return (
+                                                                            <Tooltip title={layers.map((l: any, i: number) => `L${i + 1}: ${l.no_of_anchors}`).join(', ')}><Text strong>{total}</Text> <Text type="secondary" style={{ fontSize: 11 }}>({layers.length}L)</Text></Tooltip>
+                                                                        )
+                                                                    }
+                                                                    return record.no_of_anchors || '-'
+                                                                }
+                                                            },
+                                                            {
+                                                                title: 'L (m)',
+                                                                key: 'anchor_len',
+                                                                width: 80,
+                                                                render: (_: any, record: any) => {
+                                                                    const layers = record.anchors || []
+                                                                    if (layers.length > 0) {
+                                                                        const totalLen = layers.reduce((sum: number, l: any) => sum + (Number(l.no_of_anchors || 0) * Number(l.anchor_length || 0)), 0)
+                                                                        const lengths = [...new Set(layers.map((l: any) => Number(l.anchor_length || 0)))]
+                                                                        const details = layers.map((l: any, i: number) => `L${i + 1}: ${l.no_of_anchors} nos x ${l.anchor_length}m`).join(', ')
+                                                                        return (
+                                                                            <Tooltip title={details}><Text>{totalLen.toFixed(1)}</Text> <Text type="secondary" style={{ fontSize: 11 }}>({lengths.join('/')})</Text></Tooltip>
+                                                                        )
+                                                                    }
+                                                                    return record.anchor_length || '-'
+                                                                }
+                                                            }
+                                                        ]
+                                                    },
+                                                    {
+                                                        title: 'Area (m²)',
+                                                        key: 'area',
+                                                        width: 100,
+                                                        render: (_, record: any) => {
+                                                            const area = (Number(record.length) * Number(record.design_depth || 0)).toFixed(2)
+                                                            return <Text>{area}</Text>
                                                         }
+                                                    },
+                                                    {
+                                                        title: 'Progress (DPR)',
+                                                        key: 'progress',
+                                                        width: 200,
+                                                        render: (_, record) => {
+                                                            const dprs = record.dprRecords || []
+                                                            const consumptions = record.consumptions || []
+                                                            const allLogs = [...consumptions, ...dprs]
 
-                                                        return <Progress percent={percent} size="small" status={status as any} />
+                                                            let percent = 0
+                                                            let status = 'active'
+
+                                                            // Calc Logic
+                                                            const hasConcrete = consumptions.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0)
+                                                            const hasRebar = allLogs.some((l: any) => l.cage_id_ref)
+                                                            const maxDepth = Math.max(0, ...allLogs.map((l: any) => Number(l.actual_depth || 0)))
+                                                            const designDepth = Number(record.design_depth || 1)
+
+                                                            if (hasConcrete) {
+                                                                percent = 100
+                                                                status = 'success'
+                                                            } else if (hasRebar) {
+                                                                percent = 90
+                                                            } else if (maxDepth > 0) {
+                                                                const ratio = Math.min((maxDepth / designDepth), 1)
+                                                                percent = Math.round(ratio * 80)
+                                                            }
+
+                                                            return <Progress percent={percent} size="small" status={status as any} />
+                                                        }
+                                                    },
+                                                    {
+                                                        title: 'Status',
+                                                        key: 'status',
+                                                        width: 120,
+                                                        render: (_, record) => {
+                                                            const dprs = record.dprRecords || []
+                                                            const consumptions = record.consumptions || []
+                                                            const allLogs = [...consumptions, ...dprs]
+
+                                                            const qcIssues: string[] = []
+                                                            allLogs.forEach((log: any) => {
+                                                                if (Number(log.verticality_x) > 0.5) qcIssues.push(`Vx`)
+                                                                if (Number(log.verticality_y) > 0.5) qcIssues.push(`Vy`)
+                                                            })
+                                                            if (qcIssues.length > 0) return <Tag color="red">QC: {qcIssues.join(',')}</Tag>
+
+                                                            const hasConcrete = consumptions.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0)
+                                                            if (hasConcrete) return <Tag color="green">Done</Tag>
+
+                                                            const hasRebar = allLogs.some((l: any) => l.cage_id_ref)
+                                                            if (hasRebar) return <Tag color="blue">Rebar</Tag>
+
+                                                            const hasExcavation = allLogs.some((l: any) => Number(l.actual_depth) > 0)
+                                                            if (hasExcavation) return <Tag color="gold">Digging</Tag>
+
+                                                            return <Tag>Planned</Tag>
+                                                        }
+                                                    },
+                                                    {
+                                                        title: 'Excavated Depth',
+                                                        key: 'depth_current',
+                                                        width: 120,
+                                                        render: (_, record) => {
+                                                            const allLogs = [...(record.dprRecords || []), ...(record.consumptions || [])]
+                                                            const maxDepth = Math.max(0, ...allLogs.map((l: any) => Number(l.actual_depth || 0)))
+                                                            return maxDepth > 0 ? <Text strong>{maxDepth.toFixed(2)}m</Text> : '-'
+                                                        }
+                                                    },
+                                                    {
+                                                        title: 'Action',
+                                                        key: 'action',
+                                                        width: 100,
+                                                        fixed: 'right',
+                                                        render: (_, record) => {
+                                                            const hasDPR = (record.dprRecords?.length > 0) || (record.consumptions?.length > 0)
+                                                            const canEdit = !hasDPR || isAdmin
+                                                            return (
+                                                                <Space size={0}>
+                                                                    <Tooltip title={!canEdit ? 'Cannot edit: DPR work logged' : 'Edit panel'}>
+                                                                        <Button type="link" size="small" icon={<EditOutlined />} disabled={!canEdit} onClick={() => handleOpenEdit(record)}>
+                                                                            Edit
+                                                                        </Button>
+                                                                    </Tooltip>
+                                                                    <Tooltip title={!canEdit ? 'Cannot delete: DPR work logged' : 'Delete panel'}>
+                                                                        <Popconfirm
+                                                                            title="Delete this panel?"
+                                                                            onConfirm={() => handleDeletePanel(record.id)}
+                                                                            okText="Delete"
+                                                                            okButtonProps={{ danger: true }}
+                                                                            disabled={!canEdit}
+                                                                        >
+                                                                            <Button type="link" size="small" danger disabled={!canEdit}>
+                                                                                Delete
+                                                                            </Button>
+                                                                        </Popconfirm>
+                                                                    </Tooltip>
+                                                                </Space>
+                                                            )
+                                                        }
                                                     }
-                                                },
-                                                {
-                                                    title: 'Status',
-                                                    key: 'status',
-                                                    width: 120,
-                                                    render: (_, record) => {
-                                                        const dprs = record.dprRecords || []
-                                                        const consumptions = record.consumptions || []
-                                                        const allLogs = [...consumptions, ...dprs]
-
-                                                        const qcIssues: string[] = []
-                                                        allLogs.forEach((log: any) => {
-                                                            if (Number(log.verticality_x) > 0.5) qcIssues.push(`Vx`)
-                                                            if (Number(log.verticality_y) > 0.5) qcIssues.push(`Vy`)
-                                                        })
-                                                        if (qcIssues.length > 0) return <Tag color="red">QC: {qcIssues.join(',')}</Tag>
-
-                                                        const hasConcrete = consumptions.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0)
-                                                        if (hasConcrete) return <Tag color="green">Done</Tag>
-
-                                                        const hasRebar = allLogs.some((l: any) => l.cage_id_ref)
-                                                        if (hasRebar) return <Tag color="blue">Rebar</Tag>
-
-                                                        const hasExcavation = allLogs.some((l: any) => Number(l.actual_depth) > 0)
-                                                        if (hasExcavation) return <Tag color="gold">Digging</Tag>
-
-                                                        return <Tag>Planned</Tag>
-                                                    }
-                                                },
-                                                {
-                                                    title: 'Excavated Depth',
-                                                    key: 'depth_current',
-                                                    width: 120,
-                                                    render: (_, record) => {
-                                                        const allLogs = [...(record.dprRecords || []), ...(record.consumptions || [])]
-                                                        const maxDepth = Math.max(0, ...allLogs.map((l: any) => Number(l.actual_depth || 0)))
-                                                        return maxDepth > 0 ? <Text strong>{maxDepth.toFixed(2)}m</Text> : '-'
-                                                    }
-                                                }
-                                            ]}
-                                        />
+                                                ]}
+                                            />
+                                        </>
                                     )}
                                 </>
                             )
@@ -541,258 +683,42 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                 </Form>
             </Modal>
 
-            {/* Add Panel Modal */}
-            <Modal
-                title="Add Panel Properties"
+            <AddPanelModal
                 open={panelModalVisible}
-                onOk={() => panelForm.submit()}
                 onCancel={() => setPanelModalVisible(false)}
-                confirmLoading={loading}
-                width={800}
-            >
-                <Form
-                    form={panelForm}
-                    layout="vertical"
-                    onFinish={handleAddPanel}
-                    onValuesChange={onFormValuesChange}
-                >
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name="panel_identifier" label="Panel ID" rules={[{ required: true }]}>
-                                <Input placeholder="e.g. P1" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="panel_type" label="Panel Type" initialValue="Primary">
-                                <Select>
-                                    <Option value="Primary">Primary (P)</Option>
-                                    <Option value="Secondary">Secondary (S)</Option>
-                                    <Option value="Closing">Closing (C)</Option>
-                                    <Option value="End">End (E)</Option>
-                                    <Option value="Corner">Corner</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Statistic
-                                title="Concrete Vol (m³)"
-                                value={calculatedValues.concrete_volume}
-                                precision={2}
-                                valueStyle={{ color: '#3f8600', fontSize: 16 }}
-                            />
-                        </Col>
-                    </Row>
+                onSubmit={handleAddPanel}
+                loading={loading}
+            />
 
-                    <Divider orientation="left">Basic Dimensions (IN METERS)</Divider>
-
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name="length" label="Length (L)" rules={[{ required: true }]}>
-                                <Input type="number" step="0.01" placeholder="e.g. 2.8" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="width" label="Width (W)" rules={[{ required: true }]}>
-                                <Input type="number" step="0.01" placeholder="e.g. 0.8" suffix="m" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="depth" label="Depth (D)" rules={[{ required: true }]}>
-                                <Input type="number" step="0.1" placeholder="e.g. 22.0" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="top_rl" label="Top RL">
-                                <Input type="number" step="0.01" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="bottom_rl" label="Bottom RL">
-                                <Input type="number" step="0.01" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Divider orientation="left">Auto-Calculated Quantities</Divider>
-
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name="concrete_design_qty" label="Concrete (m³)">
-                                <Input readOnly style={{ background: '#f5f5f5' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="grabbing_qty" label="Grabbing (m²)">
-                                <Input readOnly style={{ background: '#f5f5f5' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="stop_end_area" label="Stop End (m²)">
-                                <Input readOnly style={{ background: '#f5f5f5' }} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16} style={{ marginBottom: '24px' }}>
-                        <Col span={12}>
-                            <Form.Item name="guide_wall_rm" label="Guide Wall (RM)">
-                                <Input readOnly style={{ background: '#f5f5f5' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="ramming_qty" label="Ramming (m²)">
-                                <Input readOnly style={{ background: '#f5f5f5' }} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Divider orientation="left">Reinforcement & Anchors</Divider>
-
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="reinforcement_ton" label="Reinforcement in Cage (Ton)">
-                                <Input type="number" step="0.01" placeholder="e.g. 5.9" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="no_of_anchors" label="No. of Anchors">
-                                <Input type="number" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="anchor_length" label="Anchor Length (m)">
-                                <Input type="number" step="0.01" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="anchor_capacity" label="Anchor Capacity (kN)">
-                                <Input type="number" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                </Form>
-            </Modal>
-
-            <Modal
-                title="Batch Generate Panels"
+            <BatchPanelModal
                 open={batchModalVisible}
-                onOk={() => batchForm.submit()}
                 onCancel={() => setBatchModalVisible(false)}
-                confirmLoading={loading}
-                width={800}
-            >
-                <Form
-                    form={batchForm}
-                    layout="vertical"
-                    onFinish={handleGenerateBatch}
-                    initialValues={{ prefix: 'P', start_no: 1, panel_type: 'Primary' }}
-                    onValuesChange={(changedValues, allValues) => {
-                        if (changedValues.top_rl !== undefined || changedValues.bottom_rl !== undefined) {
-                            const top = Number(allValues.top_rl)
-                            const bottom = Number(allValues.bottom_rl)
-                            if (!isNaN(top) && !isNaN(bottom) && top !== 0 && bottom !== 0) {
-                                batchForm.setFieldsValue({ depth: Number((top - bottom).toFixed(2)) })
-                            }
-                        }
-                    }}
-                >
-                    <div style={{ marginBottom: 16, background: '#e6f7ff', padding: '12px', borderRadius: '4px', border: '1px solid #91d5ff' }}>
-                        <Text strong>Global Settings:</Text> <Text>These dimensions and details will be applied to ALL generated panels in this sequence.</Text>
-                    </div>
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name="prefix" label="Prefix" tooltip="e.g. 'P' -> P1, P2...">
-                                <Input maxLength={5} placeholder="P" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="start_no" label="Start" rules={[{ required: true }]}>
-                                <Input type="number" min={1} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="end_no" label="End" rules={[{ required: true }]}>
-                                <Input type="number" min={1} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="panel_type" label="Panel Type">
-                                <Select>
-                                    <Option value="Primary">Primary (P)</Option>
-                                    <Option value="Secondary">Secondary (S)</Option>
-                                    <Option value="Closing">Closing (C)</Option>
-                                    <Option value="End">End (E)</Option>
-                                </Select>
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                onSubmit={handleGenerateBatch}
+                loading={loading}
+            />
 
-                    <Divider orientation="left">Common Dimensions</Divider>
+            <EditPanelModal
+                open={editModalVisible}
+                onCancel={() => {
+                    setEditModalVisible(false)
+                    setEditingPanel(null)
+                }}
+                onSubmit={handleUpdatePanel}
+                loading={loading}
+                editingPanel={editingPanel}
+            />
 
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name="length" label="Length (L)" rules={[{ required: true }]}>
-                                <Input type="number" step="0.01" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="width" label="Width (W)" rules={[{ required: true }]}>
-                                <Input type="number" step="0.01" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="depth" label="Depth (D)" rules={[{ required: true }]}>
-                                <Input type="number" step="0.1" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="top_rl" label="Top RL">
-                                <Input type="number" step="0.01" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="bottom_rl" label="Bottom RL">
-                                <Input type="number" step="0.01" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Divider orientation="left">Common Construction Details</Divider>
-
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="reinforcement_ton" label="Reinf. (Ton)">
-                                <Input type="number" step="0.01" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="no_of_anchors" label="No. of Anchors">
-                                <Input type="number" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="anchor_length" label="Anchor Length (m)">
-                                <Input type="number" step="0.01" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="anchor_capacity" label="Anchor Capacity (kN)">
-                                <Input type="number" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-                </Form>
-            </Modal>
+            <BulkEditModal
+                open={bulkEditModalVisible}
+                onCancel={() => {
+                    setBulkEditModalVisible(false)
+                    setBulkEditInitialValues(null)
+                }}
+                onSubmit={handleBulkEdit}
+                loading={loading}
+                selectedCount={selectedRowKeys.length}
+                initialValues={bulkEditInitialValues}
+            />
         </Row>
     )
 }

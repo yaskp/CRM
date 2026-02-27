@@ -3,7 +3,14 @@ import { AuthRequest } from '../middleware/auth.middleware'
 import Drawing from '../models/Drawing'
 import DrawingPanel from '../models/DrawingPanel'
 import PanelProgress from '../models/PanelProgress'
+import DailyProgressReport from '../models/DailyProgressReport'
+import StoreTransaction from '../models/StoreTransaction'
+import StoreTransactionItem from '../models/StoreTransactionItem'
+import BarBendingSchedule from '../models/BarBendingSchedule'
+import DrawingPanelAnchor from '../models/DrawingPanelAnchor'
+import DPRRmcLog from '../models/DPRRmcLog'
 import { createError } from '../middleware/errorHandler'
+import { sequelize } from '../database/connection'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
@@ -157,21 +164,27 @@ export const getDrawing = async (req: AuthRequest, res: Response, next: NextFunc
 }
 
 export const markPanel = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  let t: any;
   try {
     const { id } = req.params
     const {
       panel_identifier, coordinates_json, panel_type,
       length, width, design_depth, top_rl, bottom_rl,
       reinforcement_ton, no_of_anchors, anchor_length, anchor_capacity,
-      concrete_design_qty, grabbing_qty, stop_end_area, guide_wall_rm, ramming_qty
+      concrete_design_qty, grabbing_qty, stop_end_area, guide_wall_rm, ramming_qty,
+      anchors // Array of layer objects
     } = req.body
 
+    t = await sequelize.transaction()
+
     if (!panel_identifier) {
+      if (t) await t.rollback()
       throw createError('Panel identifier is required', 400)
     }
 
-    const drawing = await Drawing.findByPk(id)
+    const drawing = await Drawing.findByPk(id, { transaction: t })
     if (!drawing) {
+      if (t) await t.rollback()
       throw createError('Drawing not found', 404)
     }
 
@@ -195,7 +208,23 @@ export const markPanel = async (req: AuthRequest, res: Response, next: NextFunct
       guide_wall_rm,
       ramming_qty,
       created_by: req.user!.id,
-    })
+    }, { transaction: t })
+
+    // Create anchor layers if provided
+    if (anchors && Array.isArray(anchors)) {
+      await DrawingPanelAnchor.bulkCreate(
+        anchors.map((layer: any, index: number) => ({
+          drawing_panel_id: panel.id,
+          layer_number: layer.layer_number || index + 1,
+          no_of_anchors: layer.no_of_anchors || 0,
+          anchor_length: layer.anchor_length || 0,
+          anchor_capacity: layer.anchor_capacity ?? null
+        })),
+        { transaction: t }
+      )
+    }
+
+    await t.commit()
 
     res.status(201).json({
       success: true,
@@ -203,11 +232,13 @@ export const markPanel = async (req: AuthRequest, res: Response, next: NextFunct
       panel,
     })
   } catch (error) {
+    if (t) await t.rollback()
     next(error)
   }
 }
 
 export const bulkCreatePanels = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  let t: any;
   try {
     const { id } = req.params // drawing_id
     const { panels } = req.body
@@ -216,8 +247,11 @@ export const bulkCreatePanels = async (req: AuthRequest, res: Response, next: Ne
       throw createError('Panels array is required', 400)
     }
 
-    const drawing = await Drawing.findByPk(id)
+    t = await sequelize.transaction()
+
+    const drawing = await Drawing.findByPk(id, { transaction: t })
     if (!drawing) {
+      if (t) await t.rollback()
       throw createError('Drawing not found', 404)
     }
 
@@ -229,7 +263,7 @@ export const bulkCreatePanels = async (req: AuthRequest, res: Response, next: Ne
         coordinates_json: JSON.stringify(p.dimensions || {}),
         length: p.length || p.dimensions?.length,
         width: p.width || p.dimensions?.width,
-        design_depth: p.depth || p.dimensions?.depth, // Mapping 'depth' to 'design_depth'
+        design_depth: p.design_depth || p.depth || p.dimensions?.depth,
         top_rl: p.top_rl,
         bottom_rl: p.bottom_rl,
         reinforcement_ton: p.reinforcement_ton,
@@ -242,8 +276,28 @@ export const bulkCreatePanels = async (req: AuthRequest, res: Response, next: Ne
         guide_wall_rm: p.guide_wall_rm,
         ramming_qty: p.ramming_qty,
         created_by: req.user!.id
-      }))
+      })),
+      { transaction: t }
     )
+
+    // Create anchor layers for each panel if provided
+    for (let i = 0; i < createdPanels.length; i++) {
+      const panelData = panels[i]
+      if (panelData.anchors && Array.isArray(panelData.anchors)) {
+        await DrawingPanelAnchor.bulkCreate(
+          panelData.anchors.map((layer: any, index: number) => ({
+            drawing_panel_id: createdPanels[i].id,
+            layer_number: layer.layer_number || index + 1,
+            no_of_anchors: layer.no_of_anchors || 0,
+            anchor_length: layer.anchor_length || 0,
+            anchor_capacity: layer.anchor_capacity ?? null
+          })),
+          { transaction: t }
+        )
+      }
+    }
+
+    await t.commit()
 
     res.status(201).json({
       success: true,
@@ -251,6 +305,7 @@ export const bulkCreatePanels = async (req: AuthRequest, res: Response, next: Ne
       count: createdPanels.length
     })
   } catch (error) {
+    if (t) await t.rollback()
     next(error)
   }
 }
@@ -262,6 +317,10 @@ export const getPanels = async (req: AuthRequest, res: Response, next: NextFunct
     const panels = await DrawingPanel.findAll({
       where: { drawing_id: id },
       include: [
+        {
+          association: 'anchors',
+          required: false
+        },
         {
           association: 'dprRecords',
           order: [['report_date', 'DESC']],
@@ -319,31 +378,61 @@ export const updatePanelProgress = async (req: AuthRequest, res: Response, next:
 }
 
 export const updatePanel = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const t = await sequelize.transaction()
   try {
     const { panelId } = req.params
     const {
       panel_identifier, panel_type,
       length, width, design_depth, top_rl, bottom_rl,
       reinforcement_ton, no_of_anchors, anchor_length, anchor_capacity,
-      concrete_design_qty, grabbing_qty, stop_end_area, guide_wall_rm, ramming_qty
+      concrete_design_qty, grabbing_qty, stop_end_area, guide_wall_rm, ramming_qty,
+      anchors // Array of layer objects
     } = req.body
 
     const panel = await DrawingPanel.findByPk(panelId, {
       include: [
         { association: 'dprRecords', required: false },
-        { association: 'consumptions', required: false }
-      ]
+        { association: 'consumptions', required: false },
+        { association: 'drawing', include: [{ association: 'project' }] }
+      ],
+      transaction: t
     })
     if (!panel) {
+      await t.rollback()
       throw createError('Panel not found', 404)
     }
+
+    const oldIdentifier = panel.panel_identifier
+    const projectId = (panel as any).drawing?.project_id
 
     // Safety check: block edits if DPR or consumption records exist
     const panelData = panel as any
     const hasDPR = panelData.dprRecords && panelData.dprRecords.length > 0
     const hasCons = panelData.consumptions && panelData.consumptions.length > 0
-    if (hasDPR || hasCons) {
+
+    // Admin/SuperAdmin can still edit
+    const isAdmin = req.user?.roles?.some(r => ['Admin', 'SuperAdmin'].includes(r))
+
+    if ((hasDPR || hasCons) && !isAdmin) {
+      await t.rollback()
       throw createError('Cannot edit panel: DPR or material consumption records already exist for this panel.', 400)
+    }
+
+    // If identifier changed, update in related records
+    if (panel_identifier && panel_identifier !== oldIdentifier) {
+      // Update DPR
+      await DailyProgressReport.update(
+        { panel_number: panel_identifier },
+        { where: { drawing_panel_id: panelId }, transaction: t }
+      )
+
+      // Update BBS by string match + project (since there's no FK)
+      if (projectId) {
+        await BarBendingSchedule.update(
+          { panel_number: panel_identifier },
+          { where: { panel_number: oldIdentifier, project_id: projectId }, transaction: t }
+        )
+      }
     }
 
     // Update coordinates_json to keep it in sync with top-level params
@@ -382,22 +471,185 @@ export const updatePanel = async (req: AuthRequest, res: Response, next: NextFun
       guide_wall_rm,
       ramming_qty,
       coordinates_json: updatedCoordinatesJson
-    })
+    }, { transaction: t })
 
+    // Sync anchors
+    if (anchors && Array.isArray(anchors)) {
+      // Simplest way: delete existing and recreate
+      await DrawingPanelAnchor.destroy({ where: { drawing_panel_id: panelId }, transaction: t })
+      await DrawingPanelAnchor.bulkCreate(
+        anchors.map((layer: any, index: number) => ({
+          drawing_panel_id: Number(panelId),
+          layer_number: layer.layer_number || index + 1,
+          no_of_anchors: layer.no_of_anchors || 0,
+          anchor_length: layer.anchor_length || 0,
+          anchor_capacity: layer.anchor_capacity ?? null
+        })),
+        { transaction: t }
+      )
+    }
+
+    await t.commit()
     res.json({
       success: true,
       message: 'Panel updated successfully',
       panel,
     })
   } catch (error) {
+    await t.rollback()
     next(error)
   }
 }
 
 export const bulkUpdatePanels = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  let t: any;
   try {
     const { panelIds, updates } = req.body
     if (!panelIds || !Array.isArray(panelIds) || panelIds.length === 0) {
+      throw createError('panelIds array is required', 400)
+    }
+
+    t = await sequelize.transaction()
+
+    const panels = await DrawingPanel.findAll({
+      where: { id: panelIds },
+      include: [
+        { association: 'dprRecords', required: false },
+        { association: 'consumptions', required: false }
+      ],
+      transaction: t
+    })
+
+    const isAdmin = req.user?.roles?.some(r => ['Admin', 'SuperAdmin'].includes(r))
+    const blockedPanels: string[] = []
+
+    if (!isAdmin) {
+      for (const panel of panels) {
+        const pd = panel as any
+        if ((pd.dprRecords && pd.dprRecords.length > 0) || (pd.consumptions && pd.consumptions.length > 0)) {
+          blockedPanels.push(pd.panel_identifier)
+        }
+      }
+      if (blockedPanels.length > 0) {
+        if (t) await t.rollback()
+        throw createError(`Cannot bulk edit - panels with DPR/consumption records: ${blockedPanels.join(', ')}`, 400)
+      }
+    }
+
+    const updatePayload: any = {}
+    const allowedFields = [
+      'panel_type', 'length', 'width', 'design_depth', 'top_rl', 'bottom_rl',
+      'reinforcement_ton', 'no_of_anchors', 'anchor_length', 'anchor_capacity',
+      'concrete_design_qty', 'grabbing_qty', 'stop_end_area', 'guide_wall_rm', 'ramming_qty'
+    ]
+
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined && updates[field] !== null && updates[field] !== '') {
+        updatePayload[field] = updates[field]
+      }
+    }
+
+    const hasNewAnchors = updates.anchors && Array.isArray(updates.anchors)
+
+    if (Object.keys(updatePayload).length === 0 && !hasNewAnchors) {
+      if (t) await t.rollback()
+      throw createError('No valid fields to update', 400)
+    }
+
+    // Update each panel
+    for (const panel of panels) {
+      let updatedCoordinatesJson = panel.coordinates_json;
+      if (updatePayload.length !== undefined || updatePayload.width !== undefined || updatePayload.design_depth !== undefined) {
+        try {
+          const dims = typeof panel.coordinates_json === 'string'
+            ? JSON.parse(panel.coordinates_json)
+            : (panel.coordinates_json || {});
+
+          if (updatePayload.length !== undefined) dims.length = updatePayload.length;
+          if (updatePayload.width !== undefined) dims.width = updatePayload.width;
+          if (updatePayload.design_depth !== undefined) {
+            dims.depth = updatePayload.design_depth;
+            dims.height = updatePayload.design_depth;
+          }
+          updatedCoordinatesJson = JSON.stringify(dims);
+        } catch (e) { }
+      }
+
+      await panel.update({
+        ...updatePayload,
+        coordinates_json: updatedCoordinatesJson
+      }, { transaction: t })
+
+      // Sync anchors if provided in bulk
+      if (hasNewAnchors) {
+        await DrawingPanelAnchor.destroy({ where: { drawing_panel_id: panel.id }, transaction: t })
+        await DrawingPanelAnchor.bulkCreate(
+          updates.anchors.map((layer: any, index: number) => ({
+            drawing_panel_id: panel.id,
+            layer_number: layer.layer_number || index + 1,
+            no_of_anchors: layer.no_of_anchors || 0,
+            anchor_length: layer.anchor_length || 0,
+            anchor_capacity: layer.anchor_capacity || 0
+          })),
+          { transaction: t }
+        )
+      }
+    }
+
+    await t.commit()
+    res.json({ success: true, message: `${panels.length} panels updated successfully` })
+  } catch (error) {
+    if (t) await t.rollback()
+    next(error)
+  }
+}
+export const deletePanel = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const t = await sequelize.transaction()
+  try {
+    const { panelId } = req.params
+    const panel = await DrawingPanel.findByPk(panelId, {
+      include: [
+        { association: 'dprRecords', required: false },
+        { association: 'consumptions', required: false }
+      ],
+      transaction: t
+    })
+    if (!panel) {
+      await t.rollback()
+      throw createError('Panel not found', 404)
+    }
+    const isAdmin = req.user?.roles?.some(r => ['Admin', 'SuperAdmin'].includes(r))
+    const pd = panel as any
+    if ((pd.dprRecords && pd.dprRecords.length > 0) || (pd.consumptions && pd.consumptions.length > 0)) {
+      if (!isAdmin) {
+        await t.rollback()
+        throw createError('Cannot delete panel: DPR or material consumption records already exist for this panel.', 400)
+      }
+    }
+
+    // Remove references everywhere
+    await DailyProgressReport.update({ drawing_panel_id: null as any }, { where: { drawing_panel_id: panelId }, transaction: t })
+    await StoreTransaction.update({ drawing_panel_id: null as any }, { where: { drawing_panel_id: panelId }, transaction: t })
+    await StoreTransactionItem.update({ drawing_panel_id: null as any }, { where: { drawing_panel_id: panelId }, transaction: t })
+    await DPRRmcLog.update({ drawing_panel_id: null as any }, { where: { drawing_panel_id: panelId }, transaction: t })
+    await DrawingPanelAnchor.destroy({ where: { drawing_panel_id: panelId }, transaction: t })
+    await PanelProgress.destroy({ where: { panel_id: panelId }, transaction: t })
+
+    await panel.destroy({ transaction: t })
+    await t.commit()
+    res.json({ success: true, message: 'Panel deleted successfully' })
+  } catch (error) {
+    await t.rollback()
+    next(error)
+  }
+}
+
+export const bulkDeletePanels = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const t = await sequelize.transaction()
+  try {
+    const { panelIds } = req.body
+    if (!panelIds || !Array.isArray(panelIds) || panelIds.length === 0) {
+      await t.rollback()
       throw createError('panelIds array is required', 400)
     }
     const panels = await DrawingPanel.findAll({
@@ -405,80 +657,41 @@ export const bulkUpdatePanels = async (req: AuthRequest, res: Response, next: Ne
       include: [
         { association: 'dprRecords', required: false },
         { association: 'consumptions', required: false }
-      ]
+      ],
+      transaction: t
     })
+
+    const isAdmin = req.user?.roles?.some(r => ['Admin', 'SuperAdmin'].includes(r))
     const blockedPanels: string[] = []
-    for (const panel of panels) {
-      const pd = panel as any
-      if ((pd.dprRecords && pd.dprRecords.length > 0) || (pd.consumptions && pd.consumptions.length > 0)) {
-        blockedPanels.push(pd.panel_identifier)
+
+    if (!isAdmin) {
+      for (const panel of panels) {
+        const pd = panel as any
+        if ((pd.dprRecords && pd.dprRecords.length > 0) || (pd.consumptions && pd.consumptions.length > 0)) {
+          blockedPanels.push(pd.panel_identifier)
+        }
+      }
+      if (blockedPanels.length > 0) {
+        await t.rollback()
+        throw createError(`Cannot bulk delete - panels with DPR/consumption records: ${blockedPanels.join(', ')}`, 400)
       }
     }
-    if (blockedPanels.length > 0) {
-      throw createError(`Cannot bulk edit - panels with DPR/consumption records: ${blockedPanels.join(', ')}`, 400)
-    }
-    const updatePayload: any = {}
-    const allowedFields = ['panel_type', 'length', 'width', 'design_depth', 'top_rl', 'bottom_rl', 'reinforcement_ton', 'no_of_anchors', 'anchor_length', 'anchor_capacity', 'concrete_design_qty', 'grabbing_qty', 'stop_end_area', 'guide_wall_rm', 'ramming_qty']
-    for (const field of allowedFields) {
-      if (updates[field] !== undefined && updates[field] !== null && updates[field] !== '') {
-        updatePayload[field] = updates[field]
-      }
-    }
-    if (Object.keys(updatePayload).length === 0) {
-      throw createError('No valid fields to update', 400)
-    }
 
-    // Update each panel sequentially to merge their coordinates_json properly
-    for (const panel of panels) {
-      let updatedCoordinatesJson = panel.coordinates_json;
-      if (updatePayload.length !== undefined || updatePayload.width !== undefined || updatePayload.design_depth !== undefined) {
-        try {
-          const existingDims = typeof panel.coordinates_json === 'string'
-            ? JSON.parse(panel.coordinates_json)
-            : (panel.coordinates_json || {});
+    // Remove references everywhere
+    await DailyProgressReport.update({ drawing_panel_id: null as any }, { where: { drawing_panel_id: panelIds }, transaction: t })
+    await StoreTransaction.update({ drawing_panel_id: null as any }, { where: { drawing_panel_id: panelIds }, transaction: t })
+    await StoreTransactionItem.update({ drawing_panel_id: null as any }, { where: { drawing_panel_id: panelIds }, transaction: t })
+    await DPRRmcLog.update({ drawing_panel_id: null as any }, { where: { drawing_panel_id: panelIds }, transaction: t })
+    await DrawingPanelAnchor.destroy({ where: { drawing_panel_id: panelIds }, transaction: t })
+    await PanelProgress.destroy({ where: { panel_id: panelIds }, transaction: t })
 
-          const newDims = { ...existingDims };
-          if (updatePayload.length !== undefined) newDims.length = updatePayload.length;
-          if (updatePayload.width !== undefined) newDims.width = updatePayload.width;
-          if (updatePayload.design_depth !== undefined) {
-            newDims.depth = updatePayload.design_depth;
-            newDims.height = updatePayload.design_depth; // Keep height in sync
-          }
+    // Destroy all found panels
+    await DrawingPanel.destroy({ where: { id: panelIds }, transaction: t })
 
-          updatedCoordinatesJson = JSON.stringify(newDims);
-        } catch (e) { }
-      }
-
-      await panel.update({
-        ...updatePayload,
-        ...(updatedCoordinatesJson !== panel.coordinates_json ? { coordinates_json: updatedCoordinatesJson } : {})
-      });
-    }
-
-    res.json({ success: true, message: `${panels.length} panels updated successfully`, count: panels.length })
+    await t.commit()
+    res.json({ success: true, message: `${panels.length} panels deleted successfully` })
   } catch (error) {
-    next(error)
-  }
-}
-export const deletePanel = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const { panelId } = req.params
-    const panel = await DrawingPanel.findByPk(panelId, {
-      include: [
-        { association: 'dprRecords', required: false },
-        { association: 'consumptions', required: false }
-      ]
-    })
-    if (!panel) {
-      throw createError('Panel not found', 404)
-    }
-    const pd = panel as any
-    if ((pd.dprRecords && pd.dprRecords.length > 0) || (pd.consumptions && pd.consumptions.length > 0)) {
-      throw createError('Cannot delete panel: DPR or material consumption records already exist for this panel.', 400)
-    }
-    await panel.destroy()
-    res.json({ success: true, message: 'Panel deleted successfully' })
-  } catch (error) {
+    await t.rollback()
     next(error)
   }
 }

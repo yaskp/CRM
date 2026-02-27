@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons'
 import { quotationService } from '../../services/api/quotations'
 import { drawingService } from '../../services/api/drawings'
+import { useAuth } from '../../context/AuthContext'
 import { theme } from '../../styles/theme'
 
 const { Text, Title } = Typography
@@ -20,6 +21,9 @@ interface ProjectQuotationBOQProps {
 
 const ProjectQuotationBOQ = ({ projectId }: ProjectQuotationBOQProps) => {
     const navigate = useNavigate()
+    const { user } = useAuth()
+    const isAdmin = user?.roles?.some(r => ['admin', 'super_admin'].includes(r.toLowerCase())) ?? false
+
     const [quotations, setQuotations] = useState<any[]>([])
     const [selectedQuotation, setSelectedQuotation] = useState<any>(null)
     const [loading, setLoading] = useState(false)
@@ -28,7 +32,9 @@ const ProjectQuotationBOQ = ({ projectId }: ProjectQuotationBOQProps) => {
         concrete: 0,
         reinforcement: 0,
         stopEnd: 0,
-        guideWall: 0
+        guideWall: 0,
+        totalAnchors: 0,      // sum of all anchor layers across all panels
+        anchorLayerSummary: [] as { layer: number; anchors: number; length: number }[]
     })
 
     useEffect(() => {
@@ -56,16 +62,17 @@ const ProjectQuotationBOQ = ({ projectId }: ProjectQuotationBOQProps) => {
             const drawings = dRes.drawings || []
 
             let totalL = 0
-            let totalExcavation = 0 // L × D (SQM)
-            let totalConcrete = 0   // L × W × D (CUM) — width in metres
+            let totalExcavation = 0
+            let totalConcrete = 0
             let totalReinf = 0
-            let totalStopEnd = 0    // same as excavation SQM
+            let totalStopEnd = 0
+            let totalAnchors = 0
+            const layerAccumulator: Record<number, { anchors: number; length: number }> = {}
 
             for (const drawing of drawings) {
                 const pRes = await drawingService.getPanels(drawing.id)
                 const panels = pRes.panels || []
                 panels.forEach((p: any) => {
-                    // Parse coordinates_json
                     let dims: any = {}
                     try {
                         dims = typeof p.coordinates_json === 'string'
@@ -73,30 +80,50 @@ const ProjectQuotationBOQ = ({ projectId }: ProjectQuotationBOQProps) => {
                             : (p.coordinates_json || {})
                     } catch (e) { dims = {} }
 
-                    // Priority: Top-level DB column > coordinates_json
-                    // Length in metres
                     const l = Number(p.length || dims.length || 0)
-                    // Depth (vertical excavation depth) in metres
                     const d = Number(p.design_depth || p.depth || dims.depth || dims.height || 0)
-                    // Width (wall thickness) in metres — stored as metres (e.g. 0.85 for 850mm)
                     const w = Number(p.width || dims.width || 0)
-                    // Reinforcement in tonnes
                     const reinf = Number(p.reinforcement_ton || 0)
 
                     totalL += l
-                    totalExcavation += l * d              // SQM
-                    totalConcrete += l * w * d            // CUM (w already in metres)
+                    totalExcavation += l * d
+                    totalConcrete += l * w * d
                     totalReinf += reinf
                     totalStopEnd += l * d
+
+                    // Accumulate anchor layers
+                    const anchorLayers: any[] = p.anchor_layers || []
+                    anchorLayers.forEach((layer: any, idx: number) => {
+                        const layerNum = idx + 1
+                        const nAnchors = Number(layer.no_of_anchors || 0)
+                        const aLen = Number(layer.anchor_length || 0)
+                        totalAnchors += nAnchors
+                        if (!layerAccumulator[layerNum]) layerAccumulator[layerNum] = { anchors: 0, length: 0 }
+                        layerAccumulator[layerNum].anchors += nAnchors
+                        layerAccumulator[layerNum].length = Math.max(layerAccumulator[layerNum].length, aLen)
+                    })
+                    // Also count legacy flat anchor fields
+                    if (anchorLayers.length === 0 && Number(p.no_of_anchors) > 0) {
+                        totalAnchors += Number(p.no_of_anchors)
+                        if (!layerAccumulator[1]) layerAccumulator[1] = { anchors: 0, length: 0 }
+                        layerAccumulator[1].anchors += Number(p.no_of_anchors)
+                        layerAccumulator[1].length = Math.max(layerAccumulator[1].length, Number(p.anchor_length || 0))
+                    }
                 })
             }
+
+            const anchorLayerSummary = Object.entries(layerAccumulator)
+                .sort(([a], [b]) => Number(a) - Number(b))
+                .map(([layer, data]) => ({ layer: Number(layer), ...data }))
 
             setDesignQtys({
                 excavation: totalExcavation,
                 concrete: totalConcrete,
                 reinforcement: totalReinf,
                 stopEnd: totalStopEnd,
-                guideWall: totalL
+                guideWall: totalL,
+                totalAnchors,
+                anchorLayerSummary,
             })
 
         } catch (error) {
@@ -267,6 +294,40 @@ const ProjectQuotationBOQ = ({ projectId }: ProjectQuotationBOQProps) => {
                             <Statistic title="Version" value={selectedQuotation.version_number} prefix={<HistoryOutlined />} />
                         </Col>
                     </Row>
+
+                    {/* Anchor Layers Summary (from panel data) */}
+                    {designQtys.anchorLayerSummary.length > 0 && (
+                        <Card
+                            size="small"
+                            title={
+                                <Space>
+                                    <span>🔩 Anchor Layers — Design Quantities</span>
+                                    {isAdmin && (
+                                        <Tag color="orange" style={{ fontSize: 11 }}>Admin: Edit anchors via Panel List View</Tag>
+                                    )}
+                                </Space>
+                            }
+                            style={{ marginBottom: 20, background: '#f6f8fc', border: '1px solid #e2e8f0' }}
+                        >
+                            <Row gutter={[12, 8]}>
+                                {designQtys.anchorLayerSummary.map(ls => (
+                                    <Col key={ls.layer} xs={12} sm={8} md={6}>
+                                        <Card size="small" style={{ textAlign: 'center', background: '#fff' }}>
+                                            <Text strong style={{ color: '#4a6fa5' }}>Layer {ls.layer}</Text><br />
+                                            <Text style={{ fontSize: 12 }}>{ls.anchors} anchors</Text><br />
+                                            {ls.length > 0 && <Text type="secondary" style={{ fontSize: 11 }}>Max length: {ls.length}m</Text>}
+                                        </Card>
+                                    </Col>
+                                ))}
+                                <Col xs={12} sm={8} md={6}>
+                                    <Card size="small" style={{ textAlign: 'center', background: '#fff3cd' }}>
+                                        <Text strong style={{ color: '#856404' }}>Total Anchors</Text><br />
+                                        <Text style={{ fontSize: 18, fontWeight: 700, color: '#856404' }}>{designQtys.totalAnchors}</Text>
+                                    </Card>
+                                </Col>
+                            </Row>
+                        </Card>
+                    )}
 
                     <Title level={5} style={{ marginBottom: 16 }}>Detailed Breakdown</Title>
                     <Table

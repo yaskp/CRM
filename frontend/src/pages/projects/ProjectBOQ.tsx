@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Table, Typography, message, Empty, Row, Col, Statistic, Tag, Space, Button, Modal, Form, Input, Select, Divider, Upload, Tooltip, Popconfirm } from 'antd'
+import { Card, Table, Typography, message, Empty, Row, Col, Statistic, Tag, Space, Button, Modal, Form, Input, Select, Upload, Tooltip, Popconfirm } from 'antd'
 import {
     EyeOutlined,
     BuildOutlined,
@@ -11,6 +11,11 @@ import {
 } from '@ant-design/icons'
 import { drawingService } from '../../services/api/drawings'
 import { theme } from '../../styles/theme'
+import AddPanelModal from '../../components/panels/AddPanelModal'
+import BatchPanelModal from '../../components/panels/BatchPanelModal'
+import EditPanelModal from '../../components/panels/EditPanelModal'
+import BulkEditModal from '../../components/panels/BulkEditModal'
+import { useAuth } from '../../context/AuthContext'
 
 const { Text, Title } = Typography
 const { Option } = Select
@@ -20,6 +25,9 @@ interface ProjectBOQProps {
 }
 
 const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
+    const { user } = useAuth()
+    const isAdmin = user?.roles?.some(r => ['Admin', 'SuperAdmin'].includes(r))
+
     const [drawings, setDrawings] = useState<any[]>([])
     const [selectedDrawing, setSelectedDrawing] = useState<any>(null)
     const [panels, setPanels] = useState<any[]>([])
@@ -33,11 +41,8 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
 
     const [form] = Form.useForm()
-    const [panelForm] = Form.useForm()
-    const [batchForm] = Form.useForm()
-    const [editForm] = Form.useForm()
-    const [bulkForm] = Form.useForm()
     const [fileList, setFileList] = useState<any[]>([])
+    const [bulkEditInitialValues, setBulkEditInitialValues] = useState<any>(null)
 
     const [totals, setTotals] = useState({
         length: 0,
@@ -47,16 +52,8 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
         grab: 0,
         stopEnd: 0,
         reinforcement: 0,
-        anchors: 0
-    })
-
-    // Calculated fields state
-    const [calculatedValues, setCalculatedValues] = useState({
-        concrete_volume: 0,
-        grabbing_qty: 0,
-        stop_end_area: 0,
-        guide_wall_rm: 0,
-        ramming_qty: 0
+        anchors: 0,
+        anchorRM: 0
     })
 
     useEffect(() => {
@@ -69,23 +66,32 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
         }
     }, [selectedDrawing])
 
+    const calculateTotals = () => {
+        const newTotals = panels.reduce((acc, panel) => {
+            const layerNos = (panel.anchors || []).reduce((sum: number, a: any) => sum + Number(a.no_of_anchors || 0), 0)
+            const layerRM = (panel.anchors || []).reduce((sum: number, a: any) => sum + (Number(a.no_of_anchors || 0) * Number(a.anchor_length || 0)), 0)
+
+            const count = layerNos > 0 ? layerNos : Number(panel.no_of_anchors || 0)
+            const rm = layerRM > 0 ? layerRM : (Number(panel.no_of_anchors || 0) * Number(panel.anchor_length || 0))
+
+            return {
+                length: acc.length + Number(panel.length || 0),
+                width: acc.width + Number(panel.width || 0),
+                design_depth: acc.design_depth + Number(panel.design_depth || 0),
+                concrete: acc.concrete + Number(panel.concrete_design_qty || 0),
+                grab: acc.grab + Number(panel.grabbing_qty || 0),
+                stopEnd: acc.stopEnd + Number(panel.stop_end_area || 0),
+                reinforcement: acc.reinforcement + Number(panel.reinforcement_ton || 0),
+                anchors: acc.anchors + count,
+                anchorRM: acc.anchorRM + rm
+            }
+        }, { length: 0, width: 0, design_depth: 0, concrete: 0, grab: 0, stopEnd: 0, reinforcement: 0, anchors: 0, anchorRM: 0 })
+        setTotals(newTotals)
+    }
+
     useEffect(() => {
         calculateTotals()
     }, [panels])
-
-    const calculateTotals = () => {
-        const newTotals = panels.reduce((acc, panel) => ({
-            length: acc.length + Number(panel.length || 0),
-            width: acc.width + Number(panel.width || 0),
-            design_depth: acc.design_depth + Number(panel.design_depth || 0),
-            concrete: acc.concrete + Number(panel.concrete_design_qty || 0),
-            grab: acc.grab + Number(panel.grabbing_qty || 0),
-            stopEnd: acc.stopEnd + Number(panel.stop_end_area || 0),
-            reinforcement: acc.reinforcement + Number(panel.reinforcement_ton || 0),
-            anchors: acc.anchors + Number(panel.no_of_anchors || 0)
-        }), { length: 0, width: 0, design_depth: 0, concrete: 0, grab: 0, stopEnd: 0, reinforcement: 0, anchors: 0 })
-        setTotals(newTotals)
-    }
 
     const fetchDrawings = async () => {
         setLoading(true)
@@ -114,85 +120,19 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
         }
     }
 
-    const onFormValuesChange = (changedValues: any, allValues: any) => {
-        let L = Number(allValues.length || 0)
-        let W = Number(allValues.width || 0)
-        let D = Number(allValues.depth || 0)
-
-        // Auto-calculate Depth from RLs if RLs changed
-        if (changedValues.top_rl || changedValues.bottom_rl) {
-            const top = Number(allValues.top_rl)
-            const bottom = Number(allValues.bottom_rl)
-            if (!isNaN(top) && !isNaN(bottom)) {
-                D = Number((top - bottom).toFixed(2))
-                panelForm.setFieldsValue({ depth: D })
-            }
-        }
-
-        // Use updated D for calculations
-        const concrete = Number((L * W * D).toFixed(2))
-        const grab = Number((L * D).toFixed(2))
-        const stopEnd = Number((L * D).toFixed(2))
-        const guideWall = Number(L.toFixed(2))
-        const ramming = Number((L * W).toFixed(2))
-
-        // Auto-populate form fields so user can see they are calculated
-        panelForm.setFieldsValue({
-            concrete_design_qty: concrete,
-            grabbing_qty: grab,
-            stop_end_area: stopEnd,
-            guide_wall_rm: guideWall,
-            ramming_qty: ramming
-        })
-
-        setCalculatedValues({
-            concrete_volume: concrete,
-            grabbing_qty: grab,
-            stop_end_area: stopEnd,
-            guide_wall_rm: guideWall,
-            ramming_qty: ramming
-        })
-    }
-
     const handleAddPanel = async (values: any) => {
         setLoading(true)
         try {
             let drawingId = selectedDrawing?.id;
 
-            const L = Number(values.length)
-            const W = Number(values.width)
-            const D = Number(values.depth)
-
             const payload = {
-                panel_identifier: values.panel_identifier,
-                panel_type: values.panel_type,
-                length: L,
-                width: W,
-                design_depth: D,
-                top_rl: Number(values.top_rl),
-                bottom_rl: Number(values.bottom_rl),
-                reinforcement_ton: Number(values.reinforcement_ton),
-                no_of_anchors: Number(values.no_of_anchors),
-                anchor_length: Number(values.anchor_length),
-                anchor_capacity: Number(values.anchor_capacity),
-                concrete_design_qty: Number((L * W * D).toFixed(2)),
-                grabbing_qty: Number((L * D).toFixed(2)),
-                stop_end_area: Number((L * D).toFixed(2)),
-                guide_wall_rm: Number(L.toFixed(2)),
-                ramming_qty: Number((L * W).toFixed(2))
+                drawing_id: drawingId,
+                ...values
             }
 
             await drawingService.markPanel(drawingId, payload)
             message.success('Panel details added')
             setPanelModalVisible(false)
-            panelForm.resetFields()
-            setCalculatedValues({
-                concrete_volume: 0,
-                grabbing_qty: 0,
-                stop_end_area: 0,
-                guide_wall_rm: 0,
-                ramming_qty: 0
-            })
             fetchPanels(drawingId)
         } catch (error) {
             message.error('Failed to add panel')
@@ -206,44 +146,33 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
         try {
             let drawingId = selectedDrawing?.id;
 
-            const { prefix, start_no, end_no, panel_type, length, width, depth, top_rl, bottom_rl, reinforcement_ton, no_of_anchors, anchor_length, anchor_capacity } = values
+            const { prefix, start_no, end_no, panel_type } = values
             const panelsToCreate = []
 
-            const L = Number(length)
-            const W = Number(width)
-            const D = Number(depth)
-            const concrete = Number((L * W * D).toFixed(2))
-            const grab = Number((L * D).toFixed(2))
-            const stopEnd = Number((L * D).toFixed(2))
-            const guideWall = Number(L.toFixed(2))
-            const ramming = Number((L * W).toFixed(2))
-
-            for (let i = start_no; i <= end_no; i++) {
+            for (let i = Number(start_no); i <= Number(end_no); i++) {
                 panelsToCreate.push({
                     panel_identifier: `${prefix}${i}`,
                     panel_type,
-                    length: L,
-                    width: W,
-                    depth: D,
-                    top_rl: Number(top_rl),
-                    bottom_rl: Number(bottom_rl),
-                    reinforcement_ton: Number(reinforcement_ton),
-                    no_of_anchors: Number(no_of_anchors),
-                    anchor_length: Number(anchor_length),
-                    anchor_capacity: Number(anchor_capacity),
-                    concrete_design_qty: concrete,
-                    grabbing_qty: grab,
-                    stop_end_area: stopEnd,
-                    guide_wall_rm: guideWall,
-                    ramming_qty: ramming,
-                    dimensions: { length: L, width: W, depth: D }
+                    length: values.length,
+                    width: values.width,
+                    design_depth: values.depth,
+                    top_rl: values.top_rl,
+                    bottom_rl: values.bottom_rl,
+                    reinforcement_ton: values.reinforcement_ton,
+                    no_of_anchors: Number(values.no_of_anchors || 0),
+                    anchor_length: Number(values.anchor_length || 0),
+                    anchor_capacity: Number(values.anchor_capacity || 0),
+                    concrete_design_qty: values.concrete_design_qty,
+                    grabbing_qty: values.grabbing_qty,
+                    stop_end_area: values.stop_end_area,
+                    guide_wall_rm: values.guide_wall_rm,
+                    ramming_qty: values.ramming_qty,
                 })
             }
 
             await drawingService.bulkCreatePanels(drawingId, panelsToCreate)
             message.success(`Successfully generated ${panelsToCreate.length} panels`)
             setBatchModalVisible(false)
-            batchForm.resetFields()
             fetchPanels(drawingId)
         } catch (error) {
             message.error('Failed to generate sequence')
@@ -283,56 +212,17 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
 
     const handleOpenEdit = (panel: any) => {
         setEditingPanel(panel)
-        editForm.setFieldsValue({
-            panel_identifier: panel.panel_identifier,
-            panel_type: panel.panel_type,
-            length: panel.length,
-            width: panel.width,
-            depth: panel.design_depth,
-            top_rl: panel.top_rl,
-            bottom_rl: panel.bottom_rl,
-            reinforcement_ton: panel.reinforcement_ton,
-            no_of_anchors: panel.no_of_anchors,
-            anchor_length: panel.anchor_length,
-            anchor_capacity: panel.anchor_capacity,
-            concrete_design_qty: panel.concrete_design_qty,
-            grabbing_qty: panel.grabbing_qty,
-            stop_end_area: panel.stop_end_area,
-            guide_wall_rm: panel.guide_wall_rm,
-            ramming_qty: panel.ramming_qty,
-        })
         setEditModalVisible(true)
     }
 
-    const handleEditPanel = async (values: any) => {
+    const handleUpdatePanel = async (values: any) => {
         if (!editingPanel) return
         setLoading(true)
         try {
-            const L = Number(values.length)
-            const W = Number(values.width)
-            const D = Number(values.depth)
-            await drawingService.updatePanel(editingPanel.id, {
-                panel_identifier: values.panel_identifier,
-                panel_type: values.panel_type,
-                length: L,
-                width: W,
-                design_depth: D,
-                top_rl: Number(values.top_rl),
-                bottom_rl: Number(values.bottom_rl),
-                reinforcement_ton: Number(values.reinforcement_ton),
-                no_of_anchors: Number(values.no_of_anchors),
-                anchor_length: Number(values.anchor_length),
-                anchor_capacity: Number(values.anchor_capacity),
-                concrete_design_qty: Number((L * W * D).toFixed(2)),
-                grabbing_qty: Number((L * D).toFixed(2)),
-                stop_end_area: Number((L * D).toFixed(2)),
-                guide_wall_rm: Number(L.toFixed(2)),
-                ramming_qty: Number((L * W).toFixed(2)),
-            })
+            await drawingService.updatePanel(editingPanel.id, values)
             message.success('Panel updated successfully')
             setEditModalVisible(false)
             setEditingPanel(null)
-            editForm.resetFields()
             fetchPanels(selectedDrawing.id)
         } catch (error: any) {
             message.error(error?.response?.data?.message || 'Failed to update panel')
@@ -373,7 +263,7 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
             await drawingService.bulkUpdatePanels(ids, updates)
             message.success(`${ids.length} panels updated successfully`)
             setBulkEditModalVisible(false)
-            bulkForm.resetFields()
+            setBulkEditInitialValues(null)
             setSelectedRowKeys([])
             fetchPanels(selectedDrawing.id)
         } catch (error: any) {
@@ -383,10 +273,35 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
         }
     }
 
+    const handleBulkDelete = async () => {
+        if (selectedRowKeys.length === 0) return
+
+        Modal.confirm({
+            title: `Delete ${selectedRowKeys.length} panels?`,
+            content: 'This action cannot be undone. All selected panels will be permanently removed.',
+            okText: 'Yes, Delete',
+            okType: 'danger',
+            cancelText: 'No',
+            onOk: async () => {
+                setLoading(true)
+                try {
+                    const ids = selectedRowKeys.map(k => Number(k))
+                    await drawingService.bulkDeletePanels(ids)
+                    message.success(`${ids.length} panels deleted successfully`)
+                    setSelectedRowKeys([])
+                    fetchPanels(selectedDrawing.id)
+                } catch (error: any) {
+                    message.error(error?.response?.data?.message || 'Bulk delete failed')
+                } finally {
+                    setLoading(false)
+                }
+            }
+        })
+    }
+
     // Pre-populate bulk form with common values from selected panels.
     // If all selected panels share the same value, show it; otherwise blank (mixed).
     const openBulkEditWithPreFill = () => {
-        bulkForm.resetFields()
         const selected = panels.filter(p => selectedRowKeys.includes(p.id))
         if (selected.length === 0) return
 
@@ -395,7 +310,7 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
             return vals.every(v => String(v) === String(vals[0])) ? vals[0] : undefined
         }
 
-        bulkForm.setFieldsValue({
+        setBulkEditInitialValues({
             panel_type: getCommon('panel_type'),
             length: getCommon('length'),
             width: getCommon('width'),
@@ -478,9 +393,45 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
         },
         {
             title: 'Anchors',
-            dataIndex: 'no_of_anchors',
-            key: 'no_of_anchors',
-            render: (val: any) => val || '-'
+            children: [
+                {
+                    title: 'Nos',
+                    key: 'anchor_nos',
+                    width: 70,
+                    render: (_: any, record: any) => {
+                        const layers = record.anchors || []
+                        if (layers.length > 0) {
+                            const total = layers.reduce((sum: number, a: any) => sum + Number(a.no_of_anchors || 0), 0)
+                            const details = layers.map((l: any, i: number) => `L${i + 1}: ${l.no_of_anchors}`).join(', ')
+                            return (
+                                <Tooltip title={details}>
+                                    <Text strong>{total}</Text> <Text type="secondary" style={{ fontSize: 11 }}>({layers.length}L)</Text>
+                                </Tooltip>
+                            )
+                        }
+                        return record.no_of_anchors || '-'
+                    }
+                },
+                {
+                    title: 'L (m)',
+                    key: 'anchor_len',
+                    width: 80,
+                    render: (_: any, record: any) => {
+                        const layers = record.anchors || []
+                        if (layers.length > 0) {
+                            const totalLen = layers.reduce((sum: number, l: any) => sum + (Number(l.no_of_anchors || 0) * Number(l.anchor_length || 0)), 0)
+                            const lengths = [...new Set(layers.map((l: any) => Number(l.anchor_length || 0)))]
+                            const details = layers.map((l: any, i: number) => `L${i + 1}: ${l.no_of_anchors} nos x ${l.anchor_length}m`).join(', ')
+                            return (
+                                <Tooltip title={details}>
+                                    <Text>{totalLen.toFixed(1)}</Text> <Text type="secondary" style={{ fontSize: 11 }}>({lengths.join('/')})</Text>
+                                </Tooltip>
+                            )
+                        }
+                        return record.anchor_length || '-'
+                    }
+                }
+            ]
         },
         {
             title: 'Action',
@@ -489,17 +440,18 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
             width: 100,
             render: (_: any, record: any) => {
                 const hasDPR = (record.dprRecords?.length > 0) || (record.consumptions?.length > 0)
+                const canEdit = !hasDPR || isAdmin
                 return (
                     <Space size={4}>
-                        <Tooltip title={hasDPR ? 'Cannot edit: DPR work logged' : 'Edit panel'}>
+                        <Tooltip title={!canEdit ? 'Cannot edit: DPR work logged' : 'Edit panel'}>
                             <Button
                                 size="small"
                                 icon={<EditOutlined />}
-                                disabled={hasDPR}
+                                disabled={!canEdit}
                                 onClick={() => handleOpenEdit(record)}
                             />
                         </Tooltip>
-                        <Tooltip title={hasDPR ? 'Cannot delete: DPR work logged' : 'Delete panel'}>
+                        <Tooltip title={!canEdit ? 'Cannot delete: DPR work logged' : 'Delete panel'}>
                             <Popconfirm
                                 title="Delete this panel?"
                                 description="This cannot be undone. Design quantities will be recalculated."
@@ -507,13 +459,13 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                                 okText="Delete"
                                 okButtonProps={{ danger: true }}
                                 cancelText="Cancel"
-                                disabled={hasDPR}
+                                disabled={!canEdit}
                             >
                                 <Button
                                     size="small"
                                     danger
                                     icon={<DeleteOutlined />}
-                                    disabled={hasDPR}
+                                    disabled={!canEdit}
                                 />
                             </Popconfirm>
                         </Tooltip>
@@ -585,12 +537,21 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                                     <Statistic title="Total Concrete (m³)" value={totals.concrete} precision={2} valueStyle={{ color: '#3f8600', fontSize: 18 }} />
                                     <Statistic title="Total Reinf. (Ton)" value={totals.reinforcement} precision={2} valueStyle={{ color: '#096dd9', fontSize: 18 }} />
                                     <Statistic title="Total Anchors" value={totals.anchors} valueStyle={{ color: '#cf1322', fontSize: 18 }} />
+                                    <Statistic title="Total Anchor Length (m)" value={totals.anchorRM} precision={1} valueStyle={{ color: '#722ed1', fontSize: 18 }} />
                                 </div>
                                 {selectedRowKeys.length > 0 && (
                                     <div style={{ marginBottom: 12, background: '#e6f7ff', padding: '10px 16px', borderRadius: '6px', border: '1px solid #91d5ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <Text strong>{selectedRowKeys.length} panel{selectedRowKeys.length > 1 ? 's' : ''} selected</Text>
                                         <Space>
                                             <Button size="small" onClick={() => setSelectedRowKeys([])}>Clear</Button>
+                                            <Button
+                                                danger
+                                                size="small"
+                                                icon={<DeleteOutlined />}
+                                                onClick={handleBulkDelete}
+                                            >
+                                                Delete ({selectedRowKeys.length})
+                                            </Button>
                                             <Button
                                                 type="primary"
                                                 size="small"
@@ -613,7 +574,7 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                                         selectedRowKeys,
                                         onChange: setSelectedRowKeys,
                                         getCheckboxProps: (record: any) => ({
-                                            disabled: (record.dprRecords?.length > 0) || (record.consumptions?.length > 0)
+                                            disabled: !isAdmin && ((record.dprRecords?.length > 0) || (record.consumptions?.length > 0))
                                         })
                                     }}
                                     summary={() => (
@@ -630,7 +591,8 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                                                 <Table.Summary.Cell index={8}>{totals.stopEnd.toFixed(2)}</Table.Summary.Cell>
                                                 <Table.Summary.Cell index={9}>{totals.reinforcement.toFixed(2)}</Table.Summary.Cell>
                                                 <Table.Summary.Cell index={10}>{totals.anchors}</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={11}></Table.Summary.Cell>
+                                                <Table.Summary.Cell index={11}>{totals.anchorRM.toFixed(1)}</Table.Summary.Cell>
+                                                <Table.Summary.Cell index={12}></Table.Summary.Cell>
                                             </Table.Summary.Row>
                                         </Table.Summary>
                                     )}
@@ -677,496 +639,42 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                     </Form>
                 </Modal>
 
-                {/* Add Panel Modal */}
-                <Modal
-                    title="Add Panel Properties"
+                <AddPanelModal
                     open={panelModalVisible}
-                    onOk={() => panelForm.submit()}
                     onCancel={() => setPanelModalVisible(false)}
-                    confirmLoading={loading}
-                    width={800}
-                >
-                    <Form
-                        form={panelForm}
-                        layout="vertical"
-                        onFinish={handleAddPanel}
-                        onValuesChange={onFormValuesChange}
-                    >
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item name="panel_identifier" label="Panel ID" rules={[{ required: true }]}>
-                                    <Input placeholder="e.g. P1" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="panel_type" label="Panel Type" initialValue="Primary">
-                                    <Select>
-                                        <Option value="Primary">Primary (P)</Option>
-                                        <Option value="Secondary">Secondary (S)</Option>
-                                        <Option value="Closing">Closing (C)</Option>
-                                        <Option value="End">End (E)</Option>
-                                        <Option value="Corner">Corner</Option>
-                                    </Select>
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Statistic
-                                    title="Concrete Vol (m³)"
-                                    value={calculatedValues.concrete_volume}
-                                    precision={2}
-                                    valueStyle={{ color: '#3f8600', fontSize: 16 }}
-                                />
-                            </Col>
-                        </Row>
+                    onSubmit={handleAddPanel}
+                    loading={loading}
+                />
 
-                        <Divider orientation="left">Basic Dimensions (IN METERS)</Divider>
-
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item name="length" label="Length (L)" rules={[{ required: true }]}>
-                                    <Input type="number" step="0.01" placeholder="e.g. 2.8" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="width" label="Width (W)" rules={[{ required: true }]}>
-                                    <Input type="number" step="0.01" placeholder="e.g. 0.8" suffix="m" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="depth" label="Depth (D)" rules={[{ required: true }]}>
-                                    <Input type="number" step="0.1" placeholder="e.g. 22.0" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="top_rl" label="Top RL">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="bottom_rl" label="Bottom RL">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Divider orientation="left">Auto-Calculated Quantities</Divider>
-
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item name="concrete_design_qty" label="Concrete (m³)">
-                                    <Input readOnly style={{ background: '#f5f5f5' }} />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="grabbing_qty" label="Grabbing (m²)">
-                                    <Input readOnly style={{ background: '#f5f5f5' }} />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="stop_end_area" label="Stop End (m²)">
-                                    <Input readOnly style={{ background: '#f5f5f5' }} />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Row gutter={16} style={{ marginBottom: '24px' }}>
-                            <Col span={12}>
-                                <Form.Item name="guide_wall_rm" label="Guide Wall (RM)">
-                                    <Input readOnly style={{ background: '#f5f5f5' }} />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="ramming_qty" label="Ramming (m²)">
-                                    <Input readOnly style={{ background: '#f5f5f5' }} />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Divider orientation="left">Reinforcement & Anchors</Divider>
-
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="reinforcement_ton" label="Reinforcement in Cage (Ton)">
-                                    <Input type="number" step="0.01" placeholder="e.g. 5.9" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="no_of_anchors" label="No. of Anchors">
-                                    <Input type="number" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="anchor_length" label="Anchor Length (m)">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="anchor_capacity" label="Anchor Capacity (kN)">
-                                    <Input type="number" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                    </Form>
-                </Modal>
-
-                <Modal
-                    title="Batch Generate Panels"
+                <BatchPanelModal
                     open={batchModalVisible}
-                    onOk={() => batchForm.submit()}
                     onCancel={() => setBatchModalVisible(false)}
-                    confirmLoading={loading}
-                    width={800}
-                >
-                    <Form
-                        form={batchForm}
-                        layout="vertical"
-                        onFinish={handleGenerateBatch}
-                        initialValues={{ prefix: 'P', start_no: 1, panel_type: 'Primary' }}
-                        onValuesChange={(changedValues, allValues) => {
-                            if (changedValues.top_rl || changedValues.bottom_rl) {
-                                const top = Number(allValues.top_rl)
-                                const bottom = Number(allValues.bottom_rl)
-                                if (!isNaN(top) && !isNaN(bottom)) {
-                                    batchForm.setFieldsValue({ depth: Number((top - bottom).toFixed(2)) })
-                                }
-                            }
-                        }}
-                    >
-                        <div style={{ marginBottom: 16, background: '#e6f7ff', padding: '12px', borderRadius: '4px', border: '1px solid #91d5ff' }}>
-                            <Text strong>Global Settings:</Text> <Text>These dimensions and details will be applied to ALL generated panels in this sequence.</Text>
-                        </div>
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item name="prefix" label="Prefix" tooltip="e.g. 'P' -> P1, P2...">
-                                    <Input maxLength={5} placeholder="P" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="start_no" label="Start" rules={[{ required: true }]}>
-                                    <Input type="number" min={1} />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="end_no" label="End" rules={[{ required: true }]}>
-                                    <Input type="number" min={1} />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="panel_type" label="Panel Type">
-                                    <Select>
-                                        <Option value="Primary">Primary (P)</Option>
-                                        <Option value="Secondary">Secondary (S)</Option>
-                                        <Option value="Closing">Closing (C)</Option>
-                                        <Option value="End">End (E)</Option>
-                                    </Select>
-                                </Form.Item>
-                            </Col>
-                        </Row>
+                    onSubmit={handleGenerateBatch}
+                    loading={loading}
+                />
 
-                        <Divider orientation="left">Common Dimensions</Divider>
-
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item name="length" label="Length (L)" rules={[{ required: true }]}>
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="width" label="Width (W)" rules={[{ required: true }]}>
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="depth" label="Depth (D)" rules={[{ required: true }]}>
-                                    <Input type="number" step="0.1" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="top_rl" label="Top RL">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="bottom_rl" label="Bottom RL">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Divider orientation="left">Common Construction Details</Divider>
-
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="reinforcement_ton" label="Reinf. (Ton)">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="no_of_anchors" label="No. of Anchors">
-                                    <Input type="number" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="anchor_length" label="Anchor Length (m)">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="anchor_capacity" label="Anchor Capacity (kN)">
-                                    <Input type="number" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                    </Form>
-                </Modal>
-
-                {/* Bulk Edit Modal */}
-                <Modal
-                    title={`Bulk Edit ${selectedRowKeys.length} Panel${selectedRowKeys.length > 1 ? 's' : ''}`}
+                <BulkEditModal
                     open={bulkEditModalVisible}
-                    onOk={() => bulkForm.submit()}
-                    onCancel={() => { setBulkEditModalVisible(false); bulkForm.resetFields() }}
-                    confirmLoading={loading}
-                    width={700}
-                >
-                    <div style={{ marginBottom: 16, background: '#fffbe6', padding: '10px 14px', borderRadius: '6px', border: '1px solid #ffe58f' }}>
-                        <Text><strong>Tip:</strong> Only fill the fields you want to change. Leave a field blank to keep the existing value on each panel.</Text>
-                    </div>
-                    <Form
-                        form={bulkForm}
-                        layout="vertical"
-                        onFinish={handleBulkEdit}
-                        onValuesChange={(changedValues, allValues) => {
-                            if (changedValues.top_rl !== undefined || changedValues.bottom_rl !== undefined) {
-                                const top = Number(allValues.top_rl)
-                                const bottom = Number(allValues.bottom_rl)
-                                if (!isNaN(top) && !isNaN(bottom) && top !== 0 && bottom !== 0) {
-                                    bulkForm.setFieldsValue({ depth: Number((top - bottom).toFixed(2)) })
-                                }
-                            }
-                        }}
-                    >
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="panel_type" label="Panel Type (optional)">
-                                    <Select allowClear placeholder="Keep existing">
-                                        <Option value="Primary">Primary (P)</Option>
-                                        <Option value="Secondary">Secondary (S)</Option>
-                                        <Option value="Closing">Closing (C)</Option>
-                                        <Option value="End">End (E)</Option>
-                                        <Option value="Corner">Corner</Option>
-                                    </Select>
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="reinforcement_ton" label="Reinforcement (Ton)">
-                                    <Input type="number" step="0.01" placeholder="Leave blank to keep" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Divider orientation="left">Dimensions — fill all three to recalculate BOQ</Divider>
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item name="length" label="Length (L)">
-                                    <Input type="number" step="0.01" placeholder="e.g. 2.8" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="width" label="Width (W)">
-                                    <Input type="number" step="0.01" placeholder="e.g. 0.8" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="depth" label="Depth (D)">
-                                    <Input type="number" step="0.1" placeholder="e.g. 22.0" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="top_rl" label="Top RL">
-                                    <Input type="number" step="0.01" placeholder="Auto-fills Depth" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="bottom_rl" label="Bottom RL">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Divider orientation="left">Anchors</Divider>
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item name="no_of_anchors" label="No. of Anchors">
-                                    <Input type="number" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="anchor_length" label="Anchor Length (m)">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="anchor_capacity" label="Anchor Capacity (kN)">
-                                    <Input type="number" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                    </Form>
-                </Modal>
+                    onCancel={() => {
+                        setBulkEditModalVisible(false)
+                        setBulkEditInitialValues(null)
+                    }}
+                    onSubmit={handleBulkEdit}
+                    loading={loading}
+                    selectedCount={selectedRowKeys.length}
+                    initialValues={bulkEditInitialValues}
+                />
 
-                {/* Edit Panel Modal */}
-                <Modal
-                    title={`Edit Panel: ${editingPanel?.panel_identifier || ''}`}
+                <EditPanelModal
                     open={editModalVisible}
-                    onOk={() => editForm.submit()}
-                    onCancel={() => { setEditModalVisible(false); setEditingPanel(null); editForm.resetFields() }}
-                    confirmLoading={loading}
-                    width={800}
-                >
-                    <Form
-                        form={editForm}
-                        layout="vertical"
-                        onFinish={handleEditPanel}
-                        onValuesChange={(changedValues, allValues) => {
-                            let L = Number(allValues.length || 0)
-                            let W = Number(allValues.width || 0)
-                            let D = Number(allValues.depth || 0)
-                            if (changedValues.top_rl !== undefined || changedValues.bottom_rl !== undefined) {
-                                const top = Number(allValues.top_rl)
-                                const bottom = Number(allValues.bottom_rl)
-                                if (!isNaN(top) && !isNaN(bottom)) {
-                                    D = Number((top - bottom).toFixed(2))
-                                    editForm.setFieldsValue({ depth: D })
-                                }
-                            }
-                            editForm.setFieldsValue({
-                                concrete_design_qty: Number((L * W * D).toFixed(2)),
-                                grabbing_qty: Number((L * D).toFixed(2)),
-                                stop_end_area: Number((L * D).toFixed(2)),
-                                guide_wall_rm: Number(L.toFixed(2)),
-                                ramming_qty: Number((L * W).toFixed(2)),
-                            })
-                        }}
-                    >
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item name="panel_identifier" label="Panel ID" rules={[{ required: true }]}>
-                                    <Input placeholder="e.g. P1" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="panel_type" label="Panel Type">
-                                    <Select>
-                                        <Option value="Primary">Primary (P)</Option>
-                                        <Option value="Secondary">Secondary (S)</Option>
-                                        <Option value="Closing">Closing (C)</Option>
-                                        <Option value="End">End (E)</Option>
-                                        <Option value="Corner">Corner</Option>
-                                    </Select>
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Divider orientation="left">Dimensions (m)</Divider>
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item name="length" label="Length (L)" rules={[{ required: true }]}>
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="width" label="Width (W)" rules={[{ required: true }]}>
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="depth" label="Depth / Design Depth (D)" rules={[{ required: true }]}>
-                                    <Input type="number" step="0.1" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="top_rl" label="Top RL">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="bottom_rl" label="Bottom RL">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Divider orientation="left">Auto-Calculated Quantities</Divider>
-                        <Row gutter={16}>
-                            <Col span={8}>
-                                <Form.Item name="concrete_design_qty" label="Concrete (m³)">
-                                    <Input readOnly style={{ background: '#f5f5f5' }} />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="grabbing_qty" label="Grabbing (m²)">
-                                    <Input readOnly style={{ background: '#f5f5f5' }} />
-                                </Form.Item>
-                            </Col>
-                            <Col span={8}>
-                                <Form.Item name="stop_end_area" label="Stop End (m²)">
-                                    <Input readOnly style={{ background: '#f5f5f5' }} />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="guide_wall_rm" label="Guide Wall (RM)">
-                                    <Input readOnly style={{ background: '#f5f5f5' }} />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="ramming_qty" label="Ramming (m²)">
-                                    <Input readOnly style={{ background: '#f5f5f5' }} />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Divider orientation="left">Reinforcement & Anchors</Divider>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="reinforcement_ton" label="Reinforcement in Cage (Ton)">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="no_of_anchors" label="No. of Anchors">
-                                    <Input type="number" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="anchor_length" label="Anchor Length (m)">
-                                    <Input type="number" step="0.01" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="anchor_capacity" label="Anchor Capacity (kN)">
-                                    <Input type="number" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                    </Form>
-                </Modal>
+                    onCancel={() => {
+                        setEditModalVisible(false)
+                        setEditingPanel(null)
+                    }}
+                    onSubmit={handleUpdatePanel}
+                    loading={loading}
+                    editingPanel={editingPanel}
+                />
             </Row>
         </div >
     )

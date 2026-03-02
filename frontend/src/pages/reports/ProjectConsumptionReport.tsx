@@ -297,7 +297,7 @@ const ProjectConsumptionReport = () => {
                     {/* Summary Cards */}
                     <Row gutter={16}>
                         <Col xs={24} md={6}>
-                            <Card bordered={false} style={{ background: '#f6ffed', borderColor: '#b7eb8f' }}>
+                            <Card variant="borderless" style={{ background: '#f6ffed', borderColor: '#b7eb8f' }}>
                                 <Statistic
                                     title="Total Labor Shifts"
                                     value={totals.total_shifts}
@@ -308,7 +308,7 @@ const ProjectConsumptionReport = () => {
                             </Card>
                         </Col>
                         <Col xs={24} md={6}>
-                            <Card bordered={false} style={{ background: '#e6f7ff', borderColor: '#91d5ff' }}>
+                            <Card variant="borderless" style={{ background: '#e6f7ff', borderColor: '#91d5ff' }}>
                                 <Statistic
                                     title="Steel Consumed"
                                     value={totals.steel}
@@ -321,7 +321,7 @@ const ProjectConsumptionReport = () => {
                             </Card>
                         </Col>
                         <Col xs={24} md={6}>
-                            <Card bordered={false} style={{ background: '#fff7e6', borderColor: '#ffd591' }}>
+                            <Card variant="borderless" style={{ background: '#fff7e6', borderColor: '#ffd591' }}>
                                 <Statistic
                                     title="Concrete (RMC)"
                                     value={totals.concrete}
@@ -333,7 +333,7 @@ const ProjectConsumptionReport = () => {
                             </Card>
                         </Col>
                         <Col xs={24} md={6}>
-                            <Card bordered={false} style={{ background: '#fff1f0', borderColor: '#ffa39e' }}>
+                            <Card variant="borderless" style={{ background: '#fff1f0', borderColor: '#ffa39e' }}>
                                 <Statistic
                                     title="Total Fuel (HSD)"
                                     value={totals.diesel}

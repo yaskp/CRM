@@ -17,6 +17,9 @@ interface BulkEditModalProps {
 
 const BulkEditModal = ({ open, onCancel, onSubmit, loading, selectedCount, initialValues }: BulkEditModalProps) => {
     const [form] = Form.useForm()
+    const length = Form.useWatch('length', form)
+    const width = Form.useWatch('width', form)
+    const depth = Form.useWatch('depth', form)
     const [activeDim, setActiveDim] = useState<'L' | 'W' | 'D' | null>(null)
 
     useEffect(() => {
@@ -121,7 +124,12 @@ const BulkEditModal = ({ open, onCancel, onSubmit, loading, selectedCount, initi
                 }}>
                     3D Reference – D-Wall Panel
                 </div>
-                <DWallDimensionDiagram highlight={activeDim} />
+                <DWallDimensionDiagram
+                    highlight={activeDim}
+                    L={length}
+                    W={width}
+                    D={depth}
+                />
             </div>
 
             <Form

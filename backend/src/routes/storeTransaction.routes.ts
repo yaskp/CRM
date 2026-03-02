@@ -10,6 +10,7 @@ import {
   rejectTransaction,
   getWorkerCategories,
   downloadDPRPDF,
+  downloadCreditNotePDF,
   updateStoreTransaction,
   createWorkerCategory
 } from '../controllers/storeTransaction.controller'
@@ -29,6 +30,7 @@ router.post('/worker-categories', hasPermission('store.create'), createWorkerCat
 router.get('/worker-categories', hasPermission('store.read'), getWorkerCategories)
 router.get('/:id', hasPermission('store.read'), getTransaction)
 router.get('/:id/pdf', hasPermission('store.read'), downloadDPRPDF)
+router.get('/:id/credit-note-pdf', hasPermission('store.read'), downloadCreditNotePDF)
 router.put('/:id', hasPermission('store.create'), updateStoreTransaction)
 router.put('/:id/approve', hasPermission('store.approve'), approveTransaction)
 router.put('/:id/reject', hasPermission('store.approve'), rejectTransaction)

@@ -232,7 +232,7 @@ const PurchaseOrderList = () => {
 
             <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
                 <Col span={6}>
-                    <Card bordered={false} style={{ boxShadow: theme.shadows.sm }}>
+                    <Card variant="borderless" style={{ boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Total Requests"
                             value={purchaseOrders.length}
@@ -241,7 +241,7 @@ const PurchaseOrderList = () => {
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card bordered={false} style={{ boxShadow: theme.shadows.sm }}>
+                    <Card variant="borderless" style={{ boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Approved"
                             value={statusCounts['approved'] || 0}
@@ -251,7 +251,7 @@ const PurchaseOrderList = () => {
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card bordered={false} style={{ boxShadow: theme.shadows.sm }}>
+                    <Card variant="borderless" style={{ boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Pending Approval"
                             value={statusCounts['draft'] || 0}
@@ -261,7 +261,7 @@ const PurchaseOrderList = () => {
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card bordered={false} style={{ boxShadow: theme.shadows.sm }}>
+                    <Card variant="borderless" style={{ boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Rejected"
                             value={statusCounts['rejected'] || 0}

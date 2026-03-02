@@ -7,9 +7,9 @@ import {
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
-import { materialService } from '../../services/api/materials'
 import { warehouseService } from '../../services/api/warehouses'
 import { projectService } from '../../services/api/projects'
+import { inventoryService } from '../../services/api/inventory'
 import { stnSchema, STNFormData } from '../../utils/validationSchemas'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, Controller } from 'react-hook-form'
@@ -35,12 +35,13 @@ const STNInternalForm = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
 
-  const [materials, setMaterials] = useState<any[]>([])
+  const [availableMaterials, setAvailableMaterials] = useState<any[]>([])
+  const [fetchingMaterials, setFetchingMaterials] = useState(false)
   const [warehouses, setWarehouses] = useState<any[]>([])
   const [projects, setProjects] = useState<any[]>([])
   const [items, setItems] = useState<STNItem[]>([])
 
-  const { control, handleSubmit, setValue, watch } = useForm<STNFormData>({
+  const { control, handleSubmit, setValue, watch, formState: { errors } } = useForm<STNFormData>({
     resolver: zodResolver(stnSchema),
     defaultValues: {
       transaction_date: dayjs().format('YYYY-MM-DD'),
@@ -52,6 +53,23 @@ const STNInternalForm = () => {
 
   const fromType = watch('from_type')
   const toType = watch('to_type')
+  const fromId = watch('from_id')
+
+  useEffect(() => {
+    // Clear destination if it matches the source (even across types like Project vs Site Store)
+    const currentToId = watch('to_id')
+    if (currentToId) {
+      if (fromType === toType && fromId === currentToId) {
+        setValue('to_id', undefined as any)
+      } else if (fromType === 'project' && toType === 'warehouse') {
+        const wh = warehouses.find(w => w.id === currentToId)
+        if (wh && wh.project_id === fromId) setValue('to_id', undefined as any)
+      } else if (fromType === 'warehouse' && toType === 'project') {
+        const wh = warehouses.find(w => w.id === fromId)
+        if (wh && wh.project_id === currentToId) setValue('to_id', undefined as any)
+      }
+    }
+  }, [fromId, fromType, toType])
 
   useEffect(() => {
     fetchMetadata()
@@ -60,14 +78,55 @@ const STNInternalForm = () => {
     }
   }, [id])
 
+  useEffect(() => {
+    if (fromId) {
+      fetchAvailableMaterials(fromId, fromType)
+    } else {
+      setAvailableMaterials([])
+    }
+  }, [fromId, fromType])
+
+  const fetchAvailableMaterials = async (fId: number, fType: string) => {
+    setFetchingMaterials(true)
+    try {
+      const params: any = { limit: 1000 }
+      if (fType === 'warehouse') params.warehouse_id = fId
+      else params.project_id = fId
+
+      const response = await inventoryService.getInventory(params)
+      // Map inventory items to match material selection structure if needed, or just use as is
+      // Assuming inventory item has .material and .quantity
+      const filtered = (response.inventory || []).filter((inv: any) => inv.quantity > 0)
+      setAvailableMaterials(filtered)
+
+      // Auto-populate for new transactions
+      if (!id && filtered.length > 0) {
+        const initialItems = filtered.map((inv: any) => {
+          const mat = inv.material
+          return {
+            material_id: inv.material_id || mat?.id,
+            material_name: mat?.name,
+            quantity: Number(inv.quantity),
+            unit: Array.isArray(mat?.unit) ? mat.unit[0] : (mat?.unit || 'Nos')
+          }
+        })
+        setItems(initialItems)
+        setValue('items', initialItems)
+      }
+    } catch (error) {
+      console.error('Failed to fetch available materials', error)
+      message.error('Could not load stock for this source')
+    } finally {
+      setFetchingMaterials(false)
+    }
+  }
+
   const fetchMetadata = async () => {
     try {
-      const [matRes, whRes, projRes] = await Promise.all([
-        materialService.getMaterials(),
-        warehouseService.getWarehouses(),
-        projectService.getProjects(),
+      const [whRes, projRes] = await Promise.all([
+        warehouseService.getWarehouses({ limit: 500 }),
+        projectService.getProjects({ limit: 500 }),
       ])
-      setMaterials(matRes.materials || [])
       setWarehouses(whRes.warehouses || [])
       setProjects(projRes.projects || [])
     } catch (error) {
@@ -140,16 +199,27 @@ const STNInternalForm = () => {
       render: (_: any, record: STNItem, index: number) => (
         <Select
           style={{ width: '100%' }}
-          placeholder="Select material"
+          placeholder={fromId ? "Select material" : "Select source first"}
           value={record.material_id || undefined}
           onChange={(value) => {
-            const material = materials.find(m => m.id === value)
-            updateItem(index, { material_id: value, material_name: material?.name, unit: Array.isArray(material?.unit) ? material.unit[0] : material?.unit })
+            const invItem = availableMaterials.find(m => (m.material_id || m.material?.id) === value)
+            const mat = invItem?.material
+            updateItem(index, {
+              material_id: value,
+              material_name: mat?.name,
+              unit: Array.isArray(mat?.unit) ? mat.unit[0] : mat?.unit
+            })
           }}
+          loading={fetchingMaterials}
+          disabled={!fromId}
           showSearch
           optionFilterProp="children"
         >
-          {materials.map((m) => <Option key={m.id} value={m.id}>{m.name}</Option>)}
+          {availableMaterials.map((m) => (
+            <Option key={m.material_id || m.material?.id} value={m.material_id || m.material?.id}>
+              {m.material?.name} (Stock: {m.quantity} {m.material?.unit})
+            </Option>
+          ))}
         </Select>
       ),
     },
@@ -162,6 +232,7 @@ const STNInternalForm = () => {
           style={{ width: '100%' }}
           value={record.quantity}
           min={0.01}
+          max={availableMaterials.find(m => (m.material_id || m.material?.id) === record.material_id)?.quantity}
           onChange={(val) => updateItem(index, { quantity: val || 0 })}
           addonAfter={record.unit}
         />
@@ -260,15 +331,27 @@ const STNInternalForm = () => {
                   </Form.Item>
                 </Col>
                 <Col span={24}>
-                  <Form.Item label="Destination Unit" required>
+                  <Form.Item
+                    label="Destination Unit"
+                    required
+                    validateStatus={errors.to_id ? 'error' : ''}
+                    help={errors.to_id?.message as string}
+                  >
                     <Controller
                       name="to_id"
                       control={control}
                       render={({ field }) => (
                         <Select {...field} style={{ width: '100%' }} placeholder="Select Destination">
                           {toType === 'warehouse'
-                            ? warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)
-                            : projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)
+                            ? warehouses
+                              .filter(w => !((fromType === 'warehouse' && fromId === w.id) || (fromType === 'project' && fromId === w.project_id)))
+                              .map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)
+                            : projects
+                              .filter(p => {
+                                const fromWh = fromType === 'warehouse' ? warehouses.find(w => w.id === fromId) : null
+                                return !((fromType === 'project' && fromId === p.id) || (fromWh && fromWh.project_id === p.id))
+                              })
+                              .map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)
                           }
                         </Select>
                       )}

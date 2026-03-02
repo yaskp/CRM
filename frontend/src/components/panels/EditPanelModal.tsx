@@ -16,6 +16,9 @@ interface EditPanelModalProps {
 
 const EditPanelModal = ({ open, onCancel, onSubmit, loading, editingPanel }: EditPanelModalProps) => {
     const [form] = Form.useForm()
+    const length = Form.useWatch('length', form)
+    const width = Form.useWatch('width', form)
+    const depth = Form.useWatch('depth', form)
     const [activeDim, setActiveDim] = useState<'L' | 'W' | 'D' | null>(null)
 
     useEffect(() => {
@@ -129,7 +132,12 @@ const EditPanelModal = ({ open, onCancel, onSubmit, loading, editingPanel }: Edi
                 }}>
                     3D Reference – D-Wall Panel
                 </div>
-                <DWallDimensionDiagram highlight={activeDim} />
+                <DWallDimensionDiagram
+                    highlight={activeDim}
+                    L={length}
+                    W={width}
+                    D={depth}
+                />
             </div>
 
             <Form form={form} layout="vertical" onFinish={onSubmit} onValuesChange={onFormValuesChange}>
@@ -187,7 +195,7 @@ const EditPanelModal = ({ open, onCancel, onSubmit, loading, editingPanel }: Edi
                         </Form.Item>
                     </Col>
                     <Col span={8}>
-                        <Form.Item name="reinforcement_ton" label="Reinforcement (Ton)">
+                        <Form.Item name="reinforcement_ton" label="Reinforcement in Cage (Ton)">
                             <Input type="number" step="0.01" placeholder="e.g. 5.9" />
                         </Form.Item>
                     </Col>

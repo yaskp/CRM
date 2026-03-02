@@ -15,6 +15,7 @@ import AddPanelModal from '../../components/panels/AddPanelModal'
 import BatchPanelModal from '../../components/panels/BatchPanelModal'
 import EditPanelModal from '../../components/panels/EditPanelModal'
 import BulkEditModal from '../../components/panels/BulkEditModal'
+import { AddPileModal, BatchPileModal, EditPileModal } from '../../components/piles'
 import { useAuth } from '../../context/AuthContext'
 
 const { Text, Title } = Typography
@@ -97,9 +98,13 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
         setLoading(true)
         try {
             const res = await drawingService.getDrawings({ project_id: projectId })
-            setDrawings(res.drawings || [])
-            if (res.drawings?.length > 0 && !selectedDrawing) {
-                setSelectedDrawing(res.drawings[0])
+            const allDrawings = res.drawings || []
+            setDrawings(allDrawings)
+
+            if (allDrawings.length > 0 && !selectedDrawing) {
+                // Try to find D-Wall Layout first as default, otherwise pick first
+                const dWallDraw = allDrawings.find((d: any) => d.drawing_type === 'D-Wall Layout')
+                setSelectedDrawing(dWallDraw || allDrawings[0])
             }
         } catch (error) {
             message.error('Failed to fetch drawings')
@@ -335,32 +340,36 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
         }
     }
 
+    const isPile = selectedDrawing?.drawing_type === 'Pile Layout'
+
     const panelColumns = [
         {
-            title: 'Panel',
+            title: isPile ? 'Pile ID' : 'Panel',
             dataIndex: 'panel_identifier',
             key: 'panel_identifier',
             fixed: 'left' as const,
             render: (text: string) => <Text strong>{text}</Text>
         },
         {
-            title: 'Panel Type',
+            title: isPile ? 'Pile Type' : 'Panel Type',
             dataIndex: 'panel_type',
             key: 'panel_type',
             render: (text: string) => text ? <Tag color="blue">{text}</Tag> : '-'
         },
         {
-            title: 'L (m)',
+            title: isPile ? 'Dia (mm)' : 'L (m)',
             dataIndex: 'length',
             key: 'length',
-            render: (val: any) => Number(val).toFixed(2)
+            render: (val: any) => isPile ? val : Number(val).toFixed(2)
         },
-        {
-            title: 'W (m)',
-            dataIndex: 'width',
-            key: 'width',
-            render: (val: any) => Number(val).toFixed(2)
-        },
+        ...(!isPile ? [
+            {
+                title: 'W (m)',
+                dataIndex: 'width',
+                key: 'width',
+                render: (val: any) => Number(val).toFixed(2)
+            }
+        ] : []),
         {
             title: 'D (m)',
             dataIndex: 'design_depth',
@@ -368,71 +377,75 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
             render: (val: any) => Number(val).toFixed(2)
         },
         {
-            title: 'Concrete (m³)',
+            title: isPile ? 'Concrete (m³)' : 'Concrete (m³)',
             dataIndex: 'concrete_design_qty',
             key: 'concrete_design_qty',
             render: (val: any) => <Text strong>{val ? Number(val).toFixed(2) : '-'}</Text>
         },
-        {
-            title: 'Grab (m²)',
-            dataIndex: 'grabbing_qty',
-            key: 'grabbing_qty',
-            render: (val: any) => val ? Number(val).toFixed(2) : '-'
-        },
-        {
-            title: 'Stop End (m²)',
-            dataIndex: 'stop_end_area',
-            key: 'stop_end_area',
-            render: (val: any) => val ? Number(val).toFixed(2) : '-'
-        },
+        ...(!isPile ? [
+            {
+                title: 'Grab (m²)',
+                dataIndex: 'grabbing_qty',
+                key: 'grabbing_qty',
+                render: (val: any) => val ? Number(val).toFixed(2) : '-'
+            },
+            {
+                title: 'Stop End (m²)',
+                dataIndex: 'stop_end_area',
+                key: 'stop_end_area',
+                render: (val: any) => val ? Number(val).toFixed(2) : '-'
+            }
+        ] : []),
         {
             title: 'Reinf. (Ton)',
             dataIndex: 'reinforcement_ton',
             key: 'reinforcement_ton',
             render: (val: any) => val ? Number(val).toFixed(2) : '-'
         },
-        {
-            title: 'Anchors',
-            children: [
-                {
-                    title: 'Nos',
-                    key: 'anchor_nos',
-                    width: 70,
-                    render: (_: any, record: any) => {
-                        const layers = record.anchors || []
-                        if (layers.length > 0) {
-                            const total = layers.reduce((sum: number, a: any) => sum + Number(a.no_of_anchors || 0), 0)
-                            const details = layers.map((l: any, i: number) => `L${i + 1}: ${l.no_of_anchors}`).join(', ')
-                            return (
-                                <Tooltip title={details}>
-                                    <Text strong>{total}</Text> <Text type="secondary" style={{ fontSize: 11 }}>({layers.length}L)</Text>
-                                </Tooltip>
-                            )
+        ...(!isPile ? [
+            {
+                title: 'Anchors',
+                children: [
+                    {
+                        title: 'Nos',
+                        key: 'anchor_nos',
+                        width: 70,
+                        render: (_: any, record: any) => {
+                            const layers = record.anchors || []
+                            if (layers.length > 0) {
+                                const total = layers.reduce((sum: number, a: any) => sum + Number(a.no_of_anchors || 0), 0)
+                                const details = layers.map((l: any, i: number) => `L${i + 1}: ${l.no_of_anchors}`).join(', ')
+                                return (
+                                    <Tooltip title={details}>
+                                        <Text strong>{total}</Text> <Text type="secondary" style={{ fontSize: 11 }}>({layers.length}L)</Text>
+                                    </Tooltip>
+                                )
+                            }
+                            return record.no_of_anchors || '-'
                         }
-                        return record.no_of_anchors || '-'
-                    }
-                },
-                {
-                    title: 'L (m)',
-                    key: 'anchor_len',
-                    width: 80,
-                    render: (_: any, record: any) => {
-                        const layers = record.anchors || []
-                        if (layers.length > 0) {
-                            const totalLen = layers.reduce((sum: number, l: any) => sum + (Number(l.no_of_anchors || 0) * Number(l.anchor_length || 0)), 0)
-                            const lengths = [...new Set(layers.map((l: any) => Number(l.anchor_length || 0)))]
-                            const details = layers.map((l: any, i: number) => `L${i + 1}: ${l.no_of_anchors} nos x ${l.anchor_length}m`).join(', ')
-                            return (
-                                <Tooltip title={details}>
-                                    <Text>{totalLen.toFixed(1)}</Text> <Text type="secondary" style={{ fontSize: 11 }}>({lengths.join('/')})</Text>
-                                </Tooltip>
-                            )
+                    },
+                    {
+                        title: 'L (m)',
+                        key: 'anchor_len',
+                        width: 80,
+                        render: (_: any, record: any) => {
+                            const layers = record.anchors || []
+                            if (layers.length > 0) {
+                                const totalLen = layers.reduce((sum: number, l: any) => sum + (Number(l.no_of_anchors || 0) * Number(l.anchor_length || 0)), 0)
+                                const lengths = [...new Set(layers.map((l: any) => Number(l.anchor_length || 0)))]
+                                const details = layers.map((l: any, i: number) => `L${i + 1}: ${l.no_of_anchors} nos x ${l.anchor_length}m`).join(', ')
+                                return (
+                                    <Tooltip title={details}>
+                                        <Text>{totalLen.toFixed(1)}</Text> <Text type="secondary" style={{ fontSize: 11 }}>({lengths.join('/')})</Text>
+                                    </Tooltip>
+                                )
+                            }
+                            return record.anchor_length || '-'
                         }
-                        return record.anchor_length || '-'
                     }
-                }
-            ]
-        },
+                ]
+            }
+        ] : []),
         {
             title: 'Action',
             key: 'action',
@@ -443,7 +456,7 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                 const canEdit = !hasDPR || isAdmin
                 return (
                     <Space size={4}>
-                        <Tooltip title={!canEdit ? 'Cannot edit: DPR work logged' : 'Edit panel'}>
+                        <Tooltip title={!canEdit ? `Cannot edit: DPR work logged` : `Edit ${isPile ? 'pile' : 'panel'}`}>
                             <Button
                                 size="small"
                                 icon={<EditOutlined />}
@@ -451,9 +464,9 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                                 onClick={() => handleOpenEdit(record)}
                             />
                         </Tooltip>
-                        <Tooltip title={!canEdit ? 'Cannot delete: DPR work logged' : 'Delete panel'}>
+                        <Tooltip title={!canEdit ? `Cannot delete: DPR work logged` : `Delete ${isPile ? 'pile' : 'panel'}`}>
                             <Popconfirm
-                                title="Delete this panel?"
+                                title={`Delete this ${isPile ? 'pile' : 'panel'}?`}
                                 description="This cannot be undone. Design quantities will be recalculated."
                                 onConfirm={() => handleDeletePanel(record.id)}
                                 okText="Delete"
@@ -519,7 +532,7 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                                         icon={<PlusOutlined />}
                                         onClick={() => setPanelModalVisible(true)}
                                     >
-                                        Add Panel
+                                        Add {selectedDrawing?.drawing_type === 'Pile Layout' ? 'Pile' : 'Panel'}
                                     </Button>
                                     <Button type="text" icon={<UploadOutlined />} onClick={() => setModalVisible(true)} />
                                 </Space>
@@ -573,6 +586,16 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                                     rowSelection={{
                                         selectedRowKeys,
                                         onChange: setSelectedRowKeys,
+                                        onSelectAll: (selected) => {
+                                            if (selected) {
+                                                const allIds = panels
+                                                    .filter(p => isAdmin || !((p.dprRecords?.length > 0) || (p.consumptions?.length > 0)))
+                                                    .map(p => p.id)
+                                                setSelectedRowKeys(allIds)
+                                            } else {
+                                                setSelectedRowKeys([])
+                                            }
+                                        },
                                         getCheckboxProps: (record: any) => ({
                                             disabled: !isAdmin && ((record.dprRecords?.length > 0) || (record.consumptions?.length > 0))
                                         })
@@ -580,19 +603,31 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                                     summary={() => (
                                         <Table.Summary fixed>
                                             <Table.Summary.Row style={{ background: '#fafafa', fontWeight: 'bold' }}>
-                                                <Table.Summary.Cell index={0}></Table.Summary.Cell>
-                                                <Table.Summary.Cell index={1}>Total</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={2}>-</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={3}>{totals.length.toFixed(2)}</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={4}>{totals.width.toFixed(2)}</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={5}>{totals.design_depth.toFixed(2)}</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={6}>{totals.concrete.toFixed(2)}</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={7}>{totals.grab.toFixed(2)}</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={8}>{totals.stopEnd.toFixed(2)}</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={9}>{totals.reinforcement.toFixed(2)}</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={10}>{totals.anchors}</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={11}>{totals.anchorRM.toFixed(1)}</Table.Summary.Cell>
-                                                <Table.Summary.Cell index={12}></Table.Summary.Cell>
+                                                <Table.Summary.Cell index={0}></Table.Summary.Cell> {/* Checkbox */}
+                                                <Table.Summary.Cell index={1}>Total</Table.Summary.Cell> {/* ID */}
+                                                <Table.Summary.Cell index={2}>-</Table.Summary.Cell> {/* Type */}
+                                                <Table.Summary.Cell index={3}>{isPile ? '-' : totals.length.toFixed(2)}</Table.Summary.Cell>
+
+                                                {isPile ? (
+                                                    <>
+                                                        <Table.Summary.Cell index={4}>{totals.design_depth.toFixed(2)}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={5}>{totals.concrete.toFixed(2)}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={6}>{totals.reinforcement.toFixed(2)}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={7}></Table.Summary.Cell>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Table.Summary.Cell index={4}>{totals.width.toFixed(2)}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={5}>{totals.design_depth.toFixed(2)}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={6}>{totals.concrete.toFixed(2)}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={7}>{totals.grab.toFixed(2)}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={8}>{totals.stopEnd.toFixed(2)}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={9}>{totals.reinforcement.toFixed(2)}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={10}>{totals.anchors}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={11}>{totals.anchorRM.toFixed(1)}</Table.Summary.Cell>
+                                                        <Table.Summary.Cell index={12}></Table.Summary.Cell>
+                                                    </>
+                                                )}
                                             </Table.Summary.Row>
                                         </Table.Summary>
                                     )}
@@ -620,6 +655,8 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                         <Form.Item name="drawing_type" label="Drawing Type" initialValue="D-Wall Layout">
                             <Select>
                                 <Option value="D-Wall Layout">D-Wall Layout</Option>
+                                <Option value="Pile Layout">Pile Layout</Option>
+                                <Option value="Anchor Layout">Anchor Layout</Option>
                                 <Option value="Shop Drawing">Shop Drawing</Option>
                             </Select>
                         </Form.Item>
@@ -639,19 +676,57 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                     </Form>
                 </Modal>
 
-                <AddPanelModal
-                    open={panelModalVisible}
-                    onCancel={() => setPanelModalVisible(false)}
-                    onSubmit={handleAddPanel}
-                    loading={loading}
-                />
-
-                <BatchPanelModal
-                    open={batchModalVisible}
-                    onCancel={() => setBatchModalVisible(false)}
-                    onSubmit={handleGenerateBatch}
-                    loading={loading}
-                />
+                {selectedDrawing?.drawing_type === 'Pile Layout' ? (
+                    <>
+                        <AddPileModal
+                            open={panelModalVisible}
+                            onCancel={() => setPanelModalVisible(false)}
+                            onSubmit={handleAddPanel}
+                            loading={loading}
+                        />
+                        <BatchPileModal
+                            open={batchModalVisible}
+                            onCancel={() => setBatchModalVisible(false)}
+                            onSubmit={handleGenerateBatch}
+                            loading={loading}
+                        />
+                        <EditPileModal
+                            open={editModalVisible}
+                            onCancel={() => {
+                                setEditModalVisible(false)
+                                setEditingPanel(null)
+                            }}
+                            onSubmit={handleUpdatePanel}
+                            loading={loading}
+                            editingPile={editingPanel}
+                        />
+                    </>
+                ) : (
+                    <>
+                        <AddPanelModal
+                            open={panelModalVisible}
+                            onCancel={() => setPanelModalVisible(false)}
+                            onSubmit={handleAddPanel}
+                            loading={loading}
+                        />
+                        <BatchPanelModal
+                            open={batchModalVisible}
+                            onCancel={() => setBatchModalVisible(false)}
+                            onSubmit={handleGenerateBatch}
+                            loading={loading}
+                        />
+                        <EditPanelModal
+                            open={editModalVisible}
+                            onCancel={() => {
+                                setEditModalVisible(false)
+                                setEditingPanel(null)
+                            }}
+                            onSubmit={handleUpdatePanel}
+                            loading={loading}
+                            editingPanel={editingPanel}
+                        />
+                    </>
+                )}
 
                 <BulkEditModal
                     open={bulkEditModalVisible}
@@ -663,17 +738,6 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                     loading={loading}
                     selectedCount={selectedRowKeys.length}
                     initialValues={bulkEditInitialValues}
-                />
-
-                <EditPanelModal
-                    open={editModalVisible}
-                    onCancel={() => {
-                        setEditModalVisible(false)
-                        setEditingPanel(null)
-                    }}
-                    onSubmit={handleUpdatePanel}
-                    loading={loading}
-                    editingPanel={editingPanel}
                 />
             </Row>
         </div >

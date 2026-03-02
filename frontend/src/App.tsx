@@ -4,6 +4,7 @@ import AppRoutes from './routes/AppRoutes'
 import { AuthProvider } from './context/AuthContext'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { theme as customTheme } from './styles/theme'
+import { AntdGlobalHelper } from './utils/antdGlobal'
 import './App.css'
 
 const AppContent = () => {
@@ -23,6 +24,7 @@ const AppContent = () => {
       <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <AntdApp>
+            <AntdGlobalHelper />
             <AppRoutes />
           </AntdApp>
         </AuthProvider>

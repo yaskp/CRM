@@ -142,7 +142,7 @@ const VendorAgingReport = () => {
 
             <Row gutter={16} style={{ marginBottom: 24 }}>
                 <Col span={8}>
-                    <Card bordered={false} style={{ boxShadow: theme.shadows.sm }}>
+                    <Card variant="borderless" style={{ boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Total Outstanding"
                             value={totalOutstanding}
@@ -153,7 +153,7 @@ const VendorAgingReport = () => {
                     </Card>
                 </Col>
                 <Col span={8}>
-                    <Card bordered={false} style={{ boxShadow: theme.shadows.sm }}>
+                    <Card variant="borderless" style={{ boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Total Vendors"
                             value={report.length}
@@ -162,7 +162,7 @@ const VendorAgingReport = () => {
                     </Card>
                 </Col>
                 <Col span={8}>
-                    <Card bordered={false} style={{ boxShadow: theme.shadows.sm }}>
+                    <Card variant="borderless" style={{ boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Avg. Aging"
                             value={report.reduce((sum, v) => sum + (v.orders[0]?.days || 0), 0) / (report.length || 1)}

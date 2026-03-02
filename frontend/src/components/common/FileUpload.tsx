@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Upload, Button, message, Typography, Space } from 'antd'
+import { Upload, Button, App, Typography, Space } from 'antd'
 import { UploadOutlined, FileOutlined, DeleteOutlined, LoadingOutlined } from '@ant-design/icons'
 import type { UploadProps } from 'antd'
 import { getSecondaryButtonStyle } from '../../styles/styleUtils'
@@ -23,6 +23,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png'
 }) => {
     const [loading, setLoading] = useState(false)
+    const { message: msg } = App.useApp()
 
     const uploadProps: UploadProps = {
         name: 'file',
@@ -34,7 +35,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
         beforeUpload: (file) => {
             const isLt10M = file.size / 1024 / 1024 < 10
             if (!isLt10M) {
-                message.error('File must be smaller than 10MB!')
+                msg.error('File must be smaller than 10MB!')
             }
             return isLt10M
         },
@@ -46,13 +47,13 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             if (info.file.status === 'done') {
                 setLoading(false)
                 const url = info.file.response.file.url
-                message.success(`${info.file.name} file uploaded successfully`)
+                msg.success(`${info.file.name} file uploaded successfully`)
                 if (onChange) {
                     onChange(url)
                 }
             } else if (info.file.status === 'error') {
                 setLoading(false)
-                message.error(`${info.file.name} file upload failed.`)
+                msg.error(`${info.file.name} file upload failed.`)
             }
         },
         accept

@@ -284,7 +284,7 @@ const ExpenseForm = () => {
 
             <Row gutter={24}>
               <Col xs={24} md={12}>
-                <Card bordered style={{ borderStyle: 'dashed', borderRadius: '8px' }}>
+                <Card variant="outlined" style={{ borderStyle: 'dashed', borderRadius: '8px' }}>
                   <div style={{ textAlign: 'center' }}>
                     <Upload
                       beforeUpload={handleBillUpload}
@@ -305,7 +305,7 @@ const ExpenseForm = () => {
                 </Card>
               </Col>
               <Col xs={24} md={12}>
-                <Card bordered style={{ borderStyle: 'dashed', borderRadius: '8px' }}>
+                <Card variant="outlined" style={{ borderStyle: 'dashed', borderRadius: '8px' }}>
                   <div style={{ textAlign: 'center' }}>
                     <Upload
                       beforeUpload={handleSelfieUpload}

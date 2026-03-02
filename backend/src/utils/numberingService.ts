@@ -1,12 +1,13 @@
 import { Op, Transaction } from 'sequelize';
 import PurchaseOrder from '../models/PurchaseOrder';
 import StoreTransaction from '../models/StoreTransaction';
+import CreditNote from '../models/CreditNote';
 
 export const numberingService = {
     /**
      * Generate temporary reference numbers
      */
-    generateTempNumber: (prefix: 'PO' | 'GRN' | 'STN' | 'SRN' | 'CON'): string => {
+    generateTempNumber: (prefix: 'PO' | 'GRN' | 'STN' | 'SRN' | 'CON' | 'CN'): string => {
         return `TMP-${prefix}-${Date.now()}`;
     },
 
@@ -56,6 +57,35 @@ export const numberingService = {
         if (txs.length > 0) {
             const sequences = txs.map(tx => {
                 const parts = tx.transaction_number.split('-');
+                return parseInt(parts[parts.length - 1], 10);
+            }).filter(s => !isNaN(s));
+
+            if (sequences.length > 0) {
+                nextSequence = Math.max(...sequences) + 1;
+            }
+        }
+
+        return `${prefix}${String(nextSequence).padStart(4, '0')}`;
+    },
+
+    /**
+     * Generate sequential Credit Note number: CR-YYYYMM-XXXX
+     */
+    generateCreditNoteNumber: async (transaction?: Transaction): Promise<string> => {
+        const date = new Date();
+        const yearMonth = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const prefix = `CR-${yearMonth}-`;
+
+        const cns = await CreditNote.findAll({
+            where: { credit_note_number: { [Op.like]: `${prefix}%` } },
+            attributes: ['credit_note_number'],
+            transaction
+        });
+
+        let nextSequence = 1;
+        if (cns.length > 0) {
+            const sequences = cns.map(cn => {
+                const parts = cn.credit_note_number.split('-');
                 return parseInt(parts[parts.length - 1], 10);
             }).filter(s => !isNaN(s));
 

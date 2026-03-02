@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography, Upload, Card, Tag, Statistic, Switch, message as antdMessage, Modal, TimePicker, Divider, AutoComplete } from 'antd'
+import { Form, Input, Button, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography, Upload, Card, Tag, Statistic, Switch, message as antdMessage, Modal, TimePicker, Divider, AutoComplete, Tabs } from 'antd'
 import {
     SaveOutlined,
     PlusOutlined,
@@ -107,6 +107,22 @@ interface PanelWorkLog {
     cage_id_ref?: string
 }
 
+interface PileWorkLog {
+    tempId?: string
+    drawing_panel_id?: number
+    pile_identifier?: string
+    achieved_depth?: number
+    rock_socket_length?: number
+    start_time?: string
+    end_time?: string
+    concrete_poured?: number
+    steel_installed?: number
+    rig_id?: number
+    slump_test?: number
+    cube_test_id?: string
+    concrete_grade?: string
+}
+
 const UnifiedDailyReport = () => {
     const { id } = useParams()
     const [form] = Form.useForm()
@@ -149,6 +165,7 @@ const UnifiedDailyReport = () => {
     const [selectedWorkType, setSelectedWorkType] = useState<any>(null)
     const [rmcLogs, setRmcLogs] = useState<RmcItem[]>([])
     const [panelWorkLogs, setPanelWorkLogs] = useState<PanelWorkLog[]>([])
+    const [pileWorkLogs, setPileWorkLogs] = useState<PileWorkLog[]>([])
     const [staffUsers, setStaffUsers] = useState<any[]>([])
     const [equipmentList, setEquipmentList] = useState<any[]>([])
 
@@ -418,36 +435,53 @@ const UnifiedDailyReport = () => {
 
         // Auto-populate panel work logs for all selected panels
         if (selected.length > 0) {
-            const newPanelLogs: PanelWorkLog[] = selected.map(panel => {
-                // Extract dimensions from panel
-                let dims: any = { depth: 0, height: 0, length: 0 }
-                try {
-                    dims = typeof panel.coordinates_json === 'string'
-                        ? JSON.parse(panel.coordinates_json)
-                        : (panel.coordinates_json || {})
-                } catch (e) { }
+            const drawing = drawings.find(d => d.id === form.getFieldValue('drawing_id'))
+            const isPileDrawing = drawing?.drawing_type === 'Pile Layout'
 
-                const panelDepth = Number(panel.design_depth || panel.depth || dims.depth || dims.height || 0)
-                const length = Number(panel.length || dims.length || 0)
-                const grabbingSqm = Number(panel.grabbing_qty) || (length * panelDepth)
-
-                return {
-                    tempId: `panel-${panel.id}-${Date.now()}`,
+            if (isPileDrawing) {
+                // Populate ONLY Pile Work Logs
+                const newPileLogs: PileWorkLog[] = selected.map(panel => ({
+                    tempId: `pile-${panel.id}-${Date.now()}`,
                     drawing_panel_id: panel.id,
-                    panel_identifier: panel.panel_identifier,
-                    grabbing_depth: panelDepth,
-                    grabbing_sqm: grabbingSqm,
-                    grabbing_start_time: undefined,
-                    grabbing_end_time: undefined,
-                    concrete_start_time: undefined,
-                    concrete_end_time: undefined,
-                    concrete_grade: undefined,
-                    theoretical_concrete_qty: Number(panel.concrete_design_qty) || Number(panel.theoretical_concrete_volume) || undefined,
-                    cage_id_ref: undefined
-                }
-            })
+                    pile_identifier: panel.panel_identifier,
+                    achieved_depth: Number(panel.design_depth || 0),
+                    concrete_grade: panel.concrete_grade || 'M30',
+                    concrete_poured: Number(panel.concrete_design_qty || 0)
+                }))
+                setPileWorkLogs(newPileLogs)
+                setPanelWorkLogs([]) // Ensure Panel logs are empty for Pile projects
+            } else {
+                // Populate ONLY Panel Work Logs (D-Wall)
+                const newPanelLogs = selected.map(panel => {
+                    let dims: any = { depth: 0, height: 0, length: 0 }
+                    try {
+                        dims = typeof panel.coordinates_json === 'string'
+                            ? JSON.parse(panel.coordinates_json)
+                            : (panel.coordinates_json || {})
+                    } catch (e) { }
 
-            setPanelWorkLogs(newPanelLogs)
+                    const panelDepth = Number(panel.design_depth || panel.depth || dims.depth || dims.height || 0)
+                    const length = Number(panel.length || dims.length || 0)
+                    const grabbingSqm = Number(panel.grabbing_qty) || (length * panelDepth)
+
+                    return {
+                        tempId: `panel-${panel.id}-${Date.now()}`,
+                        drawing_panel_id: panel.id,
+                        panel_identifier: panel.panel_identifier,
+                        grabbing_depth: panelDepth,
+                        grabbing_sqm: grabbingSqm,
+                        grabbing_start_time: undefined,
+                        grabbing_end_time: undefined,
+                        concrete_start_time: undefined,
+                        concrete_end_time: undefined,
+                        concrete_grade: undefined,
+                        theoretical_concrete_qty: Number(panel.concrete_design_qty) || Number(panel.theoretical_concrete_volume) || undefined,
+                        cage_id_ref: undefined
+                    }
+                })
+                setPanelWorkLogs(newPanelLogs)
+                setPileWorkLogs([]) // Ensure Pile logs are empty for D-Wall projects
+            }
 
             // Also set form values for backward compatibility
             const currentPrimary = selected[0]
@@ -676,14 +710,14 @@ const UnifiedDailyReport = () => {
             if (log.drawing_panel_id && log.grabbing_depth) {
                 const panel = panels.find(p => p.id === log.drawing_panel_id)
                 if (panel) {
-                    let dims = { length: 0 }
+                    let dims: any = { length: 0 }
                     try {
                         dims = typeof panel.coordinates_json === 'string'
                             ? JSON.parse(panel.coordinates_json)
                             : (panel.coordinates_json || {})
                     } catch (e) { }
                     const length = Number(panel.length || dims.length || 0)
-                    const panelDepth = Number(panel.design_depth || panel.depth || dims.depth || dims.height || 0)
+                    const panelDepth = Number(panel.design_depth || panel.depth || (dims as any).depth || (dims as any).height || 0)
 
                     if (Number(log.grabbing_depth) === panelDepth && panel.grabbing_qty) {
                         newLogs[index].grabbing_sqm = Number(panel.grabbing_qty)
@@ -711,11 +745,52 @@ const UnifiedDailyReport = () => {
                         newLogs[index].grabbing_sqm = Number(panel.grabbing_qty) || (length * panelDepth)
                     }
                     newLogs[index].panel_identifier = panel.panel_identifier
+                    newLogs[index].theoretical_concrete_qty = Number(panel.concrete_design_qty || 0)
                 }
             }
         }
 
         setPanelWorkLogs(newLogs)
+    }
+
+    // Pile Work Log Functions
+    const addPileWorkLog = () => {
+        setPileWorkLogs([...pileWorkLogs, {
+            tempId: `pile-${Date.now()}`,
+            drawing_panel_id: undefined,
+            pile_identifier: '',
+            achieved_depth: 0,
+            concrete_grade: 'M30'
+        }])
+    }
+
+    const removePileWorkLog = (index: number) => {
+        const removedLog = pileWorkLogs[index]
+        const newLogs = pileWorkLogs.filter((_, i) => i !== index)
+        setPileWorkLogs(newLogs)
+
+        if (removedLog.drawing_panel_id) {
+            const newSelectedPanels = selectedPanels.filter(p => p.id !== removedLog.drawing_panel_id)
+            setSelectedPanels(newSelectedPanels)
+            const newPanelIds = newSelectedPanels.map(p => p.id)
+            form.setFieldsValue({ drawing_panel_id: newPanelIds })
+        }
+    }
+
+    const updatePileWorkLog = (index: number, field: string, value: any) => {
+        const newLogs = [...pileWorkLogs]
+        newLogs[index] = { ...newLogs[index], [field]: value }
+
+        if (field === 'drawing_panel_id' && value) {
+            const panel = panels.find(p => p.id === value)
+            if (panel) {
+                newLogs[index].pile_identifier = panel.panel_identifier
+                newLogs[index].achieved_depth = Number(panel.design_depth || 0)
+                newLogs[index].concrete_grade = panel.concrete_grade || 'M30'
+                newLogs[index].concrete_poured = Number(panel.concrete_design_qty || 0)
+            }
+        }
+        setPileWorkLogs(newLogs)
     }
 
     const calculateSummary = () => {
@@ -766,6 +841,7 @@ const UnifiedDailyReport = () => {
             rmc_logs: rmcLogs,
             // D-Wall Panel Work Logs (Panel-wise)
             panel_work_logs: panelWorkLogs,
+            pile_work_logs: pileWorkLogs,
             // Legacy D-Wall fields - set to null
             actual_depth: null,
             verticality_x: null,
@@ -1232,7 +1308,7 @@ const UnifiedDailyReport = () => {
             )
         },
         {
-            title: 'Theo Qty',
+            title: 'Concrete Qty',
             dataIndex: 'theoretical_concrete_qty',
             width: '8%',
             render: (val: any, _: any, index: number) => (
@@ -1241,8 +1317,9 @@ const UnifiedDailyReport = () => {
                     value={val}
                     onChange={v => updatePanelWorkLog(index, 'theoretical_concrete_qty', v)}
                     size="small"
-                    style={{ width: '100%' }}
-                    placeholder="cum"
+                    style={{ width: '100%', background: '#f5f5f5' }}
+                    placeholder="Auto"
+                    disabled
                 />
             )
         },
@@ -1264,6 +1341,141 @@ const UnifiedDailyReport = () => {
             width: '5%',
             render: (_: any, __: any, index: number) => (
                 <Button danger icon={<DeleteOutlined />} onClick={() => removePanelWorkLog(index)} type="link" size="small" />
+            )
+        }
+    ]
+
+    const pileWorkColumns = [
+        {
+            title: 'Pile No',
+            dataIndex: 'drawing_panel_id',
+            width: '12%',
+            render: (val: any, _: any, index: number) => (
+                <Select
+                    value={val}
+                    onChange={v => updatePileWorkLog(index, 'drawing_panel_id', v)}
+                    size="small"
+                    style={{ width: '100%' }}
+                    placeholder="Select pile"
+                >
+                    {panels.map(p => <Option key={p.id} value={p.id}>{p.panel_identifier}</Option>)}
+                </Select>
+            )
+        },
+        {
+            title: 'Achieved Depth (m)',
+            dataIndex: 'achieved_depth',
+            width: '12%',
+            render: (val: any, _: any, index: number) => (
+                <InputNumber
+                    min={0}
+                    value={val}
+                    onChange={v => updatePileWorkLog(index, 'achieved_depth', v)}
+                    size="small"
+                    style={{ width: '100%' }}
+                    placeholder="28.00"
+                />
+            )
+        },
+        {
+            title: 'Rock Socket (m)',
+            dataIndex: 'rock_socket_length',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <InputNumber
+                    min={0}
+                    value={val}
+                    onChange={v => updatePileWorkLog(index, 'rock_socket_length', v)}
+                    size="small"
+                    style={{ width: '100%' }}
+                    placeholder="1.5"
+                />
+            )
+        },
+        {
+            title: 'Start Time',
+            dataIndex: 'start_time',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <TimePicker
+                    format="HH:mm"
+                    value={val ? dayjs(val, 'HH:mm') : null}
+                    onChange={(_, timeStr) => updatePileWorkLog(index, 'start_time', Array.isArray(timeStr) ? timeStr[0] : timeStr)}
+                    size="small"
+                    style={{ width: '100%' }}
+                />
+            )
+        },
+        {
+            title: 'End Time',
+            dataIndex: 'end_time',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <TimePicker
+                    format="HH:mm"
+                    value={val ? dayjs(val, 'HH:mm') : null}
+                    onChange={(_, timeStr) => updatePileWorkLog(index, 'end_time', Array.isArray(timeStr) ? timeStr[0] : timeStr)}
+                    size="small"
+                    style={{ width: '100%' }}
+                />
+            )
+        },
+        {
+            title: 'Concrete Qty',
+            dataIndex: 'concrete_poured',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <InputNumber
+                    min={0}
+                    value={val}
+                    onChange={v => updatePileWorkLog(index, 'concrete_poured', v)}
+                    size="small"
+                    style={{ width: '100%', background: '#f5f5f5' }}
+                    placeholder="Auto"
+                    disabled
+                />
+            )
+        },
+        {
+            title: 'Steel (kg)',
+            dataIndex: 'steel_installed',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <InputNumber
+                    min={0}
+                    value={val}
+                    onChange={v => updatePileWorkLog(index, 'steel_installed', v)}
+                    size="small"
+                    style={{ width: '100%' }}
+                    placeholder="1200"
+                />
+            )
+        },
+        {
+            title: 'Grade',
+            dataIndex: 'concrete_grade',
+            width: '8%',
+            render: (val: any, _: any, index: number) => (
+                <AutoComplete
+                    value={val}
+                    onChange={v => updatePileWorkLog(index, 'concrete_grade', v)}
+                    size="small"
+                    style={{ width: '100%' }}
+                    options={[
+                        { value: 'M25' },
+                        { value: 'M30' },
+                        { value: 'M35' },
+                        { value: 'M40' },
+                    ]}
+                    placeholder="M30"
+                />
+            )
+        },
+        {
+            title: '',
+            width: '5%',
+            render: (_: any, __: any, index: number) => (
+                <Button danger icon={<DeleteOutlined />} onClick={() => removePileWorkLog(index)} type="link" size="small" />
             )
         }
     ]
@@ -1564,48 +1776,73 @@ const UnifiedDailyReport = () => {
 
                                                             const percentDone = areaSqm > 0 ? (totalDone / areaSqm) * 100 : 0
 
+                                                            const isPile = drawings.find(d => d.id === form.getFieldValue('drawing_id'))?.drawing_type === 'Pile Layout'
+
                                                             return (
                                                                 <Col xs={24} sm={12} md={8} lg={6} key={panel.id}>
                                                                     <div style={{
                                                                         padding: '12px',
-                                                                        background: '#f8fafc',
+                                                                        background: isPile ? '#f0fdf4' : '#f8fafc',
                                                                         borderRadius: 8,
-                                                                        border: '1px solid #e2e8f0',
+                                                                        border: `1px solid ${isPile ? '#bbf7d0' : '#e2e8f0'}`,
                                                                         height: '100%'
                                                                     }}>
                                                                         <Space direction="vertical" size={2} style={{ width: '100%' }}>
                                                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
                                                                                 <Typography.Text strong>{panel.panel_identifier}</Typography.Text>
                                                                                 <Typography.Text type="secondary" style={{ fontSize: '11px' }}>
-                                                                                    L: {length}m | D: {depth}m | W: {(width * 1000).toFixed(0)}mm
+                                                                                    {isPile ? `Dia: ${length}mm` : `L: ${length}m | D: ${depth}m`}
                                                                                 </Typography.Text>
                                                                             </div>
-                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 4 }}>
-                                                                                <Typography.Text type="secondary">Area:</Typography.Text>
-                                                                                <Typography.Text strong style={{ color: theme.colors.primary.main }}>
-                                                                                    {areaSqm.toFixed(2)} m² ({areaSqft.toFixed(2)} sqft)
-                                                                                </Typography.Text>
-                                                                            </div>
-                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 2 }}>
-                                                                                <Typography.Text type="secondary">Comp:</Typography.Text>
-                                                                                <Typography.Text strong style={{ color: percentDone >= 100 ? '#10b981' : '#f59e0b' }}>
-                                                                                    {totalDone.toFixed(2)} m² ({Math.min(percentDone, 100).toFixed(0)}%)
-                                                                                </Typography.Text>
-                                                                            </div>
-                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 2 }}>
-                                                                                <Typography.Text type="secondary">Est Vol:</Typography.Text>
-                                                                                <Typography.Text strong>
-                                                                                    {volCum.toFixed(2)} m³
-                                                                                </Typography.Text>
-                                                                            </div>
-                                                                            <div style={{ marginTop: 6, height: '4px', background: '#e2e8f0', borderRadius: '2px', overflow: 'hidden' }}>
-                                                                                <div style={{
-                                                                                    width: `${Math.min(percentDone, 100)}%`,
-                                                                                    height: '100%',
-                                                                                    background: percentDone >= 100 ? '#10b981' : theme.colors.primary.main,
-                                                                                    transition: 'width 0.3s ease'
-                                                                                }} />
-                                                                            </div>
+
+                                                                            {isPile ? (
+                                                                                <>
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 4 }}>
+                                                                                        <Typography.Text type="secondary">Design Depth:</Typography.Text>
+                                                                                        <Typography.Text strong>{depth} m</Typography.Text>
+                                                                                    </div>
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 2 }}>
+                                                                                        <Typography.Text type="secondary">Concrete:</Typography.Text>
+                                                                                        <Typography.Text strong style={{ color: '#16a34a' }}>{volCum.toFixed(2)} m³</Typography.Text>
+                                                                                    </div>
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 2 }}>
+                                                                                        <Typography.Text type="secondary">Steel:</Typography.Text>
+                                                                                        <Typography.Text strong>{panel.reinforcement_ton ? `${panel.reinforcement_ton} ton` : 'N/A'}</Typography.Text>
+                                                                                    </div>
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 4 }}>
+                                                                                        <Typography.Text type="secondary">Area:</Typography.Text>
+                                                                                        <Typography.Text strong style={{ color: theme.colors.primary.main }}>
+                                                                                            {areaSqm.toFixed(2)} m² ({areaSqft.toFixed(2)} sqft)
+                                                                                        </Typography.Text>
+                                                                                    </div>
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 2 }}>
+                                                                                        <Typography.Text type="secondary">Comp:</Typography.Text>
+                                                                                        <Typography.Text strong style={{ color: percentDone >= 100 ? '#10b981' : '#f59e0b' }}>
+                                                                                            {totalDone.toFixed(2)} m² ({Math.min(percentDone, 100).toFixed(0)}%)
+                                                                                        </Typography.Text>
+                                                                                    </div>
+                                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginTop: 2 }}>
+                                                                                        <Typography.Text type="secondary">Est Vol:</Typography.Text>
+                                                                                        <Typography.Text strong>
+                                                                                            {volCum.toFixed(2)} m³
+                                                                                        </Typography.Text>
+                                                                                    </div>
+                                                                                </>
+                                                                            )}
+
+                                                                            {!isPile && (
+                                                                                <div style={{ marginTop: 6, height: '4px', background: '#e2e8f0', borderRadius: '2px', overflow: 'hidden' }}>
+                                                                                    <div style={{
+                                                                                        width: `${Math.min(percentDone, 100)}%`,
+                                                                                        height: '100%',
+                                                                                        background: percentDone >= 100 ? '#10b981' : theme.colors.primary.main,
+                                                                                        transition: 'width 0.3s ease'
+                                                                                    }} />
+                                                                                </div>
+                                                                            )}
                                                                         </Space>
                                                                     </div>
                                                                 </Col>
@@ -1620,55 +1857,93 @@ const UnifiedDailyReport = () => {
                             </SectionCard>
                         )}
 
-                        {/* 1C. D-Wall Specialized Logs (Panel-wise) */}
-                        {selectedPanels.length > 0 && (
-                            <>
-                                <SectionCard
-                                    title="D-Wall Technical Logs (Panel-wise QC)"
-                                    icon={<AuditOutlined />}
-                                    extra={<Button type="dashed" icon={<PlusOutlined />} onClick={addPanelWorkLog}>Add Extra Panel</Button>}
-                                >
-                                    <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', borderRadius: 8, fontSize: '13px' }}>
-                                        💡 <strong>Auto-populated from selected panels above.</strong> Each panel has its own row with pre-filled depth and SQM. Fill in times, grade, and cage ID for each panel.
-                                    </div>
-                                    <Table
-                                        dataSource={panelWorkLogs}
-                                        columns={panelWorkColumns}
-                                        pagination={false}
-                                        rowKey="tempId"
-                                        size="small"
-                                        bordered
-                                        scroll={{ x: 1200 }}
-                                        locale={{ emptyText: 'Select panels above to auto-populate panel work logs.' }}
-                                    />
-                                </SectionCard>
-
-                                <SectionCard
-                                    title="RMC Delivery Details (Vehicle Log)"
-                                    icon={<ClockCircleOutlined />}
-                                    extra={<Button type="dashed" icon={<PlusOutlined />} onClick={addRmcLog}>Add Vehicle</Button>}
-                                >
-                                    <Table
-                                        dataSource={rmcLogs}
-                                        columns={rmcColumns}
-                                        pagination={false}
-                                        rowKey="tempId"
-                                        size="small"
-                                        bordered
-                                    />
-                                    <div style={{ marginTop: 16, padding: '12px', background: '#f8fafc', borderRadius: 8 }}>
-                                        <div style={{ marginBottom: 8 }}>
-                                            <Text type="secondary" style={{ fontSize: '12px' }}>Total RMC Delivered</Text>
+                        {/* 1C. Structural Progress (Specialized Logs) */}
+                        {(selectedPanels.length > 0 || panelWorkLogs.length > 0 || pileWorkLogs.length > 0) && (
+                            <SectionCard
+                                title="Structural Progress (Execution QC)"
+                                icon={<AuditOutlined />}
+                            >
+                                <Tabs defaultActiveKey={selectedPanels.length > 0 && drawings.find(d => d.id === form.getFieldValue('drawing_id'))?.drawing_type === 'Pile Layout' ? 'piles' : 'dwall'}>
+                                    <Tabs.TabPane
+                                        tab={<span><BlockOutlined /> D-Wall Panels</span>}
+                                        key="dwall"
+                                    >
+                                        <div style={{ marginBottom: 12, padding: '8px 12px', background: '#eff6ff', borderRadius: 8, fontSize: '13px' }}>
+                                            💡 <strong>D-Wall Execution Details.</strong> Auto-populated from selected panels.
                                         </div>
-                                        <Statistic
-                                            value={rmcLogs.reduce((sum, log) => sum + (Number(log.quantity) || 0), 0).toFixed(2)}
-                                            suffix="cum"
-                                            valueStyle={{ fontSize: '20px', fontWeight: 600, color: theme.colors.primary.main }}
+                                        <Table
+                                            dataSource={panelWorkLogs}
+                                            columns={panelWorkColumns}
+                                            pagination={false}
+                                            rowKey="tempId"
+                                            size="small"
+                                            bordered
+                                            scroll={{ x: 1200 }}
+                                            locale={{ emptyText: 'Select panels above to auto-populate panel work logs.' }}
                                         />
-                                    </div>
-                                </SectionCard>
-                            </>
+                                        <Button
+                                            type="dashed"
+                                            icon={<PlusOutlined />}
+                                            onClick={addPanelWorkLog}
+                                            style={{ marginTop: 12, width: '100%' }}
+                                        >
+                                            Add Extra Panel
+                                        </Button>
+                                    </Tabs.TabPane>
+                                    <Tabs.TabPane
+                                        tab={<span><ProjectOutlined /> Pile Work</span>}
+                                        key="piles"
+                                    >
+                                        <div style={{ marginBottom: 12, padding: '8px 12px', background: '#f0fdf4', borderRadius: 8, fontSize: '13px' }}>
+                                            🏗️ <strong>Pile Physical Execution.</strong> Enter achieved depth, concrete volume, and steel for individual piles.
+                                        </div>
+                                        <Table
+                                            dataSource={pileWorkLogs}
+                                            columns={pileWorkColumns}
+                                            pagination={false}
+                                            rowKey="tempId"
+                                            size="small"
+                                            bordered
+                                            scroll={{ x: 1200 }}
+                                            locale={{ emptyText: 'Select piles above to auto-populate pile logs.' }}
+                                        />
+                                        <Button
+                                            type="dashed"
+                                            icon={<PlusOutlined />}
+                                            onClick={addPileWorkLog}
+                                            style={{ marginTop: 12, width: '100%' }}
+                                        >
+                                            Add Extra Pile
+                                        </Button>
+                                    </Tabs.TabPane>
+                                </Tabs>
+                            </SectionCard>
                         )}
+
+                        <SectionCard
+                            title="RMC Delivery Details (Vehicle Log)"
+                            icon={<ClockCircleOutlined />}
+                            extra={<Button type="dashed" icon={<PlusOutlined />} onClick={addRmcLog}>Add Vehicle</Button>}
+                        >
+                            <Table
+                                dataSource={rmcLogs}
+                                columns={rmcColumns}
+                                pagination={false}
+                                rowKey="tempId"
+                                size="small"
+                                bordered
+                            />
+                            <div style={{ marginTop: 16, padding: '12px', background: '#f8fafc', borderRadius: 8 }}>
+                                <div style={{ marginBottom: 8 }}>
+                                    <Text type="secondary" style={{ fontSize: '12px' }}>Total RMC Delivered</Text>
+                                </div>
+                                <Statistic
+                                    value={rmcLogs.reduce((sum, log) => sum + (Number(log.quantity) || 0), 0).toFixed(2)}
+                                    suffix="cum"
+                                    valueStyle={{ fontSize: '20px', fontWeight: 600, color: theme.colors.primary.main }}
+                                />
+                            </div>
+                        </SectionCard>
 
                         {/* 2. Progress & Materials */}
                         <SectionCard

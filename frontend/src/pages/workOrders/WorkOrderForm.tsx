@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react'
-import { Form, Button, Card, message, Select, Input, InputNumber, Space, Table, Typography, Divider, Row, Col, Checkbox } from 'antd'
+import { Form, Button, Card, App, Select, Input, InputNumber, Space, Table, Typography, Divider, Checkbox } from 'antd'
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -50,6 +50,7 @@ interface WorkOrderItem {
 }
 
 const WorkOrderForm = () => {
+  const { message: msg } = App.useApp()
   const [loading, setLoading] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
   const [items, setItems] = useState<WorkOrderItem[]>([])
@@ -72,13 +73,29 @@ const WorkOrderForm = () => {
     fetchAnnexures()
     if (id) {
       fetchWorkOrder()
+    } else if (quotationId) {
+      fetchQuotationDetails(Number(quotationId))
     } else if (location.state?.project_id) {
       form.setFieldsValue({ project_id: location.state.project_id })
       fetchClientFromProject(location.state.project_id)
-    } else if (quotationId) {
-      fetchQuotationDetails(Number(quotationId))
+      fetchLatestQuotationForProject(location.state.project_id)
     }
   }, [id, location.state])
+
+  const fetchLatestQuotationForProject = async (projectId: number) => {
+    try {
+      const qRes = await quotationService.getQuotations({ project_id: projectId, limit: 10 })
+      const quotations = qRes.quotations || []
+      const active = quotations.find((q: any) => ['accepted', 'accepted_by_party', 'approved'].includes(q.status))
+        || quotations[0]
+
+      if (active) {
+        fetchQuotationDetails(active.id)
+      }
+    } catch (error) {
+      console.error('Failed to fetch latest quotation for project')
+    }
+  }
 
   const fetchQuotationDetails = async (qId: number) => {
     try {
@@ -86,9 +103,10 @@ const WorkOrderForm = () => {
       const q = response.quotation
 
       if (q) {
-        if (q.lead && q.lead.project_id) {
-          form.setFieldsValue({ project_id: q.lead.project_id })
-          fetchClientFromProject(q.lead.project_id)
+        const projId = q.lead?.project_id || q.project_id
+        if (projId) {
+          form.setFieldsValue({ project_id: projId })
+          fetchClientFromProject(projId)
         }
 
         form.setFieldsValue({
@@ -110,7 +128,7 @@ const WorkOrderForm = () => {
           }))
           setItems(woItems)
 
-          message.success(`Loaded ${woItems.length} items from quotation`)
+          msg.success(`Loaded ${woItems.length} items from quotation`)
         }
 
         if (q.client_scope || q.contractor_scope || q.terms_conditions || q.annexure) {
@@ -125,7 +143,7 @@ const WorkOrderForm = () => {
         }
       }
     } catch (error) {
-      message.error('Failed to load quotation details')
+      msg.error('Failed to load quotation details')
     }
   }
 
@@ -211,7 +229,7 @@ const WorkOrderForm = () => {
         setScopeMatrix(wo.scope_matrix.map((it: any, idx: number) => ({ ...it, key: it.key || Date.now() + idx })))
       }
     } catch (error: any) {
-      message.error(error.response?.data?.message || 'Failed to fetch work order')
+      msg.error(error.response?.data?.message || 'Failed to fetch work order')
     }
   }
 
@@ -244,7 +262,7 @@ const WorkOrderForm = () => {
 
   const onFinish = async (values: any) => {
     if (items.length === 0) {
-      message.error('Please add at least one work order item')
+      msg.error('Please add at least one work order item')
       return
     }
 
@@ -273,14 +291,14 @@ const WorkOrderForm = () => {
 
       if (id) {
         await workOrderService.updateWorkOrder(Number(id), data)
-        message.success('Work order updated successfully!')
+        msg.success('Work order updated successfully!')
       } else {
         await workOrderService.createWorkOrder(data)
-        message.success('Work order created successfully!')
+        msg.success('Work order created successfully!')
       }
       navigate('/operations/work-orders')
     } catch (error: any) {
-      message.error(error.response?.data?.message || 'Failed to save work order')
+      msg.error(error.response?.data?.message || 'Failed to save work order')
     } finally {
       setLoading(false)
     }

@@ -137,5 +137,11 @@ export const storeTransactionService = {
     const response = await api.post('/store/worker-categories', { name })
     return response.data
   },
+  downloadCreditNotePDF: async (srnId: number) => {
+    const response = await api.get(`/store/${srnId}/credit-note-pdf`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
 }
 

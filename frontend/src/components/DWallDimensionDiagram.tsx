@@ -2,17 +2,24 @@
 
 interface DWallDimensionDiagramProps {
     highlight?: 'L' | 'W' | 'D' | null
+    L?: number
+    W?: number
+    D?: number
 }
 
-const DWallDimensionDiagram = ({ highlight }: DWallDimensionDiagramProps) => {
+const DWallDimensionDiagram = ({ highlight, L = 2.8, W = 0.8, D = 22 }: DWallDimensionDiagramProps) => {
     const id = useId().replace(/:/g, '')
 
     // Oblique projection: 35°, 55% foreshortening
     const CF = 0.451, SF = 0.316
 
-    // Panel + earth dimensions
-    const bL = 112, bW = 48, bD = 116, eT = 14  // panel: length, thickness, depth, guide-wall height
-    const eL = 44, eR = 40                         // earth columns left/right of panel (wider = clearly soil)
+    // Panel + earth dimensions - Scale the inputs to fit the viewport while maintaining some relative sense
+    // Base reference: L=2.8 -> 112, W=0.8 -> 48, D=22 -> 116
+    const bL = Math.max(60, Math.min(180, (L || 2.8) * 40))
+    const bW = Math.max(20, Math.min(100, (W || 0.8) * 60))
+    const bD = Math.max(60, Math.min(160, (D || 22) * 5.3))
+    const eT = 14  // guide-wall height (fixed for visual consistency)
+    const eL = 44, eR = 40                         // earth columns left/right of panel
     const OX = 68, OY = 59                         // front-top-left anchor in SVG
 
     const sc = (x: number, y: number, z: number) => ({

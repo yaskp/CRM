@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Tag, Select, Space, message, Row, Col, Statistic, Typography, Modal, Form } from 'antd'
+import { Card, Table, Button, Tag, Select, Space, App, Row, Col, Statistic, Typography, Modal, Form } from 'antd'
 import {
   PlusOutlined,
   EyeOutlined,
@@ -40,6 +40,7 @@ interface WorkOrder {
 
 
 const WorkOrderList = () => {
+  const { message: msg } = App.useApp()
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([])
   const [loading, setLoading] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
@@ -60,7 +61,7 @@ const WorkOrderList = () => {
       setWorkOrders(response.workOrders || [])
       setTotal(response.pagination?.total || 0)
     } catch (error: any) {
-      message.error(error.response?.data?.message || 'Failed to fetch work orders')
+      msg.error(error.response?.data?.message || 'Failed to fetch work orders')
     } finally {
       setLoading(false)
     }
@@ -81,15 +82,15 @@ const WorkOrderList = () => {
       const values = await form.validateFields()
       setUpdatingStatus(true)
       await workOrderService.updateWorkOrder(editingWorkOrder!.id, { status: values.status })
-      message.success('Status updated successfully')
+      msg.success('Status updated successfully')
       setStatusModalVisible(false)
       fetchWorkOrders()
     } catch (error: any) {
       if (error?.errorFields && error.errorFields.length > 0) {
-        message.error(error.errorFields[0].errors[0]);
+        msg.error(error.errorFields[0].errors[0]);
         return;
       }
-      message.error(error.response?.data?.message || 'Failed to update status')
+      msg.error(error.response?.data?.message || 'Failed to update status')
     } finally {
       setUpdatingStatus(false)
     }

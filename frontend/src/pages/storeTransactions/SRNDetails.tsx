@@ -7,7 +7,8 @@ import {
     PrinterOutlined,
     CheckCircleOutlined,
     CloseCircleOutlined,
-    BarcodeOutlined
+    BarcodeOutlined,
+    FileTextOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
@@ -78,12 +79,41 @@ const SRNDetails = () => {
             )
         },
         {
+            title: 'Stock Type',
+            dataIndex: 'item_status',
+            key: 'status',
+            width: 120,
+            render: (status: any) => (
+                <Tag color={status === 'Defective' ? 'red' : 'green'}>
+                    {(status || 'Good').toUpperCase()}
+                </Tag>
+            )
+        },
+        {
             title: 'Returned Qty',
             dataIndex: 'quantity',
             key: 'quantity',
             align: 'right' as const,
             render: (qty: number, record: any) => <Tag color="orange">{qty} {record.unit || ''}</Tag>
         },
+        ...(srn.destination_type === 'vendor' ? [
+            {
+                title: 'Rate',
+                dataIndex: 'unit_price',
+                key: 'unit_price',
+                align: 'right' as const,
+                render: (val: number) => `₹${Number(val || 0).toLocaleString()}`
+            },
+            {
+                title: 'Total',
+                key: 'total',
+                align: 'right' as const,
+                render: (_: any, record: any) => {
+                    const base = (record.quantity || 0) * (record.unit_price || 0)
+                    return <Text strong>₹{base.toLocaleString()}</Text>
+                }
+            }
+        ] : []),
         {
             title: 'Remarks',
             dataIndex: 'remarks',
@@ -98,21 +128,20 @@ const SRNDetails = () => {
     let sourceType = 'Unknown'
     let destType = 'Unknown'
 
-    // Logic inferred from SRNForm/Backend
-    if (srn.from_project_id || srn.project_id) {
-        // Site Return (Project -> Warehouse)
+    if (srn.source_type === 'project' || srn.from_project_id || srn.project_id) {
         sourceType = 'Project Site'
-        sourceName = (srn.project || srn.fromProject)?.name
-
-        destType = 'Warehouse'
-        destName = (srn.warehouse || srn.toWarehouse)?.name
-    } else if (srn.vendor_id && srn.warehouse_id) {
-        // Purchase Return (Warehouse -> Vendor)
+        sourceName = (srn.source_project || srn.project || srn.fromProject)?.name || 'Project'
+    } else if (srn.source_type === 'warehouse') {
         sourceType = 'Warehouse'
-        sourceName = srn.warehouse?.name
+        sourceName = srn.warehouse?.name || 'Warehouse'
+    }
 
+    if (srn.destination_type === 'vendor') {
         destType = 'Vendor'
-        destName = srn.vendor?.name
+        destName = srn.vendor?.name || 'Vendor'
+    } else if (srn.destination_type === 'warehouse') {
+        destType = 'Warehouse'
+        destName = (srn.toWarehouse || srn.warehouse)?.name || 'Warehouse'
     }
 
     return (
@@ -146,7 +175,7 @@ const SRNDetails = () => {
                             </Descriptions.Item>
                             {(srn.purchase_order || srn.purchase_order_id) && (
                                 <Descriptions.Item label={<Text type="secondary">Linked PO</Text>} span={2}>
-                                    <Tag color="purple">{srn.purchase_order?.po_number || '#' + srn.purchase_order_id}</Tag>
+                                    <Tag color="purple">{srn.purchase_order?.po_number || srn.purchase_order?.temp_number || '#' + srn.purchase_order_id}</Tag>
                                 </Descriptions.Item>
                             )}
                             <Descriptions.Item label={<Text type="secondary">Remarks</Text>} span={2}>
@@ -161,11 +190,56 @@ const SRNDetails = () => {
                             dataSource={srn.items}
                             columns={itemColumns}
                             pagination={false}
-                            rowKey="id"
+                            rowKey={(record) => `srn-item-${record.id}`}
                             scroll={{ x: 600 }}
                         />
                     </SectionCard>
 
+                    {srn.creditNote && (
+                        <SectionCard title="Credit Note Details" icon={<FileTextOutlined />} style={{ marginTop: '16px' }}>
+                            <Descriptions bordered column={{ xs: 1, sm: 2 }}>
+                                <Descriptions.Item label="Credit Note No.">
+                                    <Space size="large">
+                                        <Tag color="blue" style={{ fontSize: '14px' }}>{srn.creditNote.credit_note_number}</Tag>
+                                        <Button
+                                            type="primary"
+                                            ghost
+                                            size="small"
+                                            icon={<PrinterOutlined />}
+                                            onClick={() => navigate(`/inventory/srn/${srn.id}/print-cn`)}
+                                        >
+                                            Print / View PDF
+                                        </Button>
+                                    </Space>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Date">
+                                    {dayjs(srn.creditNote.transaction_date).format('DD MMM YYYY')}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Status">
+                                    <Tag color={srn.creditNote.status === 'approved' ? 'success' : 'orange'}>
+                                        {srn.creditNote.status.toUpperCase()}
+                                    </Tag>
+                                </Descriptions.Item>
+                                <Descriptions.Item label="Financial Summary">
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <div style={flexBetweenStyle}>
+                                            <Text type="secondary">Subtotal:</Text>
+                                            <Text>₹{Number(srn.creditNote.subtotal).toLocaleString()}</Text>
+                                        </div>
+                                        <div style={flexBetweenStyle}>
+                                            <Text type="secondary">Tax Amount:</Text>
+                                            <Text>₹{Number(srn.creditNote.tax_amount).toLocaleString()}</Text>
+                                        </div>
+                                        <Divider style={{ margin: '4px 0' }} />
+                                        <div style={flexBetweenStyle}>
+                                            <Text strong>Grand Total:</Text>
+                                            <Text strong style={{ color: theme.colors.primary.main }}>₹{Number(srn.creditNote.total_amount).toLocaleString()}</Text>
+                                        </div>
+                                    </div>
+                                </Descriptions.Item>
+                            </Descriptions>
+                        </SectionCard>
+                    )}
                 </Col>
 
                 <Col xs={24} lg={8}>

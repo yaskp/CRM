@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Card, Row, Col, Select, Button, Table, Typography, Statistic, Progress, Modal, InputNumber, message } from 'antd'
-import { DollarOutlined, PieChartOutlined, EditOutlined, FundOutlined, RiseOutlined } from '@ant-design/icons'
+import { DollarOutlined, EditOutlined, FundOutlined, RiseOutlined } from '@ant-design/icons'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
 import { projectService } from '../../services/api/projects'
 import { budgetService, BudgetAnalysis, BudgetHead } from '../../services/api/budgets'
@@ -178,7 +178,7 @@ const BudgetDashboard = () => {
 
             <Row gutter={[24, 24]}>
                 <Col span={6}>
-                    <Card bordered={false} style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                         <Statistic
                             title="Total Estimated Budget"
                             value={totalEstimated}
@@ -190,7 +190,7 @@ const BudgetDashboard = () => {
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card bordered={false} style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                         <Statistic
                             title="Total Actual Spent"
                             value={totalSpent}
@@ -202,7 +202,7 @@ const BudgetDashboard = () => {
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card bordered={false} style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                         <Statistic
                             title="Variance / Remaining"
                             value={totalVariance}
@@ -214,7 +214,7 @@ const BudgetDashboard = () => {
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card bordered={false} style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                         <Statistic title="Overall Utilization" value={totalUtilization} precision={1} suffix="%" />
                         <Progress percent={Math.round(totalUtilization)} status="active" showInfo={false} />
                     </Card>

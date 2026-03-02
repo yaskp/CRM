@@ -1411,3 +1411,178 @@ export const generateDPRPDF = (dpr: any, stream: any) => {
 
     doc.end()
 }
+
+export const generateCreditNotePDF = (srn: any, stream: any) => {
+    const doc = new PDFDocument({ margin: 40, size: 'A4' })
+    doc.pipe(stream)
+
+    const cn = srn.creditNote
+    const vendor = srn.vendor
+    const project = srn.project || srn.source_project || srn.fromProject
+
+    // ─── Company Header ───────────────────────────────────────────────
+    const companyName = 'VH SHRI ENTERPRISE'
+    const companyAddress = 'B-104, Rajhans Bonista,\nB/H Ramchowk, Ghod Dod Road,\nSurat-395007'
+    const companyContact = 'Contact: 0261-2666515, 2656515\nEmail: vhshrienterprise@gmail.com'
+    const companyGSTIN = 'GSTIN: 24AAAFV7277F1Z5'
+
+    const logoPath = path.join(process.cwd(), 'uploads/logo.png')
+
+    if (fs.existsSync(logoPath)) {
+        doc.image(logoPath, 40, 30, { width: 200 })
+    } else {
+        doc.fontSize(18).font('Helvetica-Bold').fillColor('#1a1a1a').text(companyName, 40, 40)
+    }
+
+    doc.fontSize(9).font('Helvetica').fillColor('#333333')
+    doc.text(companyAddress, 300, 40, { align: 'right', width: 255 })
+    doc.text(companyContact, 300, 72, { align: 'right', width: 255 })
+    doc.text(companyGSTIN, 300, 96, { align: 'right', width: 255 })
+
+    // Document Type Banner
+    doc.rect(40, 115, 515, 22).fill('#1a4a6b').stroke()
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(12)
+    doc.text('CREDIT NOTE', 40, 121, { align: 'center', width: 515 })
+
+    doc.moveTo(40, 137).lineTo(555, 137).strokeColor('#cccccc').lineWidth(0.5).stroke()
+    doc.lineWidth(1).strokeColor('black')
+
+    // ─── Info Block ──────────────────────────────────────────────────
+    const infoY = 148
+    doc.fillColor('#333333').font('Helvetica-Bold').fontSize(9)
+    doc.text('Credit Note No.:', 40, infoY)
+    doc.font('Helvetica').text(cn.credit_note_number || '-', 130, infoY)
+
+    doc.font('Helvetica-Bold').text('Date:', 40, infoY + 14)
+    doc.font('Helvetica').text(cn.transaction_date ? new Date(cn.transaction_date).toLocaleDateString('en-GB') : '-', 130, infoY + 14)
+
+    doc.font('Helvetica-Bold').text('Ref SRN No.:', 40, infoY + 28)
+    doc.font('Helvetica').text(srn.transaction_number || '-', 130, infoY + 28)
+
+    doc.font('Helvetica-Bold').text('Status:', 40, infoY + 42)
+    doc.font('Helvetica').text((cn.status || 'draft').toUpperCase(), 130, infoY + 42)
+
+    // Right column: Vendor info
+    doc.font('Helvetica-Bold').text('Vendor / Payee:', 330, infoY)
+    doc.font('Helvetica-Bold').fontSize(10).text(vendor?.name || 'N/A', 330, infoY + 14)
+    doc.font('Helvetica').fontSize(8).text(vendor?.address || '', 330, infoY + 27, { width: 220 })
+    if (vendor?.gst_number) doc.text(`GSTIN: ${vendor.gst_number}`, 330, infoY + 40, { width: 220 })
+
+    // Project ref
+    if (project?.name) {
+        doc.fontSize(8).font('Helvetica-Bold').text('Project:', 330, infoY + 57)
+        doc.font('Helvetica').text(project.name, 395, infoY + 57, { width: 160 })
+    }
+
+    // ─── Separator ───────────────────────────────────────────────────
+    const tableStartY = infoY + 85
+    doc.moveTo(40, tableStartY - 5).lineTo(555, tableStartY - 5).strokeColor('#aaaaaa').lineWidth(0.5).stroke()
+    doc.lineWidth(1).strokeColor('black')
+
+    // ─── Items Table ─────────────────────────────────────────────────
+    const colX = { sn: 40, desc: 60, qty: 295, unit: 340, rate: 385, tax: 435, amount: 475 }
+    const colW = { sn: 20, desc: 235, qty: 45, unit: 45, rate: 50, tax: 40, amount: 80 }
+    const ROW_MIN = 18
+
+    const drawCell = (text: string, x: number, y: number, w: number, align = 'left', bold = false) => {
+        doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8)
+        doc.text(`${text}`, x + 3, y + 4, { width: w - 6, align: align as any })
+    }
+
+    // Header
+    let y = tableStartY
+    doc.rect(40, y, 515, 18).fill('#2c5f8a').stroke()
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(8)
+    drawCell('#', colX.sn, y, colW.sn, 'center', true)
+    drawCell('Material Description', colX.desc, y, colW.desc, 'left', true)
+    drawCell('Qty', colX.qty, y, colW.qty, 'center', true)
+    drawCell('Unit', colX.unit, y, colW.unit, 'center', true)
+    drawCell('Rate', colX.rate, y, colW.rate, 'right', true)
+    drawCell('Tax%', colX.tax, y, colW.tax, 'right', true)
+    drawCell('Amount', colX.amount, y, colW.amount, 'right', true)
+    y += 18
+
+    // Rows
+    const items: any[] = cn.items || []
+    doc.fillColor('black')
+    items.forEach((item: any, idx: number) => {
+        const matName = item.material?.name || 'N/A'
+        const matCode = item.material?.material_code || ''
+        const descH = doc.font('Helvetica').fontSize(8).heightOfString(matName + (matCode ? `\n${matCode}` : ''), { width: colW.desc - 6 })
+        const rowH = Math.max(descH + 8, ROW_MIN + 4)
+
+        if (y + rowH > 760) {
+            doc.addPage()
+            y = 50
+        }
+
+        const bg = idx % 2 === 0 ? '#f7fafd' : '#ffffff'
+        doc.rect(40, y, 515, rowH).fill(bg).stroke()
+
+        drawCell(`${idx + 1}`, colX.sn, y, colW.sn, 'center')
+        doc.font('Helvetica-Bold').fontSize(8).text(matName, colX.desc + 3, y + 3, { width: colW.desc - 6 })
+        if (matCode) doc.font('Helvetica').fontSize(7).fillColor('#777').text(matCode, colX.desc + 3, y + 3 + doc.heightOfString(matName, { width: colW.desc - 6 }), { width: colW.desc - 6 })
+        doc.fillColor('black')
+        drawCell(Number(item.quantity).toFixed(2), colX.qty, y, colW.qty, 'center')
+        drawCell(item.unit || item.material?.unit || '-', colX.unit, y, colW.unit, 'center')
+        drawCell(`Rs.${Number(item.unit_price).toFixed(2)}`, colX.rate, y, colW.rate, 'right')
+        drawCell(`${Number(item.tax_percentage).toFixed(0)}%`, colX.tax, y, colW.tax, 'right')
+        drawCell(`Rs.${Number(item.total_amount).toFixed(2)}`, colX.amount, y, colW.amount, 'right')
+
+        y += rowH
+    })
+
+    // ─── Financial Summary ────────────────────────────────────────────
+    const SUMX = 340
+    const SUMW = 215
+
+    if (y + 80 > 760) { doc.addPage(); y = 50 }
+    y += 10
+
+    const drawSumRow = (label: string, val: string, highlight = false) => {
+        if (highlight) {
+            doc.rect(SUMX, y, SUMW, 22).fill('#d0e8f7').stroke()
+        } else {
+            doc.rect(SUMX, y, SUMW, 18).fill('#f7f7f7').stroke()
+        }
+        doc.fillColor('#222222').font(highlight ? 'Helvetica-Bold' : 'Helvetica').fontSize(highlight ? 10 : 8.5)
+        doc.text(label, SUMX + 5, y + (highlight ? 6 : 4), { width: 110 })
+        doc.text(val, SUMX + 120, y + (highlight ? 6 : 4), { align: 'right', width: SUMW - 125 })
+        y += highlight ? 22 : 18
+    }
+
+    drawSumRow('Subtotal (Excl. Tax)', `Rs.${Number(cn.subtotal).toFixed(2)}`)
+    drawSumRow('Tax Amount', `Rs.${Number(cn.tax_amount).toFixed(2)}`)
+    drawSumRow('CREDIT NOTE VALUE', `Rs.${Number(cn.total_amount).toFixed(2)}`, true)
+
+    // ─── Remarks ─────────────────────────────────────────────────────
+    const remarks = cn.remarks || srn.remarks
+    if (remarks) {
+        y += 15
+        if (y + 50 > 760) { doc.addPage(); y = 50 }
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#222222').text('REMARKS / REASON FOR RETURN:', 40, y)
+        y += 13
+        doc.font('Helvetica').fontSize(8).text(remarks, 40, y, { width: 515 })
+        y += doc.heightOfString(remarks, { width: 515 }) + 8
+    }
+
+    // ─── Signatures ─────────────────────────────────────────────────
+    if (y + 90 > 760) { doc.addPage(); y = 50 }
+    y += 50
+
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#333333')
+    doc.moveTo(40, y).lineTo(180, y).stroke()
+    doc.moveTo(385, y).lineTo(555, y).stroke()
+
+    doc.text('Authorized Signatory', 40, y + 5, { align: 'center', width: 140 })
+    doc.text('Vendor Acknowledgement', 385, y + 5, { align: 'center', width: 170 })
+    doc.font('Helvetica').fontSize(8).fillColor('#666666')
+    doc.text('VH SHRI ENTERPRISE', 40, y + 18, { align: 'center', width: 140 })
+    doc.text(vendor?.name || 'Vendor', 385, y + 18, { align: 'center', width: 170 })
+
+    // ─── Footer ──────────────────────────────────────────────────────
+    doc.fontSize(7).fillColor('#aaaaaa').font('Helvetica')
+    doc.text('Generated by VHSHRI Construction Management System | This is a computer-generated document.', 40, 810, { align: 'center', width: 515 })
+
+    doc.end()
+}

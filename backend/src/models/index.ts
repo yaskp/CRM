@@ -60,6 +60,8 @@ import DPRRmcLog from './DPRRmcLog'
 import FinancialTransaction from './FinancialTransaction'
 import PaymentAllocation from './PaymentAllocation'
 import DrawingPanelAnchor from './DrawingPanelAnchor'
+import CreditNote from './CreditNote'
+import CreditNoteItem from './CreditNoteItem'
 
 // Define associations
 InventoryLedger.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
@@ -341,6 +343,19 @@ Project.hasMany(FinancialTransaction, { foreignKey: 'project_id', as: 'financial
 Vendor.hasMany(FinancialTransaction, { foreignKey: 'vendor_id', as: 'payments' })
 Client.hasMany(FinancialTransaction, { foreignKey: 'client_id', as: 'receipts' })
 
+// Credit Notes
+CreditNote.belongsTo(StoreTransaction, { foreignKey: 'srn_id', as: 'srn' })
+CreditNote.belongsTo(Vendor, { foreignKey: 'vendor_id', as: 'vendor' })
+CreditNote.belongsTo(PurchaseOrder, { foreignKey: 'purchase_order_id', as: 'purchaseOrder' })
+CreditNote.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
+CreditNote.belongsTo(User, { foreignKey: 'approved_by', as: 'approver' })
+CreditNote.hasMany(CreditNoteItem, { foreignKey: 'credit_note_id', as: 'items' })
+CreditNoteItem.belongsTo(CreditNote, { foreignKey: 'credit_note_id', as: 'creditNote' })
+CreditNoteItem.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
+
+StoreTransaction.hasOne(CreditNote, { foreignKey: 'srn_id', as: 'creditNote' })
+Vendor.hasMany(CreditNote, { foreignKey: 'vendor_id', as: 'creditNotes' })
+
 export {
   User,
   Company,
@@ -401,6 +416,8 @@ export {
   DPRRmcLog,
   FinancialTransaction,
   PaymentAllocation,
-  DrawingPanelAnchor
+  DrawingPanelAnchor,
+  CreditNote,
+  CreditNoteItem
 }
 

@@ -78,6 +78,10 @@ interface StoreTransactionAttributes {
   concreting_depth?: number
   concreting_sqm?: number
 
+  // Multi-item progress logs (JSON)
+  pile_work_logs?: string | any[]
+  panel_work_logs?: string | any[]
+
   created_at?: Date
 }
 
@@ -155,6 +159,9 @@ class StoreTransaction extends Model<StoreTransactionAttributes, StoreTransactio
   public grabbing_sqm?: number
   public concreting_depth?: number
   public concreting_sqm?: number
+
+  public pile_work_logs?: any
+  public panel_work_logs?: any
 
   public readonly created_at!: Date
 }
@@ -475,6 +482,14 @@ StoreTransaction.init(
     },
     concreting_sqm: {
       type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    pile_work_logs: {
+      type: DataTypes.JSON,
+      allowNull: true,
+    },
+    panel_work_logs: {
+      type: DataTypes.JSON,
       allowNull: true,
     },
     created_at: {

@@ -168,7 +168,7 @@ const BatchPanelModal = ({ open, onCancel, onSubmit, loading }: BatchPanelModalP
                         </Form.Item>
                     </Col>
                     <Col span={8}>
-                        <Form.Item name="reinforcement_ton" label="Reinforcement (Ton)">
+                        <Form.Item name="reinforcement_ton" label="Reinforcement in Cage (Ton)">
                             <Input type="number" step="0.01" />
                         </Form.Item>
                     </Col>

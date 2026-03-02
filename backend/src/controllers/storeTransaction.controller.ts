@@ -1,5 +1,6 @@
 import { Response, NextFunction } from 'express'
 import { AuthRequest } from '../middleware/auth.middleware'
+import dayjs from 'dayjs'
 import '../models/index' // Import all models to ensure associations are loaded
 import StoreTransaction from '../models/StoreTransaction'
 import StoreTransactionItem from '../models/StoreTransactionItem'
@@ -15,11 +16,13 @@ import PurchaseOrder from '../models/PurchaseOrder'
 import Vendor from '../models/Vendor'
 import WorkerCategory from '../models/WorkerCategory'
 import DPRRmcLog from '../models/DPRRmcLog'
+import CreditNote from '../models/CreditNote'
+import CreditNoteItem from '../models/CreditNoteItem'
 import { numberingService } from '../utils/numberingService'
 import { createError } from '../middleware/errorHandler'
 import { sequelize } from '../database/connection'
 
-export const getWorkerCategories = async (req: AuthRequest, res: Response, next: NextFunction) => {
+export const getWorkerCategories = async (_req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const categories = await WorkerCategory.findAll({ order: [['name', 'ASC']] })
     res.json({ success: true, categories })
@@ -241,6 +244,7 @@ export const createSTN = async (req: AuthRequest, res: Response, next: NextFunct
 }
 
 export const createSRN = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const transaction = await sequelize.transaction()
   try {
     const {
       source_type,
@@ -251,6 +255,9 @@ export const createSRN = async (req: AuthRequest, res: Response, next: NextFunct
       transaction_date,
       items,
       remarks,
+      subtotal,
+      tax_amount,
+      total_amount,
       // Legacy params
       project_id,
       warehouse_id
@@ -279,12 +286,14 @@ export const createSRN = async (req: AuthRequest, res: Response, next: NextFunct
       status: 'draft',
       remarks,
       created_by: req.user!.id,
+      // Financials
+      tax_amount: tax_amount || 0,
+      total_amount: total_amount || 0,
     }
 
     // Map Source
     if (finalSourceType === 'project') {
       srnData.from_project_id = finalSourceId
-      // For legacy compatibility where 'project_id' was the generic field
       srnData.project_id = finalSourceId
     } else if (finalSourceType === 'warehouse') {
       srnData.warehouse_id = finalSourceId
@@ -292,30 +301,13 @@ export const createSRN = async (req: AuthRequest, res: Response, next: NextFunct
 
     // Map Destination
     if (finalDestType === 'warehouse') {
-      // If source is project, this is usually 'warehouse_id' in old logic, 
-      // but strictly it's a destination here. 
-      // Let's use to_warehouse_id for clarity if source is project, 
-      // but currently SRN approval uses 'warehouse_id' to increase stock?
-      // Let's stick to consistent "Source -> Dest" field naming where possible
-      // createSTN uses to_warehouse_id for destination. 
-      // Let's use to_warehouse_id for SRN destination too.
       srnData.to_warehouse_id = finalDestId
-
-      // Backwards compat: If Approval logic uses `warehouse_id` as "Place where stock changes", we must be careful.
-      // In SRN (Site Return), stock INCREASES at warehouse.
-      // In Purchase Return (Vendor Return), stock DECREASES at warehouse.
-      // So 'warehouse_id' usually implies 'Inventory Owner'. 
-      // In Site Return, Warehouse owns the resulting inventory.
-      // In Purchase Return, Warehouse owns the source inventory.
-
-      // I'll set BOTH if applicable to ensure legacy logic catches one? 
-      // No, explicit is better. I will update approval logic to look at 'to_warehouse_id' for Site Returns.
     } else if (finalDestType === 'vendor') {
       srnData.vendor_id = finalDestId
       srnData.purchase_order_id = purchase_order_id
     }
 
-    const srn = await StoreTransaction.create(srnData)
+    const srn = await StoreTransaction.create(srnData, { transaction })
 
     // Create transaction items
     const transactionItems = await StoreTransactionItem.bulkCreate(
@@ -324,9 +316,48 @@ export const createSRN = async (req: AuthRequest, res: Response, next: NextFunct
         material_id: item.material_id,
         quantity: item.quantity,
         batch_number: item.batch_number,
-        remarks: item.remarks
-      }))
+        remarks: item.remarks,
+        unit_price: item.unit_price,
+        unit: item.unit
+      })),
+      { transaction }
     )
+
+    // Generate Credit Note if Destination is Vendor
+    if (finalDestType === 'vendor') {
+      const cn_number = numberingService.generateTempNumber('CN')
+      const creditNote = await CreditNote.create({
+        credit_note_number: cn_number,
+        transaction_date: transaction_date || dayjs().format('YYYY-MM-DD'),
+        srn_id: srn.id,
+        vendor_id: finalDestId,
+        purchase_order_id: purchase_order_id,
+        subtotal: subtotal || 0,
+        tax_amount: tax_amount || 0,
+        total_amount: total_amount || 0,
+        gst_type: 'intra_state', // Should ideally be detected from vendor
+        status: 'draft',
+        remarks: remarks,
+        created_by: req.user!.id
+      } as any, { transaction })
+
+      await CreditNoteItem.bulkCreate(
+        items.map((item: any) => ({
+          credit_note_id: creditNote.id,
+          material_id: item.material_id,
+          quantity: item.quantity,
+          unit_price: item.unit_price || 0,
+          tax_percentage: item.tax_percentage || 0,
+          tax_amount: (item.quantity * (item.unit_price || 0)) * ((item.tax_percentage || 0) / 100),
+          total_amount: (item.quantity * (item.unit_price || 0)) * (1 + (item.tax_percentage || 0) / 100),
+          unit: item.unit,
+          remarks: item.remarks
+        })),
+        { transaction }
+      )
+    }
+
+    await transaction.commit()
 
     res.status(201).json({
       success: true,
@@ -337,6 +368,7 @@ export const createSRN = async (req: AuthRequest, res: Response, next: NextFunct
       },
     })
   } catch (error) {
+    if (transaction) await transaction.rollback()
     next(error)
   }
 }
@@ -381,7 +413,9 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       grabbing_depth,
       grabbing_sqm,
       concreting_depth,
-      concreting_sqm
+      concreting_sqm,
+      pile_work_logs,
+      panel_work_logs
     } = req.body
 
     if (!warehouse_id || !items || items.length === 0) {
@@ -433,7 +467,9 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       grabbing_depth,
       grabbing_sqm,
       concreting_depth,
-      concreting_sqm
+      concreting_sqm,
+      pile_work_logs,
+      panel_work_logs
     }
 
     const consumption = await StoreTransaction.create(consumptionData, { transaction })
@@ -578,6 +614,10 @@ export const getTransactions = async (req: AuthRequest, res: Response, next: Nex
           attributes: ['id', 'name', 'project_code'],
           required: false,
         },
+        {
+          association: 'creditNote',
+          include: [{ model: CreditNoteItem, as: 'items', include: [{ model: Material, as: 'material', attributes: ['name', 'material_code', 'unit'] }] }]
+        },
       ],
     })
 
@@ -673,6 +713,10 @@ export const getTransaction = async (req: AuthRequest, res: Response, next: Next
             }
           ],
         },
+        {
+          association: 'creditNote',
+          include: [{ model: CreditNoteItem, as: 'items', include: [{ model: Material, as: 'material', attributes: ['name', 'material_code', 'unit'] }] }]
+        },
       ],
     })
 
@@ -684,6 +728,42 @@ export const getTransaction = async (req: AuthRequest, res: Response, next: Next
       success: true,
       transaction,
     })
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const downloadCreditNotePDF = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params
+
+    const srn = await StoreTransaction.findByPk(Number(id), {
+      include: [
+        { model: Vendor, as: 'vendor', required: false },
+        { model: Project, as: 'project', required: false },
+        { model: Project, as: 'source_project', required: false },
+        {
+          association: 'creditNote',
+          include: [{
+            model: CreditNoteItem, as: 'items',
+            include: [{ model: Material, as: 'material', attributes: ['id', 'name', 'material_code', 'unit'] }]
+          }]
+        },
+      ]
+    })
+
+    if (!srn) throw createError('SRN not found', 404)
+    if (!srn.get('creditNote')) throw createError('No credit note linked to this SRN', 404)
+
+    const { generateCreditNotePDF } = await import('../utils/pdfGenerator')
+
+    const cn = srn.get('creditNote') as any
+    const fileName = `CreditNote_${cn.credit_note_number || srn.transaction_number}.pdf`
+
+    res.setHeader('Content-Type', 'application/pdf')
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`)
+
+    generateCreditNotePDF(srn.toJSON(), res)
   } catch (error) {
     next(error)
   }
@@ -1089,6 +1169,23 @@ export const approveTransaction = async (req: AuthRequest, res: Response, next: 
     }
 
     await storeTransaction.update(updateData, { transaction })
+
+    // 4. Finalize Credit Note if exists
+    if (storeTransaction.transaction_type === 'SRN' && storeTransaction.destination_type === 'vendor') {
+      const creditNote = await CreditNote.findOne({
+        where: { srn_id: storeTransaction.id },
+        transaction
+      })
+
+      if (creditNote && creditNote.status === 'draft') {
+        const cnNumber = await numberingService.generateCreditNoteNumber(transaction)
+        await creditNote.update({
+          credit_note_number: cnNumber,
+          status: 'approved',
+          approved_by: req.user!.id
+        }, { transaction })
+      }
+    }
 
     await transaction.commit()
 

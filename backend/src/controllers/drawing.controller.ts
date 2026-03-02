@@ -15,6 +15,12 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 
+const sanitizeNumber = (val: any): number | undefined => {
+  if (val === undefined || val === null || val === '') return undefined
+  const num = Number(val)
+  return isNaN(num) ? undefined : num
+}
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -193,20 +199,20 @@ export const markPanel = async (req: AuthRequest, res: Response, next: NextFunct
       panel_identifier,
       coordinates_json: JSON.stringify(coordinates_json),
       panel_type,
-      length,
-      width,
-      design_depth,
-      top_rl,
-      bottom_rl,
-      reinforcement_ton,
-      no_of_anchors,
-      anchor_length,
-      anchor_capacity,
-      concrete_design_qty,
-      grabbing_qty,
-      stop_end_area,
-      guide_wall_rm,
-      ramming_qty,
+      length: sanitizeNumber(length),
+      width: sanitizeNumber(width),
+      design_depth: sanitizeNumber(design_depth),
+      top_rl: sanitizeNumber(top_rl),
+      bottom_rl: sanitizeNumber(bottom_rl),
+      reinforcement_ton: sanitizeNumber(reinforcement_ton),
+      no_of_anchors: sanitizeNumber(no_of_anchors),
+      anchor_length: sanitizeNumber(anchor_length),
+      anchor_capacity: sanitizeNumber(anchor_capacity),
+      concrete_design_qty: sanitizeNumber(concrete_design_qty),
+      grabbing_qty: sanitizeNumber(grabbing_qty),
+      stop_end_area: sanitizeNumber(stop_end_area),
+      guide_wall_rm: sanitizeNumber(guide_wall_rm),
+      ramming_qty: sanitizeNumber(ramming_qty),
       created_by: req.user!.id,
     }, { transaction: t })
 
@@ -216,9 +222,9 @@ export const markPanel = async (req: AuthRequest, res: Response, next: NextFunct
         anchors.map((layer: any, index: number) => ({
           drawing_panel_id: panel.id,
           layer_number: layer.layer_number || index + 1,
-          no_of_anchors: layer.no_of_anchors || 0,
-          anchor_length: layer.anchor_length || 0,
-          anchor_capacity: layer.anchor_capacity ?? null
+          no_of_anchors: sanitizeNumber(layer.no_of_anchors) || 0,
+          anchor_length: sanitizeNumber(layer.anchor_length) || 0,
+          anchor_capacity: sanitizeNumber(layer.anchor_capacity)
         })),
         { transaction: t }
       )
@@ -261,20 +267,20 @@ export const bulkCreatePanels = async (req: AuthRequest, res: Response, next: Ne
         panel_identifier: p.panel_identifier,
         panel_type: p.panel_type || 'Primary',
         coordinates_json: JSON.stringify(p.dimensions || {}),
-        length: p.length || p.dimensions?.length,
-        width: p.width || p.dimensions?.width,
-        design_depth: p.design_depth || p.depth || p.dimensions?.depth,
-        top_rl: p.top_rl,
-        bottom_rl: p.bottom_rl,
-        reinforcement_ton: p.reinforcement_ton,
-        no_of_anchors: p.no_of_anchors,
-        anchor_length: p.anchor_length,
-        anchor_capacity: p.anchor_capacity,
-        concrete_design_qty: p.concrete_design_qty,
-        grabbing_qty: p.grabbing_qty,
-        stop_end_area: p.stop_end_area,
-        guide_wall_rm: p.guide_wall_rm,
-        ramming_qty: p.ramming_qty,
+        length: sanitizeNumber(p.length) || sanitizeNumber(p.dimensions?.length),
+        width: sanitizeNumber(p.width) || sanitizeNumber(p.dimensions?.width),
+        design_depth: sanitizeNumber(p.design_depth) || sanitizeNumber(p.depth) || sanitizeNumber(p.dimensions?.depth),
+        top_rl: sanitizeNumber(p.top_rl),
+        bottom_rl: sanitizeNumber(p.bottom_rl),
+        reinforcement_ton: sanitizeNumber(p.reinforcement_ton),
+        no_of_anchors: sanitizeNumber(p.no_of_anchors),
+        anchor_length: sanitizeNumber(p.anchor_length),
+        anchor_capacity: sanitizeNumber(p.anchor_capacity),
+        concrete_design_qty: sanitizeNumber(p.concrete_design_qty),
+        grabbing_qty: sanitizeNumber(p.grabbing_qty),
+        stop_end_area: sanitizeNumber(p.stop_end_area),
+        guide_wall_rm: sanitizeNumber(p.guide_wall_rm),
+        ramming_qty: sanitizeNumber(p.ramming_qty),
         created_by: req.user!.id
       })),
       { transaction: t }
@@ -288,9 +294,9 @@ export const bulkCreatePanels = async (req: AuthRequest, res: Response, next: Ne
           panelData.anchors.map((layer: any, index: number) => ({
             drawing_panel_id: createdPanels[i].id,
             layer_number: layer.layer_number || index + 1,
-            no_of_anchors: layer.no_of_anchors || 0,
-            anchor_length: layer.anchor_length || 0,
-            anchor_capacity: layer.anchor_capacity ?? null
+            no_of_anchors: sanitizeNumber(layer.no_of_anchors) || 0,
+            anchor_length: sanitizeNumber(layer.anchor_length) || 0,
+            anchor_capacity: sanitizeNumber(layer.anchor_capacity)
           })),
           { transaction: t }
         )
@@ -456,20 +462,20 @@ export const updatePanel = async (req: AuthRequest, res: Response, next: NextFun
     await panel.update({
       panel_identifier,
       panel_type,
-      length,
-      width,
-      design_depth,
-      top_rl,
-      bottom_rl,
-      reinforcement_ton,
-      no_of_anchors,
-      anchor_length,
-      anchor_capacity,
-      concrete_design_qty,
-      grabbing_qty,
-      stop_end_area,
-      guide_wall_rm,
-      ramming_qty,
+      length: sanitizeNumber(length),
+      width: sanitizeNumber(width),
+      design_depth: sanitizeNumber(design_depth),
+      top_rl: sanitizeNumber(top_rl),
+      bottom_rl: sanitizeNumber(bottom_rl),
+      reinforcement_ton: sanitizeNumber(reinforcement_ton),
+      no_of_anchors: sanitizeNumber(no_of_anchors),
+      anchor_length: sanitizeNumber(anchor_length),
+      anchor_capacity: sanitizeNumber(anchor_capacity),
+      concrete_design_qty: sanitizeNumber(concrete_design_qty),
+      grabbing_qty: sanitizeNumber(grabbing_qty),
+      stop_end_area: sanitizeNumber(stop_end_area),
+      guide_wall_rm: sanitizeNumber(guide_wall_rm),
+      ramming_qty: sanitizeNumber(ramming_qty),
       coordinates_json: updatedCoordinatesJson
     }, { transaction: t })
 
@@ -481,9 +487,9 @@ export const updatePanel = async (req: AuthRequest, res: Response, next: NextFun
         anchors.map((layer: any, index: number) => ({
           drawing_panel_id: Number(panelId),
           layer_number: layer.layer_number || index + 1,
-          no_of_anchors: layer.no_of_anchors || 0,
-          anchor_length: layer.anchor_length || 0,
-          anchor_capacity: layer.anchor_capacity ?? null
+          no_of_anchors: sanitizeNumber(layer.no_of_anchors) || 0,
+          anchor_length: sanitizeNumber(layer.anchor_length) || 0,
+          anchor_capacity: sanitizeNumber(layer.anchor_capacity)
         })),
         { transaction: t }
       )
@@ -543,9 +549,19 @@ export const bulkUpdatePanels = async (req: AuthRequest, res: Response, next: Ne
       'concrete_design_qty', 'grabbing_qty', 'stop_end_area', 'guide_wall_rm', 'ramming_qty'
     ]
 
+    const numericFields = [
+      'length', 'width', 'design_depth', 'top_rl', 'bottom_rl',
+      'reinforcement_ton', 'no_of_anchors', 'anchor_length', 'anchor_capacity',
+      'concrete_design_qty', 'grabbing_qty', 'stop_end_area', 'guide_wall_rm', 'ramming_qty'
+    ]
+
     for (const field of allowedFields) {
-      if (updates[field] !== undefined && updates[field] !== null && updates[field] !== '') {
-        updatePayload[field] = updates[field]
+      if (updates[field] !== undefined) {
+        if (numericFields.includes(field)) {
+          updatePayload[field] = sanitizeNumber(updates[field])
+        } else {
+          updatePayload[field] = updates[field]
+        }
       }
     }
 
@@ -587,9 +603,9 @@ export const bulkUpdatePanels = async (req: AuthRequest, res: Response, next: Ne
           updates.anchors.map((layer: any, index: number) => ({
             drawing_panel_id: panel.id,
             layer_number: layer.layer_number || index + 1,
-            no_of_anchors: layer.no_of_anchors || 0,
-            anchor_length: layer.anchor_length || 0,
-            anchor_capacity: layer.anchor_capacity || 0
+            no_of_anchors: sanitizeNumber(layer.no_of_anchors) || 0,
+            anchor_length: sanitizeNumber(layer.anchor_length) || 0,
+            anchor_capacity: sanitizeNumber(layer.anchor_capacity)
           })),
           { transaction: t }
         )

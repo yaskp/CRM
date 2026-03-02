@@ -1,4 +1,4 @@
-import api from './axios'
+import api from './auth'
 
 export interface InventoryItem {
     id: number

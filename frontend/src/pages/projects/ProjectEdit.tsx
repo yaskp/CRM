@@ -37,6 +37,7 @@ const ProjectEdit = () => {
     const [clientGroups, setClientGroups] = useState<any[]>([])
     const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>(undefined)
     const [selectedLeadId, setSelectedLeadId] = useState<number | undefined>(undefined)
+    const [projectData, setProjectData] = useState<any>(null)
     const [form] = Form.useForm()
     const navigate = useNavigate()
     const { id } = useParams<{ id: string }>()
@@ -79,16 +80,8 @@ const ProjectEdit = () => {
             // Set local state for locking
             setSelectedLeadId(project.lead_id)
 
-            // Populate Form
-            form.setFieldsValue({
-                ...project,
-                start_date: project.start_date ? dayjs(project.start_date) : null,
-                end_date: (project.expected_end_date || project.end_date) ? dayjs(project.expected_end_date || project.end_date) : null,
-                client_ho_address: project.client_ho_address || project.client?.address,
-                site_location: project.site_location || project.location,
-                site_city: project.site_city || project.city,
-                site_state: project.site_state || project.state,
-            })
+            // Store project data for effect-based population
+            setProjectData(project)
 
             // If project has client, fetch client details to get group
             if (project.client_id) {
@@ -108,6 +101,22 @@ const ProjectEdit = () => {
             setFetching(false)
         }
     }
+
+    // Effect to populate form once fetching is complete and project data is available
+    useEffect(() => {
+        if (!fetching && projectData) {
+            form.setFieldsValue({
+                ...projectData,
+                start_date: projectData.start_date ? dayjs(projectData.start_date) : null,
+                end_date: (projectData.expected_end_date || projectData.end_date) ? dayjs(projectData.expected_end_date || projectData.end_date) : null,
+                client_ho_address: projectData.client_ho_address || projectData.client?.address,
+                site_location: projectData.site_location || projectData.location,
+                site_city: projectData.site_city || projectData.city,
+                site_state: projectData.site_state || projectData.state,
+                site_state_code: projectData.site_state_code || projectData.site_state_code,
+            })
+        }
+    }, [fetching, projectData, form])
 
     const fetchClients = async (groupId?: number) => {
         try {
@@ -208,7 +217,6 @@ const ProjectEdit = () => {
                     <SectionCard title="Basic Information" icon={<EnvironmentOutlined />}>
                         <Form.Item
                             label={<span style={getLabelStyle()}>Client</span>}
-                            name="client_id"
                             tooltip="Select the client for this project"
                         >
                             <div style={{ display: 'flex', gap: '8px' }}>
@@ -223,20 +231,22 @@ const ProjectEdit = () => {
                                         <Select.Option key={group.id} value={group.id}>{group.group_name}</Select.Option>
                                     ))}
                                 </Select>
-                                <Select
-                                    placeholder="Select client"
-                                    size="large"
-                                    allowClear
-                                    showSearch
-                                    optionFilterProp="children"
-                                    style={{ ...largeInputStyle, flex: 1 }}
-                                >
-                                    {clients.map(client => (
-                                        <Select.Option key={client.id} value={client.id}>
-                                            {client.company_name} ({client.client_code})
-                                        </Select.Option>
-                                    ))}
-                                </Select>
+                                <Form.Item name="client_id" noStyle>
+                                    <Select
+                                        placeholder="Select client"
+                                        size="large"
+                                        allowClear
+                                        showSearch
+                                        optionFilterProp="children"
+                                        style={{ ...largeInputStyle, flex: 1 }}
+                                    >
+                                        {clients.map(client => (
+                                            <Select.Option key={client.id} value={client.id}>
+                                                {client.company_name} ({client.client_code})
+                                            </Select.Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
                                 {form.getFieldValue('client_id') && (
                                     <Button
                                         icon={<EditOutlined />}

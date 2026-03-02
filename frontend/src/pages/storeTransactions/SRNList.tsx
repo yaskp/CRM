@@ -6,6 +6,7 @@ import {
   CheckOutlined,
   CloseOutlined,
   RollbackOutlined,
+  FileTextOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
@@ -116,12 +117,40 @@ const SRNList = () => {
       },
     },
     {
+      title: 'Credit Note',
+      key: 'credit_note',
+      width: 150,
+      render: (_: any, record: any) => {
+        if (!record.creditNote) return '-'
+        return (
+          <Space direction="vertical" size={0}>
+            <Text strong style={{ color: '#1890ff' }}>{record.creditNote.credit_note_number}</Text>
+            {record.creditNote.status === 'approved' ? (
+              <Tag color="success" style={{ fontSize: '10px' }}>APPROVED</Tag>
+            ) : (
+              <Tag color="orange" style={{ fontSize: '10px' }}>DRAFT</Tag>
+            )}
+          </Space>
+        )
+      }
+    },
+    {
       title: 'Actions',
       key: 'actions',
       width: 220,
       render: (_: any, record: any) => (
         <Space size="middle">
           <Button type="link" icon={<EyeOutlined />} onClick={() => navigate(`/inventory/srn/${record.id}`)}>View</Button>
+          {record.creditNote && (
+            <Button
+              type="link"
+              icon={<FileTextOutlined />}
+              onClick={() => navigate(`/inventory/srn/${record.id}/print-cn`)}
+              style={{ color: '#1890ff' }}
+            >
+              Print CN
+            </Button>
+          )}
           {(record.status === 'draft' || record.status === 'pending') && (
             <>
               <Popconfirm title="Approve this return?" onConfirm={() => handleApprove(record.id)} okText="Approve">

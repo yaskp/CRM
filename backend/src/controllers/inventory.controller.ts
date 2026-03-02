@@ -33,20 +33,48 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                     m.material_code,
                     m.unit,
                     m.category,
+                    m.standard_rate,
+                    m.gst_rate,
+                    -- PO Quantity (Total Ordered)
+                    COALESCE((
+                        SELECT SUM(poi.quantity) 
+                        FROM purchase_order_items poi 
+                        JOIN purchase_orders po ON po.id = poi.po_id 
+                        WHERE poi.material_id = m.id 
+                        AND po.status != 'rejected'
+                        AND (po.project_id = :pId OR po.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                    ), 0) as po_qty,
+                    -- Received Quantity (GRN Approved)
+                    COALESCE((
+                        SELECT SUM(ti2.accepted_quantity) 
+                        FROM store_transaction_items ti2 
+                        JOIN store_transactions t2 ON t2.id = ti2.transaction_id 
+                        WHERE ti2.material_id = m.id AND t2.status = 'approved' AND t2.transaction_type = 'GRN'
+                        AND (t2.to_project_id = :pId OR t2.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                    ), 0) as received_qty,
+                    -- Used Quantity (Consumption)
+                    COALESCE((
+                        SELECT SUM(ti2.quantity) 
+                        FROM store_transaction_items ti2 
+                        JOIN store_transactions t2 ON t2.id = ti2.transaction_id 
+                        WHERE ti2.material_id = m.id AND t2.status = 'approved' AND t2.transaction_type = 'CONSUMPTION'
+                        AND (t2.project_id = :pId OR t2.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                    ), 0) as used_qty,
+                    -- Calculated balance: (GRN + STN In + SRN In) - (Consumption + STN Out + SRN Out)
                     COALESCE(SUM(CASE 
-                        WHEN t.transaction_type = 'STN' AND t.to_project_id = :pId THEN ti.quantity 
-                        WHEN t.transaction_type = 'GRN' AND t.to_project_id = :pId THEN 
-                            CASE WHEN ti.item_status = 'Defective' THEN 0 ELSE ti.accepted_quantity END
+                        WHEN t.transaction_type = 'GRN' AND (t.to_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.accepted_quantity
+                        WHEN t.transaction_type = 'STN' AND (t.to_project_id = :pId OR t.to_warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.quantity
+                        WHEN t.transaction_type = 'SRN' AND (t.to_project_id = :pId OR t.to_warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.quantity
                         ELSE 0 
                     END), 0) -
                     COALESCE(SUM(CASE 
-                        WHEN t.transaction_type = 'SRN' AND t.from_project_id = :pId THEN ti.quantity
-                        WHEN t.transaction_type = 'CONSUMPTION' AND t.project_id = :pId THEN ti.quantity
-                        WHEN t.transaction_type = 'STN' AND t.from_project_id = :pId THEN ti.quantity
+                        WHEN t.transaction_type = 'CONSUMPTION' AND (t.project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.quantity
+                        WHEN t.transaction_type = 'STN' AND (t.from_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.quantity
+                        WHEN t.transaction_type = 'SRN' AND (t.from_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.quantity
                         ELSE 0 
                     END), 0) as quantity,
                     COALESCE(SUM(CASE 
-                        WHEN t.transaction_type = 'GRN' AND t.to_project_id = :pId THEN 
+                        WHEN t.transaction_type = 'GRN' AND (t.to_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN 
                              CASE 
                                 WHEN ti.rejected_quantity > 0 THEN ti.rejected_quantity 
                                 WHEN ti.item_status = 'Defective' THEN ti.quantity 
@@ -57,10 +85,14 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                 FROM materials m
                 LEFT JOIN store_transaction_items ti ON ti.material_id = m.id
                 LEFT JOIN store_transactions t ON t.id = ti.transaction_id AND t.status = 'approved'
-                WHERE (t.to_project_id = :pId OR t.from_project_id = :pId OR t.project_id = :pId)
+                WHERE (
+                    t.to_project_id = :pId OR t.from_project_id = :pId OR t.project_id = :pId 
+                    OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)
+                    OR t.to_warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)
+                )
                 ${search ? `AND (m.name LIKE :search OR m.material_code LIKE :search)` : ''}
                 GROUP BY m.id
-                HAVING quantity > 0 OR defective_quantity > 0
+                HAVING quantity > 0 OR defective_quantity > 0 OR po_qty > 0
             `, {
                 replacements: {
                     pId,
@@ -75,14 +107,19 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                 warehouse_id: null,
                 material_id: row.material_id,
                 quantity: Number(row.quantity),
-                defective_quantity: Number(row.defective_quantity), // New Field
+                defective_quantity: Number(row.defective_quantity),
                 reserved_quantity: 0,
+                po_qty: Number(row.po_qty),
+                received_qty: Number(row.received_qty),
+                used_qty: Number(row.used_qty),
                 material: {
                     id: row.material_id,
                     name: row.material_name,
                     material_code: row.material_code,
                     unit: row.unit,
-                    category: row.category
+                    category: row.category,
+                    standard_rate: row.standard_rate,
+                    gst_rate: row.gst_rate
                 }
             }))
 
@@ -124,31 +161,65 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                         m.material_code,
                         m.unit,
                         m.category,
-                        /* Good Quantity = Accepted In - All Out */
+                        m.standard_rate,
+                        m.gst_rate,
+                        -- PO Quantity
+                        COALESCE((
+                            SELECT SUM(poi.quantity) 
+                            FROM purchase_order_items poi 
+                            JOIN purchase_orders po ON po.id = poi.po_id 
+                            WHERE poi.material_id = m.id 
+                            AND po.status != 'rejected'
+                            AND (po.project_id = :pId OR po.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                        ), 0) as po_qty,
+                        -- Received Quantity
+                        COALESCE((
+                            SELECT SUM(ti2.accepted_quantity) 
+                            FROM store_transaction_items ti2 
+                            JOIN store_transactions t2 ON t2.id = ti2.transaction_id 
+                            WHERE ti2.material_id = m.id AND t2.status = 'approved' AND t2.transaction_type = 'GRN'
+                            AND (t2.to_project_id = :pId OR t2.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                        ), 0) as received_qty,
+                        -- Used Quantity
+                        COALESCE((
+                            SELECT SUM(ti2.quantity) 
+                            FROM store_transaction_items ti2 
+                            JOIN store_transactions t2 ON t2.id = ti2.transaction_id 
+                            WHERE ti2.material_id = m.id AND t2.status = 'approved' AND t2.transaction_type = 'CONSUMPTION'
+                            AND (t2.project_id = :pId OR t2.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                        ), 0) as used_qty,
+                        -- Balance: (GRN + STN In + SRN In) - (Consumption + STN Out + SRN Out)
                         COALESCE(SUM(CASE 
-                            WHEN t.transaction_type = 'GRN' AND t.to_project_id = :pId THEN ti.accepted_quantity
-                            WHEN t.transaction_type = 'STN' AND t.to_project_id = :pId THEN ti.quantity
+                            WHEN t.transaction_type = 'GRN' AND (t.to_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.accepted_quantity
+                            WHEN t.transaction_type = 'STN' AND (t.to_project_id = :pId OR t.to_warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.quantity
+                            WHEN t.transaction_type = 'SRN' AND (t.to_project_id = :pId OR t.to_warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.quantity
                             ELSE 0 
                         END), 0) -
                         COALESCE(SUM(CASE 
-                            WHEN t.transaction_type = 'SRN' AND t.from_project_id = :pId THEN ti.quantity
-                            WHEN t.transaction_type = 'CONSUMPTION' AND t.project_id = :pId THEN ti.quantity
-                            WHEN t.transaction_type = 'STN' AND t.from_project_id = :pId THEN ti.quantity
+                            WHEN t.transaction_type = 'CONSUMPTION' AND (t.project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.quantity
+                            WHEN t.transaction_type = 'STN' AND (t.from_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.quantity
+                            WHEN t.transaction_type = 'SRN' AND (t.from_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) AND ti.item_status != 'Defective' THEN ti.quantity
                             ELSE 0 
                         END), 0) as quantity,
-                        /* Defective = (Total - Accepted - Rejected) aka Held Defective */
                         COALESCE(SUM(CASE 
-                            WHEN t.transaction_type = 'GRN' AND t.to_project_id = :pId THEN 
-                                (ti.quantity - ti.accepted_quantity - ti.rejected_quantity)
+                            WHEN t.transaction_type = 'GRN' AND (t.to_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) THEN ti.rejected_quantity
+                            ELSE 0 
+                        END), 0) -
+                        COALESCE(SUM(CASE 
+                            WHEN t.transaction_type = 'SRN' AND (t.from_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)) AND ti.item_status = 'Defective' THEN ti.quantity
                             ELSE 0 
                         END), 0) as defective_quantity
                     FROM materials m
                     LEFT JOIN store_transaction_items ti ON ti.material_id = m.id
                     LEFT JOIN store_transactions t ON t.id = ti.transaction_id AND t.status = 'approved'
-                    WHERE (t.to_project_id = :pId OR t.from_project_id = :pId OR t.project_id = :pId)
+                    WHERE (
+                        t.to_project_id = :pId OR t.from_project_id = :pId OR t.project_id = :pId 
+                        OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)
+                        OR t.to_warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId)
+                    )
                     ${search ? `AND (m.name LIKE :search OR m.material_code LIKE :search)` : ''}
                     GROUP BY m.id
-                    HAVING quantity > 0 OR defective_quantity > 0
+                    HAVING quantity > 0 OR defective_quantity > 0 OR po_qty > 0
                     ORDER BY m.name ASC
                 `, {
                     replacements: {
@@ -167,6 +238,34 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                         m.material_code,
                         m.unit,
                         m.category,
+                        m.standard_rate,
+                        m.gst_rate,
+                        -- PO Quantity
+                        COALESCE((
+                            SELECT SUM(poi.quantity) 
+                            FROM purchase_order_items poi 
+                            JOIN purchase_orders po ON po.id = poi.po_id 
+                            WHERE poi.material_id = m.id 
+                            AND po.status != 'rejected'
+                            AND po.warehouse_id = :wId
+                        ), 0) as po_qty,
+                        -- Received Quantity
+                        COALESCE((
+                            SELECT SUM(ti2.accepted_quantity) 
+                            FROM store_transaction_items ti2 
+                            JOIN store_transactions t2 ON t2.id = ti2.transaction_id 
+                            WHERE ti2.material_id = m.id AND t2.status = 'approved' AND t2.transaction_type = 'GRN'
+                            AND t2.to_warehouse_id = :wId
+                        ), 0) as received_qty,
+                        -- Used Quantity
+                        COALESCE((
+                            SELECT SUM(ti2.quantity) 
+                            FROM store_transaction_items ti2 
+                            JOIN store_transactions t2 ON t2.id = ti2.transaction_id 
+                            WHERE ti2.material_id = m.id AND t2.status = 'approved' AND t2.transaction_type = 'CONSUMPTION'
+                            AND t2.warehouse_id = :wId
+                        ), 0) as used_qty,
+                        -- Balance: (GRN In + STN In + SRN In) - (Consumption + STN Out + SRN Out)
                         COALESCE(SUM(CASE 
                             WHEN t.transaction_type = 'GRN' AND t.to_warehouse_id = :wId THEN ti.accepted_quantity
                             WHEN t.transaction_type = 'STN' AND t.to_warehouse_id = :wId THEN ti.quantity
@@ -174,13 +273,17 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                             ELSE 0 
                         END), 0) -
                         COALESCE(SUM(CASE 
+                            WHEN t.transaction_type = 'CONSUMPTION' AND t.warehouse_id = :wId THEN ti.quantity
                             WHEN t.transaction_type = 'STN' AND t.warehouse_id = :wId THEN ti.quantity
-                            WHEN t.transaction_type = 'SRN' AND t.warehouse_id = :wId THEN ti.quantity
+                            WHEN t.transaction_type = 'SRN' AND t.warehouse_id = :wId AND ti.item_status != 'Defective' THEN ti.quantity
                             ELSE 0 
                         END), 0) as quantity,
                         COALESCE(SUM(CASE 
-                            WHEN t.transaction_type = 'GRN' AND t.to_warehouse_id = :wId THEN 
-                                (ti.quantity - ti.accepted_quantity - ti.rejected_quantity)
+                            WHEN t.transaction_type = 'GRN' AND t.to_warehouse_id = :wId THEN ti.rejected_quantity
+                            ELSE 0 
+                        END), 0) -
+                        COALESCE(SUM(CASE 
+                            WHEN t.transaction_type = 'SRN' AND t.warehouse_id = :wId AND ti.item_status = 'Defective' THEN ti.quantity
                             ELSE 0 
                         END), 0) as defective_quantity
                     FROM materials m
@@ -189,7 +292,7 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                     WHERE (t.to_warehouse_id = :wId OR t.warehouse_id = :wId)
                     ${search ? `AND (m.name LIKE :search OR m.material_code LIKE :search)` : ''}
                     GROUP BY m.id
-                    HAVING quantity > 0 OR defective_quantity > 0
+                    HAVING quantity > 0 OR defective_quantity > 0 OR po_qty > 0
                     ORDER BY m.name ASC
                 `, {
                     replacements: {
@@ -208,6 +311,9 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                 quantity: Number(row.quantity),
                 defective_quantity: Number(row.defective_quantity),
                 reserved_quantity: 0,
+                po_qty: Number(row.po_qty),
+                received_qty: Number(row.received_qty),
+                used_qty: Number(row.used_qty),
                 min_stock_level: null,
                 max_stock_level: null,
                 last_updated: new Date(),
@@ -217,7 +323,9 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
                     name: row.material_name,
                     material_code: row.material_code,
                     unit: row.unit,
-                    category: row.category
+                    category: row.category,
+                    standard_rate: row.standard_rate,
+                    gst_rate: row.gst_rate
                 }
             }))
 
@@ -256,7 +364,7 @@ export const getInventory = async (req: AuthRequest, res: Response, next: NextFu
             {
                 model: Material,
                 as: 'material',
-                attributes: ['id', 'name', 'material_code', 'unit', 'category'],
+                attributes: ['id', 'name', 'material_code', 'unit', 'category', 'standard_rate', 'gst_rate'],
                 where: search ? {
                     [Op.or]: [
                         { name: { [Op.like]: `%${search}%` } },
@@ -323,33 +431,39 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
                     JOIN purchase_orders po ON po.id = poi.po_id 
                     WHERE poi.material_id = m.id 
                     AND po.status != 'rejected'
-                    AND (:wId IS NULL OR po.warehouse_id = :wId)
-                    AND (:pId IS NULL OR po.project_id = :pId)
+                    AND (
+                        (:wId IS NULL OR po.warehouse_id = :wId)
+                        AND (:pId IS NULL OR po.project_id = :pId OR po.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                    )
                 ), 0) as po_qty,
                 -- Received Quantity (GRN Approved - Good Stock)
                 COALESCE((
                     SELECT SUM(CASE 
-                        WHEN ti.item_status = 'Defective' THEN 0 -- Exclude legacy defective items from Good Stock
+                        WHEN ti.item_status = 'Defective' THEN 0 
                         ELSE ti.accepted_quantity 
                     END) 
                     FROM store_transaction_items ti 
                     JOIN store_transactions t ON t.id = ti.transaction_id 
                     WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'GRN'
-                    AND (:wId IS NULL OR t.warehouse_id = :wId)
-                    AND (:pId IS NULL OR t.to_project_id = :pId)
+                    AND (
+                        (:wId IS NULL OR t.warehouse_id = :wId)
+                        AND (:pId IS NULL OR t.to_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                    )
                 ), 0) as received_qty,
-                -- Rejected Quantity (GRN Approved - Defective/Returned immediately or held)
+                -- Rejected Quantity (GRN Approved - Defective)
                 COALESCE((
                     SELECT SUM(CASE 
                         WHEN ti.rejected_quantity > 0 THEN ti.rejected_quantity 
-                        WHEN ti.item_status = 'Defective' THEN ti.quantity -- Catch legacy defective items
+                        WHEN ti.item_status = 'Defective' THEN ti.quantity 
                         ELSE 0 
                     END) 
                     FROM store_transaction_items ti 
                     JOIN store_transactions t ON t.id = ti.transaction_id 
                     WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'GRN'
-                    AND (:wId IS NULL OR t.warehouse_id = :wId)
-                    AND (:pId IS NULL OR t.to_project_id = :pId)
+                    AND (
+                        (:wId IS NULL OR t.warehouse_id = :wId)
+                        AND (:pId IS NULL OR t.to_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                    )
                 ), 0) as rejected_qty,
                 -- Used Quantity (Consumption Approved)
                 COALESCE((
@@ -357,8 +471,10 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
                     FROM store_transaction_items ti 
                     JOIN store_transactions t ON t.id = ti.transaction_id 
                     WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'CONSUMPTION'
-                    AND (:wId IS NULL OR t.warehouse_id = :wId)
-                    AND (:pId IS NULL OR t.project_id = :pId)
+                    AND (
+                        (:wId IS NULL OR t.warehouse_id = :wId)
+                        AND (:pId IS NULL OR t.project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                    )
                 ), 0) as used_qty,
                 -- Transfer Out (STN Outward)
                 COALESCE((
@@ -366,8 +482,10 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
                     FROM store_transaction_items ti 
                     JOIN store_transactions t ON t.id = ti.transaction_id 
                     WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'STN'
-                    AND (:wId IS NULL OR t.warehouse_id = :wId)
-                    AND (:pId IS NULL OR t.from_project_id = :pId)
+                    AND (
+                        (:wId IS NULL OR t.warehouse_id = :wId)
+                        AND (:pId IS NULL OR t.from_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                    )
                 ), 0) as transfer_out,
                 -- Transfer In (STN Inward)
                 COALESCE((
@@ -375,8 +493,10 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
                     FROM store_transaction_items ti 
                     JOIN store_transactions t ON t.id = ti.transaction_id 
                     WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'STN'
-                    AND (:wId IS NULL OR t.to_warehouse_id = :wId)
-                    AND (:pId IS NULL OR t.to_project_id = :pId)
+                    AND (
+                        (:wId IS NULL OR t.to_warehouse_id = :wId)
+                        AND (:pId IS NULL OR t.to_project_id = :pId OR t.to_warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                    )
                 ), 0) as transfer_in,
                 -- SRN Out (Returned FROM this location)
                 COALESCE((
@@ -384,8 +504,10 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
                     FROM store_transaction_items ti 
                     JOIN store_transactions t ON t.id = ti.transaction_id 
                     WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'SRN'
-                    AND (:wId IS NULL OR t.warehouse_id = :wId)
-                    AND (:pId IS NULL OR t.from_project_id = :pId OR (t.source_type='project' AND t.project_id = :pId))
+                    AND (
+                        (:wId IS NULL OR t.warehouse_id = :wId)
+                        AND (:pId IS NULL OR t.from_project_id = :pId OR t.warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId) OR (t.source_type='project' AND t.project_id = :pId))
+                    )
                 ), 0) as srn_out,
                 -- SRN In (Returned TO this location)
                 COALESCE((
@@ -393,8 +515,10 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
                     FROM store_transaction_items ti 
                     JOIN store_transactions t ON t.id = ti.transaction_id 
                     WHERE ti.material_id = m.id AND t.status = 'approved' AND t.transaction_type = 'SRN'
-                    AND (:wId IS NULL OR t.to_warehouse_id = :wId)
-                    AND (:pId IS NULL OR t.to_project_id = :pId) -- Added explicit pId check
+                    AND (
+                        (:wId IS NULL OR t.to_warehouse_id = :wId)
+                        AND (:pId IS NULL OR t.to_project_id = :pId OR t.to_warehouse_id IN (SELECT id FROM warehouses WHERE project_id = :pId))
+                    )
                 ), 0) as srn_in
             FROM materials m
             WHERE 1=1
@@ -428,6 +552,6 @@ export const getStockStatement = async (req: AuthRequest, res: Response, next: N
 
         return res.json({ success: true, statement })
     } catch (error) {
-        next(error)
+        return next(error)
     }
 }

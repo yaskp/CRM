@@ -16,14 +16,17 @@ import {
   HistoryOutlined,
   TeamOutlined,
   AuditOutlined,
-  SafetyCertificateOutlined
+  SafetyCertificateOutlined,
+  PlusOutlined
 } from '@ant-design/icons'
 import { projectService } from '../../services/api/projects'
+import { quotationService } from '../../services/api/quotations'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
 import { getSecondaryButtonStyle, getPrimaryButtonStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
-import ProjectStructure from './ProjectStructure'
 import ProjectPanels from './ProjectPanels'
+import ProjectPiles from './ProjectPiles'
+import ProjectAnchors from './ProjectAnchors'
 import ProjectBOQManager from './ProjectBOQ'
 import ProjectQuotationBOQ from './ProjectQuotationBOQ'
 import ProjectInventory from './ProjectInventory'
@@ -39,7 +42,8 @@ const ProjectDetails = () => {
   const [statusModalVisible, setStatusModalVisible] = useState(false)
   const [updatingStatus, setUpdatingStatus] = useState(false)
   const [newStatus, setNewStatus] = useState('')
-  const [structureView, setStructureView] = useState<'buildings' | 'panels'>('panels')
+  const [activeQuotationId, setActiveQuotationId] = useState<number | null>(null)
+  const [structureView, setStructureView] = useState<'piles' | 'panels' | 'anchors'>('panels')
 
   useEffect(() => {
     if (id) {
@@ -52,6 +56,16 @@ const ProjectDetails = () => {
     try {
       const response = await projectService.getProject(Number(id))
       setProject(response.project)
+
+      // Fetch active/accepted quotation for this project
+      const qRes = await quotationService.getQuotations({ project_id: Number(id), limit: 20 })
+      const quotations = qRes.quotations || []
+      const active = quotations.find((q: any) => ['accepted', 'accepted_by_party', 'approved'].includes(q.status))
+        || quotations[0]
+
+      if (active) {
+        setActiveQuotationId(active.id)
+      }
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch project')
     } finally {
@@ -242,7 +256,14 @@ const ProjectDetails = () => {
                     <Button
                       type="primary"
                       icon={<SafetyCertificateOutlined />}
-                      onClick={() => navigate(`/operations/work-orders/new`, { state: { project_id: Number(id) } })}
+                      onClick={() => {
+                        const baseUrl = `/operations/work-orders/new`
+                        if (activeQuotationId) {
+                          navigate(`${baseUrl}?quotation_id=${activeQuotationId}`)
+                        } else {
+                          navigate(baseUrl, { state: { project_id: Number(id) } })
+                        }
+                      }}
                     >
                       Create Work Order
                     </Button>
@@ -510,25 +531,27 @@ const ProjectDetails = () => {
                       D-Wall Panels
                     </Button>
                     <Button
-                      type={structureView === 'buildings' ? 'primary' : 'default'}
-                      onClick={() => setStructureView('buildings')}
-                      icon={<BankOutlined />}
-                      style={{ width: 160 }}
+                      type={structureView === 'piles' ? 'primary' : 'default'}
+                      onClick={() => setStructureView('piles')}
+                      icon={<PlusOutlined />}
+                      style={{ width: 140 }}
                     >
-                      Buildings
+                      Pile Work
+                    </Button>
+                    <Button
+                      type={structureView === 'anchors' ? 'primary' : 'default'}
+                      onClick={() => setStructureView('anchors')}
+                      icon={<PlusOutlined />}
+                      style={{ width: 140 }}
+                    >
+                      Anchor Work
                     </Button>
                   </Space.Compact>
                 </div>
 
-                {structureView === 'panels' ? (
-                  <ProjectPanels projectId={Number(id)} />
-                ) : (
-                  <ProjectStructure
-                    projectId={Number(id)}
-                    initialHierarchy={project.buildings || []}
-                    onUpdate={fetchProject}
-                  />
-                )}
+                {structureView === 'panels' && <ProjectPanels projectId={Number(id)} />}
+                {structureView === 'piles' && <ProjectPiles projectId={Number(id)} />}
+                {structureView === 'anchors' && <ProjectAnchors projectId={Number(id)} />}
               </>
             )
           },

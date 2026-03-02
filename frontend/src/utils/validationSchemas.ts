@@ -91,6 +91,9 @@ export const stnSchema = z.object({
     batch_number: z.string().optional(),
   })).min(1, 'At least one item is required'),
   remarks: z.string().optional(),
+}).refine(data => !(data.from_type === data.to_type && data.from_id === data.to_id), {
+  message: 'Source and Destination cannot be the same',
+  path: ['to_id']
 })
 
 export const srnSchema = z.object({
@@ -108,11 +111,25 @@ export const srnSchema = z.object({
   transaction_date: z.string().min(1, 'Transaction date is required'),
   items: z.array(z.object({
     material_id: z.number().min(1, 'Material is required'),
-    quantity: z.number().positive('Quantity must be positive'),
+    quantity: z.number().nonnegative('Quantity cannot be negative'),
+    unit_price: z.number().nonnegative().optional(),
+    tax_percentage: z.number().min(0).max(100).optional(),
     batch_number: z.string().optional(),
     remarks: z.string().optional(),
   })).min(1, 'At least one item is required'),
   remarks: z.string().optional(),
+  cgst_amount: z.number().nonnegative().optional(),
+  sgst_amount: z.number().nonnegative().optional(),
+  igst_amount: z.number().nonnegative().optional(),
+  total_amount: z.number().nonnegative().optional(),
+}).refine(data => {
+  if (data.source_type === 'warehouse' && data.destination_type === 'warehouse') {
+    return data.source_id !== data.destination_id
+  }
+  return true
+}, {
+  message: 'Source and Destination cannot be the same',
+  path: ['destination_id']
 })
 
 // DPR Schema

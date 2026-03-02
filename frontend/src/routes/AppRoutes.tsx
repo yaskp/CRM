@@ -22,6 +22,7 @@ import STNDetails from '../pages/storeTransactions/STNDetails'
 import SRNList from '../pages/storeTransactions/SRNList'
 import SRNForm from '../pages/storeTransactions/SRNForm'
 import SRNDetails from '../pages/storeTransactions/SRNDetails'
+import CreditNotePrint from '../pages/storeTransactions/CreditNotePrint'
 import UnifiedDailyReport from '../pages/dpr/UnifiedDailyReport'
 import DailyWorkLogList from '../pages/storeTransactions/DailyWorkLogList'
 import DailyWorkLogDetails from '../pages/storeTransactions/DailyWorkLogDetails'
@@ -202,6 +203,7 @@ const AppRoutes = () => {
         <Route path="inventory/srn/new" element={<SRNForm />} />
         <Route path="inventory/srn/:id" element={<SRNDetails />} />
         <Route path="inventory/srn/:id/edit" element={<SRNForm />} />
+        <Route path="inventory/srn/:id/print-cn" element={<CreditNotePrint />} />
         <Route path="inventory/consumption/new" element={<UnifiedDailyReport />} />
         <Route path="inventory/daily-work-log" element={<UnifiedDailyReport />} />
         <Route path="inventory/daily-work-log/history" element={<DailyWorkLogList />} />

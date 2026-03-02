@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Button, Modal, Form, Input, Select, Space, Typography, message, Empty, Row, Col, Upload, Tabs, Table, Tag, Progress, Tooltip, Popconfirm } from 'antd'
+import { Card, Button, Modal, Form, Input, Select, Space, Typography, Empty, Row, Col, Upload, Tabs, Table, Tag, Progress, Tooltip, Popconfirm, App } from 'antd'
 import {
     PlusOutlined,
     FileImageOutlined,
@@ -44,6 +44,7 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
     const [bulkEditInitialValues, setBulkEditInitialValues] = useState<any>(null)
 
     const [form] = Form.useForm()
+    const { message, modal } = App.useApp()
 
     const [fileList, setFileList] = useState<any[]>([])
 
@@ -60,7 +61,7 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
     const fetchDrawings = async () => {
         setLoading(true)
         try {
-            const res = await drawingService.getDrawings({ project_id: projectId })
+            const res = await drawingService.getDrawings({ project_id: projectId, drawing_type: 'D-Wall Layout' })
             setDrawings(res.drawings || [])
             if (res.drawings?.length > 0 && !selectedDrawing) {
                 setSelectedDrawing(res.drawings[0])
@@ -202,7 +203,7 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
     const handleBulkDelete = async () => {
         if (selectedRowKeys.length === 0) return
 
-        Modal.confirm({
+        modal.confirm({
             title: `Delete ${selectedRowKeys.length} panels?`,
             content: 'This action cannot be undone. All selected panels will be permanently removed.',
             okText: 'Yes, Delete',
@@ -334,7 +335,7 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                 <Card
                     title={<Space><FileImageOutlined /> Drawings</Space>}
                     extra={<Button type="text" icon={<PlusOutlined />} onClick={() => setModalVisible(true)} />}
-                    bodyStyle={{ padding: 0 }}
+                    styles={{ body: { padding: 0 } }}
                 >
                     {drawings.length > 0 ? (
                         <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
@@ -456,6 +457,16 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                                 rowSelection={{
                                                     selectedRowKeys,
                                                     onChange: setSelectedRowKeys,
+                                                    onSelectAll: (selected) => {
+                                                        if (selected) {
+                                                            const allIds = panels
+                                                                .filter(p => isAdmin || !((p.dprRecords?.length > 0) || (p.consumptions?.length > 0)))
+                                                                .map(p => p.id)
+                                                            setSelectedRowKeys(allIds)
+                                                        } else {
+                                                            setSelectedRowKeys([])
+                                                        }
+                                                    },
                                                     getCheckboxProps: (record: any) => ({
                                                         disabled: !isAdmin && ((record.dprRecords?.length > 0) || (record.consumptions?.length > 0))
                                                     })
@@ -486,43 +497,6 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                                             { title: 'L (m)', dataIndex: 'length', key: 'length', width: 80, render: (v: any) => Number(v).toFixed(2) },
                                                             { title: 'W (m)', dataIndex: 'width', key: 'width', width: 80, render: (v: any) => Number(v).toFixed(2) },
                                                             { title: 'D (m)', dataIndex: 'design_depth', key: 'design_depth', width: 80, render: (v: any) => Number(v).toFixed(1) },
-                                                        ]
-                                                    },
-                                                    {
-                                                        title: 'Anchors',
-                                                        children: [
-                                                            {
-                                                                title: 'Nos',
-                                                                key: 'anchor_nos',
-                                                                width: 70,
-                                                                render: (_: any, record: any) => {
-                                                                    const layers = record.anchors || []
-                                                                    if (layers.length > 0) {
-                                                                        const total = layers.reduce((sum: number, a: any) => sum + Number(a.no_of_anchors || 0), 0)
-                                                                        return (
-                                                                            <Tooltip title={layers.map((l: any, i: number) => `L${i + 1}: ${l.no_of_anchors}`).join(', ')}><Text strong>{total}</Text> <Text type="secondary" style={{ fontSize: 11 }}>({layers.length}L)</Text></Tooltip>
-                                                                        )
-                                                                    }
-                                                                    return record.no_of_anchors || '-'
-                                                                }
-                                                            },
-                                                            {
-                                                                title: 'L (m)',
-                                                                key: 'anchor_len',
-                                                                width: 80,
-                                                                render: (_: any, record: any) => {
-                                                                    const layers = record.anchors || []
-                                                                    if (layers.length > 0) {
-                                                                        const totalLen = layers.reduce((sum: number, l: any) => sum + (Number(l.no_of_anchors || 0) * Number(l.anchor_length || 0)), 0)
-                                                                        const lengths = [...new Set(layers.map((l: any) => Number(l.anchor_length || 0)))]
-                                                                        const details = layers.map((l: any, i: number) => `L${i + 1}: ${l.no_of_anchors} nos x ${l.anchor_length}m`).join(', ')
-                                                                        return (
-                                                                            <Tooltip title={details}><Text>{totalLen.toFixed(1)}</Text> <Text type="secondary" style={{ fontSize: 11 }}>({lengths.join('/')})</Text></Tooltip>
-                                                                        )
-                                                                    }
-                                                                    return record.anchor_length || '-'
-                                                                }
-                                                            }
                                                         ]
                                                     },
                                                     {

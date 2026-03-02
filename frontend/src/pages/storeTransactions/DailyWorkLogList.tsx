@@ -204,7 +204,7 @@ const DailyWorkLogList = () => {
             {/* Quick Stats */}
             <Row gutter={16} style={{ marginBottom: 24 }}>
                 <Col span={6}>
-                    <Card bordered={false} className="premium-card">
+                    <Card variant="borderless" className="premium-card">
                         <Statistic
                             title="Total Entries"
                             value={pagination.total}
@@ -213,7 +213,7 @@ const DailyWorkLogList = () => {
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card bordered={false} className="premium-card">
+                    <Card variant="borderless" className="premium-card">
                         <Statistic
                             title="Approved"
                             value={approvedCount}
@@ -223,7 +223,7 @@ const DailyWorkLogList = () => {
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card bordered={false} className="premium-card">
+                    <Card variant="borderless" className="premium-card">
                         <Statistic
                             title="Avg. Efficiency"
                             value={avgEfficiency}
@@ -234,7 +234,7 @@ const DailyWorkLogList = () => {
                     </Card>
                 </Col>
                 <Col span={6}>
-                    <Card bordered={false} className="premium-card">
+                    <Card variant="borderless" className="premium-card">
                         <Statistic
                             title="Manpower Reported"
                             value={logs.length * 8} // Dummy multiplier

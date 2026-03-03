@@ -57,6 +57,9 @@ import WorkerCategory from './WorkerCategory'
 import WorkTemplate from './WorkTemplate'
 import WorkTemplateItem from './WorkTemplateItem'
 import DPRRmcLog from './DPRRmcLog'
+import DPRPanelWorkLog from './DPRPanelWorkLog'
+import DPRPileWorkLog from './DPRPileWorkLog'
+import DPRManpowerLog from './DPRManpowerLog'
 import FinancialTransaction from './FinancialTransaction'
 import PaymentAllocation from './PaymentAllocation'
 import DrawingPanelAnchor from './DrawingPanelAnchor'
@@ -89,6 +92,10 @@ ProjectZone.belongsTo(ProjectFloor, { foreignKey: 'floor_id', as: 'floor' })
 
 ProjectBuilding.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
 ProjectZone.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+
+// Work Item Type Hierarchy
+WorkItemType.belongsTo(WorkItemType, { foreignKey: 'parent_id', as: 'parent' })
+WorkItemType.hasMany(WorkItemType, { foreignKey: 'parent_id', as: 'subTypes' })
 
 // Project BOQ
 Project.hasMany(ProjectBOQ, { foreignKey: 'project_id', as: 'boqs' })
@@ -167,8 +174,24 @@ StoreTransaction.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 StoreTransaction.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
 StoreTransaction.belongsTo(User, { foreignKey: 'approved_by', as: 'approver' })
 StoreTransaction.hasMany(StoreTransactionItem, { foreignKey: 'transaction_id', as: 'items' })
-StoreTransaction.hasMany(DPRRmcLog, { foreignKey: 'dpr_id', as: 'rmcLogs' }) // Reusing dpr_id as generic foreign key
+StoreTransaction.hasMany(DPRRmcLog, { foreignKey: 'dpr_id', as: 'rmcLogs' })
 DPRRmcLog.belongsTo(StoreTransaction, { foreignKey: 'dpr_id', as: 'transaction' })
+
+// Normalized DPR Work Logs
+StoreTransaction.hasMany(DPRPanelWorkLog, { foreignKey: 'transaction_id', as: 'panelWorkLogs' })
+DPRPanelWorkLog.belongsTo(StoreTransaction, { foreignKey: 'transaction_id', as: 'transaction' })
+DPRPanelWorkLog.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+DPRPanelWorkLog.belongsTo(DrawingPanel, { foreignKey: 'drawing_panel_id', as: 'panel' })
+
+StoreTransaction.hasMany(DPRPileWorkLog, { foreignKey: 'transaction_id', as: 'pileWorkLogs' })
+DPRPileWorkLog.belongsTo(StoreTransaction, { foreignKey: 'transaction_id', as: 'transaction' })
+DPRPileWorkLog.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+DPRPileWorkLog.belongsTo(DrawingPanel, { foreignKey: 'drawing_panel_id', as: 'pile' })
+
+StoreTransaction.hasMany(DPRManpowerLog, { foreignKey: 'transaction_id', as: 'manpowerLogs' })
+DPRManpowerLog.belongsTo(StoreTransaction, { foreignKey: 'transaction_id', as: 'transaction' })
+DPRManpowerLog.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+DPRManpowerLog.belongsTo(User, { foreignKey: 'user_id', as: 'staffUser' })
 StoreTransactionItem.belongsTo(StoreTransaction, { foreignKey: 'transaction_id', as: 'transaction' })
 StoreTransactionItem.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
 StoreTransactionItem.belongsTo(PurchaseOrderItem, { foreignKey: 'po_item_id', as: 'poItem' })
@@ -181,6 +204,19 @@ StoreTransaction.belongsTo(Vendor, { foreignKey: 'vendor_id', as: 'vendor' })
 StoreTransaction.belongsTo(Project, { foreignKey: 'from_project_id', as: 'source_project' })
 StoreTransaction.belongsTo(Project, { foreignKey: 'to_project_id', as: 'destination_project' })
 StoreTransaction.belongsTo(DrawingPanel, { foreignKey: 'drawing_panel_id', as: 'drawingPanel' })
+
+// ERP Linkage: DPR → Work Order / Quotation / BOQ
+StoreTransaction.belongsTo(WorkOrder, { foreignKey: 'work_order_id', as: 'workOrder' })
+StoreTransaction.belongsTo(Quotation, { foreignKey: 'quotation_id', as: 'quotation' })
+StoreTransaction.belongsTo(ProjectBOQ, { foreignKey: 'boq_id', as: 'boq' })
+WorkOrder.hasMany(StoreTransaction, { foreignKey: 'work_order_id', as: 'dprConsumptions' })
+
+// Work Order ↔ Quotation / BOQ traceability
+WorkOrder.belongsTo(Quotation, { foreignKey: 'quotation_id', as: 'quotation' })
+WorkOrder.belongsTo(ProjectBOQ, { foreignKey: 'boq_id', as: 'boq' })
+WorkOrder.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
+Quotation.hasMany(WorkOrder, { foreignKey: 'quotation_id', as: 'workOrders' })
+ProjectBOQ.hasMany(WorkOrder, { foreignKey: 'boq_id', as: 'workOrders' })
 
 // Material Requisitions
 MaterialRequisition.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
@@ -414,6 +450,9 @@ export {
   WorkTemplate,
   WorkTemplateItem,
   DPRRmcLog,
+  DPRPanelWorkLog,
+  DPRPileWorkLog,
+  DPRManpowerLog,
   FinancialTransaction,
   PaymentAllocation,
   DrawingPanelAnchor,

@@ -10,6 +10,7 @@ interface WorkTemplateItemAttributes {
     description?: string
     unit?: string
     sort_order: number
+    parent_work_item_type_id?: number
     created_at?: Date
 }
 
@@ -23,6 +24,7 @@ class WorkTemplateItem extends Model<WorkTemplateItemAttributes, WorkTemplateIte
     public description?: string
     public unit?: string
     public sort_order!: number
+    public parent_work_item_type_id?: number
     public readonly created_at!: Date
 
     public static associate(models: any) {
@@ -61,6 +63,14 @@ WorkTemplateItem.init(
         sort_order: {
             type: DataTypes.INTEGER,
             defaultValue: 0,
+        },
+        parent_work_item_type_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'work_item_types',
+                key: 'id'
+            }
         }
     },
     {

@@ -3,6 +3,20 @@ import { AuthRequest } from '../middleware/auth.middleware'
 import ProjectContact from '../models/ProjectContact'
 import { createError } from '../middleware/errorHandler'
 
+// Convert empty strings to null for numeric fields to avoid MySQL errors
+const INT_FIELDS = ['labour_count', 'helper_count', 'operator_count', 'user_id']
+const sanitizeContact = (body: any) => {
+    const data = { ...body }
+    for (const field of INT_FIELDS) {
+        if (data[field] === '' || data[field] === undefined) {
+            data[field] = null
+        } else if (data[field] !== null) {
+            data[field] = Number(data[field]) || null
+        }
+    }
+    return data
+}
+
 export const getProjectContacts = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const { projectId } = req.params
@@ -19,8 +33,9 @@ export const getProjectContacts = async (req: AuthRequest, res: Response, next: 
 export const createProjectContact = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const { projectId } = req.params
+        const data = sanitizeContact(req.body)
         const contact = await ProjectContact.create({
-            ...req.body,
+            ...data,
             project_id: Number(projectId)
         })
         res.status(201).json({ success: true, contact })
@@ -35,7 +50,7 @@ export const updateProjectContact = async (req: AuthRequest, res: Response, next
         const contact = await ProjectContact.findByPk(id)
         if (!contact) throw createError('Contact not found', 404)
 
-        await contact.update(req.body)
+        await contact.update(sanitizeContact(req.body))
         res.json({ success: true, contact })
     } catch (error) {
         next(error)

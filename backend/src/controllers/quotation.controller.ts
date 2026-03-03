@@ -100,7 +100,8 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
         const quotationItems = items.map((item: any) => ({
           ...item,
           quotation_id: quotation.id,
-          work_item_type_id: item.work_item_type_id
+          work_item_type_id: item.work_item_type_id,
+          parent_work_item_type_id: item.parent_work_item_type_id
         }))
         await QuotationItem.bulkCreate(quotationItems, { transaction: t })
       }
@@ -325,7 +326,8 @@ export const updateQuotation = async (req: AuthRequest, res: Response, next: Nex
         const quotationItems = items.map((item: any) => ({
           ...item,
           quotation_id: id,
-          work_item_type_id: item.work_item_type_id
+          work_item_type_id: item.work_item_type_id,
+          parent_work_item_type_id: item.parent_work_item_type_id
         }))
         await QuotationItem.bulkCreate(quotationItems, { transaction: t })
       }
@@ -466,7 +468,8 @@ export const reviseQuotation = async (req: AuthRequest, res: Response, next: Nex
         unit: item.unit,
         rate: item.rate,
         amount: item.amount,
-        work_item_type_id: item.work_item_type_id
+        work_item_type_id: item.work_item_type_id,
+        parent_work_item_type_id: item.parent_work_item_type_id
       }))
       await QuotationItem.bulkCreate(newItems, { transaction })
     }

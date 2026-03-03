@@ -17,6 +17,11 @@ interface WorkOrderAttributes {
   terms_conditions?: string
   remarks?: string
   status: 'draft' | 'approved' | 'active' | 'completed'
+  // ERP Linkage
+  quotation_id?: number    // → quotations (which client quote this WO came from)
+  boq_id?: number          // → project_boqs (pricing basis)
+  quote_type?: 'with_material' | 'labour_only'  // mirrored from quotation
+  created_by?: number      // → users
   created_at?: Date
 }
 
@@ -38,6 +43,10 @@ class WorkOrder extends Model<WorkOrderAttributes, WorkOrderCreationAttributes> 
   public terms_conditions?: string
   public remarks?: string
   public status!: WorkOrderAttributes['status']
+  public quotation_id?: number
+  public boq_id?: number
+  public quote_type?: 'with_material' | 'labour_only'
+  public created_by?: number
   public readonly created_at!: Date
 }
 
@@ -114,6 +123,26 @@ WorkOrder.init(
     status: {
       type: DataTypes.ENUM('draft', 'approved', 'active', 'completed'),
       defaultValue: 'draft',
+    },
+    quotation_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'quotations', key: 'id' },
+    },
+    boq_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'project_boqs', key: 'id' },
+    },
+    quote_type: {
+      type: DataTypes.ENUM('with_material', 'labour_only'),
+      allowNull: true,
+      defaultValue: 'with_material',
+    },
+    created_by: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'users', key: 'id' },
     },
     created_at: {
       type: DataTypes.DATE,

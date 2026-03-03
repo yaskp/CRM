@@ -5,12 +5,14 @@ import { authenticate, authorize } from '../middleware/auth.middleware'
 const router = Router()
 
 router.use(authenticate)
-router.use(authorize(['Admin'])) // Only admins can manage users
 
+// Allow all authenticated users to fetch users list (needed for project staff assignment)
 router.get('/', userController.getUsers)
 router.get('/:id', userController.getUser)
-router.post('/', userController.createUser)
-router.put('/:id', userController.updateUser)
-router.delete('/:id', userController.deleteUser)
+
+// Only admins can modify users
+router.post('/', authorize(['Admin', 'SuperAdmin']), userController.createUser)
+router.put('/:id', authorize(['Admin', 'SuperAdmin']), userController.updateUser)
+router.delete('/:id', authorize(['Admin', 'SuperAdmin']), userController.deleteUser)
 
 export default router

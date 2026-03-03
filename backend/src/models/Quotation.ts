@@ -26,6 +26,10 @@ interface QuotationAttributes {
   created_by: number
   project_id?: number
   billing_unit_id?: number
+  // Quote type: 'with_material' = full supply, 'labour_only' = contractor labour only
+  quote_type?: 'with_material' | 'labour_only'
+  // Who supplies material
+  material_scope?: 'full_supply' | 'client_supply' | 'partial'
   created_at?: Date
 }
 
@@ -56,6 +60,8 @@ class Quotation extends Model<QuotationAttributes, QuotationCreationAttributes> 
   public created_by!: number
   public project_id?: number
   public billing_unit_id?: number
+  public quote_type?: 'with_material' | 'labour_only'
+  public material_scope?: 'full_supply' | 'client_supply' | 'partial'
   public items?: any[]
   public readonly created_at!: Date
   public readonly updated_at!: Date
@@ -181,6 +187,18 @@ Quotation.init(
         model: 'company_branches',
         key: 'id'
       }
+    },
+    quote_type: {
+      type: DataTypes.ENUM('with_material', 'labour_only'),
+      allowNull: true,
+      defaultValue: 'with_material',
+      comment: 'with_material = full supply quote; labour_only = contractor labour & plant only'
+    },
+    material_scope: {
+      type: DataTypes.ENUM('full_supply', 'client_supply', 'partial'),
+      allowNull: true,
+      defaultValue: 'full_supply',
+      comment: 'full_supply = we supply all; client_supply = client provides material; partial = mix'
     },
     created_at: {
       type: DataTypes.DATE,

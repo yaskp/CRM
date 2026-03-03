@@ -16,6 +16,9 @@ import PurchaseOrder from '../models/PurchaseOrder'
 import Vendor from '../models/Vendor'
 import WorkerCategory from '../models/WorkerCategory'
 import DPRRmcLog from '../models/DPRRmcLog'
+import DPRPanelWorkLog from '../models/DPRPanelWorkLog'
+import DPRPileWorkLog from '../models/DPRPileWorkLog'
+import DPRManpowerLog from '../models/DPRManpowerLog'
 import CreditNote from '../models/CreditNote'
 import CreditNoteItem from '../models/CreditNoteItem'
 import { numberingService } from '../utils/numberingService'
@@ -513,7 +516,7 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
     if (rmc_logs && Array.isArray(rmc_logs)) {
       await DPRRmcLog.bulkCreate(
         rmc_logs.map((log: any) => ({
-          dpr_id: consumption.id, // Reusing dpr_id as a generic ID or we should handle associations
+          dpr_id: consumption.id,
           vehicle_no: log.vehicle_no,
           quantity: log.quantity,
           slump: log.slump,
@@ -525,6 +528,81 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
         })),
         { transaction }
       )
+    }
+
+    // ── Dual-write: Normalized DPR Panel Work Logs ─────────────────────────────
+    if (panel_work_logs && Array.isArray(panel_work_logs) && panel_work_logs.length > 0) {
+      await DPRPanelWorkLog.bulkCreate(
+        panel_work_logs.map((log: any) => ({
+          transaction_id: consumption.id,
+          project_id: project_id,
+          report_date: transaction_date,
+          drawing_panel_id: log.drawing_panel_id || null,
+          panel_identifier: log.panel_identifier || null,
+          grabbing_depth: log.grabbing_depth || null,
+          grabbing_sqm: log.grabbing_sqm || null,
+          grabbing_start_time: log.grabbing_start_time || null,
+          grabbing_end_time: log.grabbing_end_time || null,
+          concrete_start_time: log.concrete_start_time || null,
+          concrete_end_time: log.concrete_end_time || null,
+          concrete_grade: log.concrete_grade || null,
+          theoretical_concrete_qty: log.theoretical_concrete_qty || null,
+          actual_concrete_qty: log.actual_concrete_qty || null,
+          cage_id_ref: log.cage_id_ref || null,
+        })),
+        { transaction }
+      )
+    }
+
+    // ── Dual-write: Normalized DPR Pile Work Logs ──────────────────────────────
+    if (pile_work_logs && Array.isArray(pile_work_logs) && pile_work_logs.length > 0) {
+      await DPRPileWorkLog.bulkCreate(
+        pile_work_logs.map((log: any) => ({
+          transaction_id: consumption.id,
+          project_id: project_id,
+          report_date: transaction_date,
+          drawing_panel_id: log.drawing_panel_id || null,
+          pile_identifier: log.pile_identifier || null,
+          achieved_depth: log.achieved_depth || null,
+          rock_socket_length: log.rock_socket_length || null,
+          start_time: log.start_time || null,
+          end_time: log.end_time || null,
+          concrete_poured: log.concrete_poured || null,
+          actual_concrete_qty: log.actual_concrete_qty || null,
+          concrete_grade: log.concrete_grade || null,
+          steel_installed: log.steel_installed || null,
+          rig_id: log.rig_id || null,
+          slump_test: log.slump_test || null,
+          cube_test_id: log.cube_test_id || null,
+        })),
+        { transaction }
+      )
+    }
+
+    // ── Dual-write: Normalized DPR Manpower Logs ───────────────────────────────
+    if (manpower_data) {
+      try {
+        const workers = typeof manpower_data === 'string' ? JSON.parse(manpower_data) : manpower_data
+        if (Array.isArray(workers) && workers.length > 0) {
+          await DPRManpowerLog.bulkCreate(
+            workers.map((w: any) => ({
+              transaction_id: consumption.id,
+              project_id: project_id,
+              report_date: transaction_date,
+              worker_type: w.worker_type || null,
+              user_id: w.user_id || null,
+              staff_name: w.staff_name || null,
+              staff_role: w.staff_role || null,
+              count: Number(w.count) || 0,
+              hajri: Number(w.hajri) || 1,
+              is_staff: Boolean(w.is_staff),
+            })),
+            { transaction }
+          )
+        }
+      } catch (e) {
+        console.error('Failed to dual-write manpower logs:', e)
+      }
     }
 
     await transaction.commit()
@@ -1291,7 +1369,9 @@ export const updateStoreTransaction = async (req: AuthRequest, res: Response, ne
       grabbing_depth,
       grabbing_sqm,
       concreting_depth,
-      concreting_sqm
+      concreting_sqm,
+      panel_work_logs,
+      pile_work_logs
     } = req.body
 
     const storeTransaction = await StoreTransaction.findByPk(id)
@@ -1337,7 +1417,9 @@ export const updateStoreTransaction = async (req: AuthRequest, res: Response, ne
       grabbing_depth,
       grabbing_sqm,
       concreting_depth,
-      concreting_sqm
+      concreting_sqm,
+      panel_work_logs: panel_work_logs ? (Array.isArray(panel_work_logs) ? panel_work_logs : JSON.parse(panel_work_logs)) : undefined,
+      pile_work_logs: pile_work_logs ? (Array.isArray(pile_work_logs) ? pile_work_logs : JSON.parse(pile_work_logs)) : undefined,
     }, { transaction })
 
     // Update Items: Delete and Re-create for simplicity in updates
@@ -1366,6 +1448,90 @@ export const updateStoreTransaction = async (req: AuthRequest, res: Response, ne
           ...log,
           dpr_id: storeTransaction.id
         }, { transaction })
+      }
+    }
+
+    // ── Normalized Panel Work Logs: delete + reinsert ────────────────────────
+    if (panel_work_logs && Array.isArray(panel_work_logs)) {
+      await DPRPanelWorkLog.destroy({ where: { transaction_id: id } as any, transaction })
+      if (panel_work_logs.length > 0) {
+        await DPRPanelWorkLog.bulkCreate(
+          panel_work_logs.map((log: any) => ({
+            transaction_id: storeTransaction.id,
+            project_id: project_id || storeTransaction.project_id,
+            report_date: transaction_date || storeTransaction.transaction_date,
+            drawing_panel_id: log.drawing_panel_id || null,
+            panel_identifier: log.panel_identifier || null,
+            grabbing_depth: log.grabbing_depth || null,
+            grabbing_sqm: log.grabbing_sqm || null,
+            grabbing_start_time: log.grabbing_start_time || null,
+            grabbing_end_time: log.grabbing_end_time || null,
+            concrete_start_time: log.concrete_start_time || null,
+            concrete_end_time: log.concrete_end_time || null,
+            concrete_grade: log.concrete_grade || null,
+            theoretical_concrete_qty: log.theoretical_concrete_qty || null,
+            actual_concrete_qty: log.actual_concrete_qty || null,
+            cage_id_ref: log.cage_id_ref || null,
+          })),
+          { transaction }
+        )
+      }
+    }
+
+    // ── Normalized Pile Work Logs: delete + reinsert ─────────────────────────
+    if (pile_work_logs && Array.isArray(pile_work_logs)) {
+      await DPRPileWorkLog.destroy({ where: { transaction_id: id } as any, transaction })
+      if (pile_work_logs.length > 0) {
+        await DPRPileWorkLog.bulkCreate(
+          pile_work_logs.map((log: any) => ({
+            transaction_id: storeTransaction.id,
+            project_id: project_id || storeTransaction.project_id,
+            report_date: transaction_date || storeTransaction.transaction_date,
+            drawing_panel_id: log.drawing_panel_id || null,
+            pile_identifier: log.pile_identifier || null,
+            achieved_depth: log.achieved_depth || null,
+            rock_socket_length: log.rock_socket_length || null,
+            start_time: log.start_time || null,
+            end_time: log.end_time || null,
+            concrete_poured: log.concrete_poured || null,
+            actual_concrete_qty: log.actual_concrete_qty || null,
+            concrete_grade: log.concrete_grade || null,
+            steel_installed: log.steel_installed || null,
+            rig_id: log.rig_id || null,
+            slump_test: log.slump_test || null,
+            cube_test_id: log.cube_test_id || null,
+          })),
+          { transaction }
+        )
+      }
+    }
+
+    // ── Normalized Manpower Logs: delete + reinsert ──────────────────────────
+    if (manpower_data) {
+      try {
+        const workers = typeof manpower_data === 'string' ? JSON.parse(manpower_data) : manpower_data
+        if (Array.isArray(workers)) {
+          await DPRManpowerLog.destroy({ where: { transaction_id: id } as any, transaction })
+          if (workers.length > 0) {
+            await DPRManpowerLog.bulkCreate(
+              workers.map((w: any) => ({
+                transaction_id: storeTransaction.id,
+                project_id: project_id || storeTransaction.project_id,
+                report_date: transaction_date || storeTransaction.transaction_date,
+                worker_type: w.worker_type || null,
+                user_id: w.user_id || null,
+                staff_name: w.staff_name || null,
+                staff_role: w.staff_role || null,
+                count: Number(w.count) || 0,
+                hajri: Number(w.hajri) || 1,
+                is_staff: Boolean(w.is_staff),
+              })),
+              { transaction }
+            )
+          }
+        }
+      } catch (e) {
+        console.error('Failed to update manpower logs:', e)
       }
     }
 

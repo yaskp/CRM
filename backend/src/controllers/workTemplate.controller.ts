@@ -78,6 +78,7 @@ export const createWorkTemplate = async (req: Request, res: Response, next: Next
             const templateItems = items.map((item: any, index: number) => ({
                 template_id: template.id,
                 work_item_type_id: item.work_item_type_id,
+                parent_work_item_type_id: item.parent_work_item_type_id,
                 item_type: item.item_type || 'labour',
                 description: item.description,
                 unit: item.unit,
@@ -112,6 +113,7 @@ export const updateWorkTemplate = async (req: Request, res: Response, next: Next
             const templateItems = items.map((item: any, index: number) => ({
                 template_id: Number(id),
                 work_item_type_id: item.work_item_type_id,
+                parent_work_item_type_id: item.parent_work_item_type_id,
                 item_type: item.item_type || 'labour',
                 description: item.description,
                 unit: item.unit,

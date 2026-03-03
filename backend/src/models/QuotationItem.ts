@@ -11,7 +11,9 @@ interface QuotationItemAttributes {
     amount: number
     item_type: string
     work_item_type_id?: number
+    parent_work_item_type_id?: number
     reference_id?: number
+    is_reference_only?: boolean
     created_at?: Date
 }
 
@@ -27,7 +29,9 @@ class QuotationItem extends Model<QuotationItemAttributes, QuotationItemCreation
     public amount!: number
     public item_type!: string
     public work_item_type_id?: number
+    public parent_work_item_type_id?: number
     public reference_id?: number
+    public is_reference_only?: boolean
     public readonly created_at!: Date
 }
 
@@ -53,6 +57,14 @@ QuotationItem.init(
             defaultValue: 'material',
         },
         work_item_type_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: {
+                model: 'work_item_types',
+                key: 'id',
+            },
+        },
+        parent_work_item_type_id: {
             type: DataTypes.INTEGER,
             allowNull: true,
             references: {
@@ -86,6 +98,11 @@ QuotationItem.init(
             type: DataTypes.DECIMAL(15, 2),
             allowNull: false,
             defaultValue: 0,
+        },
+        is_reference_only: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
         },
         created_at: {
             type: DataTypes.DATE,

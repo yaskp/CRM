@@ -9,7 +9,7 @@ import { Op } from 'sequelize'
 
 export const getAllWorkItemTypes = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { search, page, limit } = req.query
+        const { search, page, limit, parent_id, only_parents } = req.query
         const { limit: l, offset, page: p } = getPagination({ page: page as any, limit: limit as any })
 
         const where: any = {}
@@ -18,6 +18,14 @@ export const getAllWorkItemTypes = async (req: AuthRequest, res: Response, next:
                 { name: { [Op.like]: `%${search}%` } },
                 { code: { [Op.like]: `%${search}%` } }
             ]
+        }
+
+        if (parent_id) {
+            where.parent_id = parent_id
+        }
+
+        if (only_parents === 'true') {
+            where.parent_id = null
         }
 
         const { count, rows: types } = await WorkItemType.findAndCountAll({
@@ -39,7 +47,7 @@ export const getAllWorkItemTypes = async (req: AuthRequest, res: Response, next:
 
 export const createWorkItemType = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { name, code, uom, description } = req.body
+        const { name, code, uom, description, parent_id } = req.body
 
         if (!name) {
             throw createError('Name is required', 400)
@@ -50,6 +58,7 @@ export const createWorkItemType = async (req: AuthRequest, res: Response, next: 
             code,
             uom,
             description,
+            parent_id,
             is_active: true
         })
 
@@ -69,7 +78,7 @@ export const createWorkItemType = async (req: AuthRequest, res: Response, next: 
 export const updateWorkItemType = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
-        const { name, code, uom, description, is_active } = req.body
+        const { name, code, uom, description, is_active, parent_id } = req.body
 
         const item = await WorkItemType.findByPk(id)
         if (!item) {
@@ -81,7 +90,8 @@ export const updateWorkItemType = async (req: AuthRequest, res: Response, next: 
             code,
             uom,
             description,
-            is_active
+            is_active,
+            parent_id
         })
 
         res.json({
@@ -134,7 +144,7 @@ export const importWorkItemTypes = async (req: AuthRequest, res: Response, next:
 
         for (const item of items) {
             try {
-                const { name, code, uom, description } = item;
+                const { name, code, uom, description, parent_category } = item;
 
                 if (!name) {
                     results.errors.push({
@@ -142,6 +152,20 @@ export const importWorkItemTypes = async (req: AuthRequest, res: Response, next:
                         error: 'Name is required'
                     });
                     continue;
+                }
+
+                let parent_id = null;
+                if (parent_category) {
+                    const parentData = await WorkItemType.findOne({ where: { name: parent_category } });
+                    if (parentData) {
+                        parent_id = parentData.id;
+                    } else {
+                        results.errors.push({
+                            item,
+                            error: `Parent Category '${parent_category}' not found. Ensure it exists or is listed earlier in the CSV.`
+                        });
+                        continue;
+                    }
                 }
 
                 // Check for duplicates
@@ -160,6 +184,7 @@ export const importWorkItemTypes = async (req: AuthRequest, res: Response, next:
                     code,
                     uom,
                     description,
+                    parent_id,
                     is_active: true
                 });
 

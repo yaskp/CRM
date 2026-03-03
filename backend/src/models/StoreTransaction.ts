@@ -82,6 +82,11 @@ interface StoreTransactionAttributes {
   pile_work_logs?: string | any[]
   panel_work_logs?: string | any[]
 
+  // ERP Linkage FKs
+  work_order_id?: number   // → work_orders  (for contractor billing from DPR)
+  quotation_id?: number    // → quotations    (client quotation this bill is linked to)
+  boq_id?: number          // → project_boqs  (cost vs budget tracking)
+
   created_at?: Date
 }
 
@@ -162,6 +167,10 @@ class StoreTransaction extends Model<StoreTransactionAttributes, StoreTransactio
 
   public pile_work_logs?: any
   public panel_work_logs?: any
+
+  public work_order_id?: number
+  public quotation_id?: number
+  public boq_id?: number
 
   public readonly created_at!: Date
 }
@@ -491,6 +500,21 @@ StoreTransaction.init(
     panel_work_logs: {
       type: DataTypes.JSON,
       allowNull: true,
+    },
+    work_order_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'work_orders', key: 'id' },
+    },
+    quotation_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'quotations', key: 'id' },
+    },
+    boq_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: { model: 'project_boqs', key: 'id' },
     },
     created_at: {
       type: DataTypes.DATE,

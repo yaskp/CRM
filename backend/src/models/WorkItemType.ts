@@ -8,6 +8,7 @@ interface WorkItemTypeAttributes {
     code?: string
     uom?: string
     description?: string
+    parent_id?: number   // FK → self: parent = Main Work Type, child = Sub Work Type
     is_active: boolean
     created_at?: Date
 }
@@ -20,6 +21,7 @@ class WorkItemType extends Model<WorkItemTypeAttributes, WorkItemTypeCreationAtt
     public code?: string
     public uom?: string
     public description?: string
+    public parent_id?: number
     public is_active!: boolean
     public readonly created_at!: Date
 }
@@ -47,6 +49,11 @@ WorkItemType.init(
         description: {
             type: DataTypes.TEXT,
             allowNull: true,
+        },
+        parent_id: {
+            type: DataTypes.INTEGER,
+            allowNull: true,
+            references: { model: 'work_item_types', key: 'id' },
         },
         is_active: {
             type: DataTypes.BOOLEAN,

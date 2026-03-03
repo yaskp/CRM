@@ -357,13 +357,19 @@ const WorkMaster = () => {
                                     dataSource={templates}
                                     rowKey="id"
                                     loading={loading}
-                                    scroll={{ x: 800 }}
-                                    pagination={templatePagination}
+                                    scroll={{ x: 800, y: 'calc(100vh - 380px)' }}
+                                    pagination={{
+                                        ...templatePagination,
+                                        showSizeChanger: true,
+                                        pageSizeOptions: ['10', '20', '50', '100'],
+                                        showTotal: (total, range) => <b>Total Rows: {total} | Rows: {range[0]} - {range[1]}</b>
+                                    }}
                                     onChange={(p) => setTemplatePagination(prev => ({
                                         ...prev,
                                         current: p.current || 1,
                                         pageSize: p.pageSize || 10
                                     }))}
+                                    style={{ border: '1px solid #f0f0f0', borderRadius: 8 }}
                                 />
                             </Card>
                         )
@@ -390,13 +396,19 @@ const WorkMaster = () => {
                                     dataSource={workItemTypes}
                                     rowKey="id"
                                     loading={loading}
-                                    scroll={{ x: 1000 }}
-                                    pagination={typePagination}
+                                    scroll={{ x: 1000, y: 'calc(100vh - 380px)' }}
+                                    pagination={{
+                                        ...typePagination,
+                                        showSizeChanger: true,
+                                        pageSizeOptions: ['10', '20', '50', '100'],
+                                        showTotal: (total, range) => <b>Total Rows: {total} | Rows: {range[0]} - {range[1]}</b>
+                                    }}
                                     onChange={(p) => setTypePagination(prev => ({
                                         ...prev,
                                         current: p.current || 1,
                                         pageSize: p.pageSize || 10
                                     }))}
+                                    style={{ border: '1px solid #f0f0f0', borderRadius: 8 }}
                                 />
                             </Card>
                         )

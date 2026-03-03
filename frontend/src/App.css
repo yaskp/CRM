@@ -11,7 +11,54 @@
 /* Mobile responsive */
 @media (max-width: 768px) {
   .content-container {
-    padding: 16px;
+}
+
+/* ==========================================================
+ * Global Responsive Data Grids
+ * Forces all Ant Design tables to be strictly viewport-bound 
+ * with horizontal & vertical scrolling and sticky headers.
+ * This ensures no data grid ever breaks the screen layout.
+ * ========================================================== */
+
+.ant-table-wrapper {
+  max-width: 100%;
+  width: 100%;
+}
+
+.ant-table-content {
+  overflow-x: auto !important;
+  max-height: calc(100vh - 350px) !important;
+  overflow-y: auto !important;
+  /* For smooth scrolling on mobile */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Keep headers fixed to the top while scrolling vertically */
+.ant-table-thead > tr > th {
+  position: sticky !important;
+  top: 0;
+  z-index: 10;
+  /* Ant Design normally handles this via React props, so we enforce it via CSS globally */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03); 
+}
+
+/* Ensure pagination and search areas stay fixed at the bottom/top */
+.ant-table-pagination {
+  margin: 16px 0 0 0 !important;
+  padding: 8px 16px !important;
+  background-color: var(--ant-color-bg-container);
+  border-top: 1px solid var(--ant-color-border-secondary);
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex !important;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .ant-table-content {
+      max-height: calc(100vh - 280px) !important;
   }
 }
 

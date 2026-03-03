@@ -203,12 +203,19 @@ const WorkMaster = () => {
         { title: 'Name', dataIndex: 'name', key: 'name', sorter: (a: any, b: any) => a.name.localeCompare(b.name) },
         { title: 'Code', dataIndex: 'code', key: 'code', render: (text: string) => text ? <Tag>{text}</Tag> : '-' },
         {
-            title: 'Sub-Category Of',
+            title: 'Primary Work Type',
             dataIndex: 'parent_id',
             key: 'parent_id',
+            width: '30%',
             render: (parentId: number) => {
                 const parent = allWorkItemTypes.find(t => t.id === parentId);
-                return parent ? <Tag color="blue">{parent.name}</Tag> : <span style={{ color: '#8c8c8c' }}>Primary Category</span>
+                return parent ? (
+                    <Tag color="blue" style={{ whiteSpace: 'normal', height: 'auto', padding: '4px 8px' }}>
+                        {parent.name}
+                    </Tag>
+                ) : (
+                    <span style={{ color: '#8c8c8c' }}>Primary Work Type</span>
+                );
             }
         },
         { title: 'UOM', dataIndex: 'uom', key: 'uom' },
@@ -510,8 +517,8 @@ const WorkMaster = () => {
 
                     <Form.Item name="category_level" label="Item Level" initialValue="primary" rules={[{ required: true }]}>
                         <Radio.Group buttonStyle="solid">
-                            <Radio.Button value="primary">Primary Category</Radio.Button>
-                            <Radio.Button value="sub">Sub-Category</Radio.Button>
+                            <Radio.Button value="primary">Primary Work Type</Radio.Button>
+                            <Radio.Button value="sub">Sub Work Type</Radio.Button>
                         </Radio.Group>
                     </Form.Item>
 
@@ -523,11 +530,11 @@ const WorkMaster = () => {
                             getFieldValue('category_level') === 'sub' ? (
                                 <Form.Item
                                     name="parent_id"
-                                    label="Parent Category"
-                                    rules={[{ required: true, message: 'Please select a parent category' }]}
-                                    extra={<span style={{ fontSize: 12, color: '#8c8c8c' }}>Required for Sub-Categories. Select the main class.</span>}
+                                    label="Primary Work Type"
+                                    rules={[{ required: true, message: 'Please select a primary work type' }]}
+                                    extra={<span style={{ fontSize: 12, color: '#8c8c8c' }}>Required for Sub Work Types. Select the main class.</span>}
                                 >
-                                    <Select placeholder="Select Parent Category" showSearch optionFilterProp="children" allowClear>
+                                    <Select placeholder="Select Primary Work Type" showSearch optionFilterProp="children" allowClear>
                                         {allWorkItemTypes.filter(t => !t.parent_id && t.id !== editingType?.id).map((t: any) => (
                                             <Select.Option key={t.id} value={t.id}>{t.name}</Select.Option>
                                         ))}
@@ -558,14 +565,14 @@ const WorkMaster = () => {
                 columns={[
                     { title: 'Name', dataIndex: 'name', key: 'name', required: true },
                     { title: 'Code', dataIndex: 'code', key: 'code' },
-                    { title: 'Parent Category', dataIndex: 'parent_category', key: 'parent_category' },
+                    { title: 'Primary Work Type', dataIndex: 'parent_category', key: 'parent_category' },
                     { title: 'UOM', dataIndex: 'uom', key: 'uom', required: true },
                     { title: 'Description', dataIndex: 'description', key: 'description' },
                 ]}
                 templateData={[
-                    { name: 'Diaphragm Wall', code: 'DW', parent_category: '', uom: 'SQM', description: 'Primary Category (Leave Blank)' },
-                    { name: 'Guide Wall', code: 'GW', parent_category: 'Diaphragm Wall', uom: 'RMT', description: 'Sub-Category (Provide exact Name of Parent)' },
-                    { name: 'D-Wall Excavation', code: 'DWE', parent_category: 'Diaphragm Wall', uom: 'SQM', description: 'Sub-Category (Provide exact Name of Parent)' },
+                    { name: 'Diaphragm Wall', code: 'DW', parent_category: '', uom: 'SQM', description: 'Primary Work Type (Leave Blank)' },
+                    { name: 'Guide Wall', code: 'GW', parent_category: 'Diaphragm Wall', uom: 'RMT', description: 'Sub Work Type (Provide exact Name of Primary)' },
+                    { name: 'D-Wall Excavation', code: 'DWE', parent_category: 'Diaphragm Wall', uom: 'SQM', description: 'Sub Work Type (Provide exact Name of Primary)' },
                 ]}
             />
         </PageContainer>

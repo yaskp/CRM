@@ -297,7 +297,7 @@ const WorkMaster = () => {
                 subtitle="Manage standardized work items and multi-item templates for Quotations"
                 icon={<LayoutOutlined />}
                 extra={
-                    <Space>
+                    <Space wrap>
                         {activeTab === 'items' && (
                             <Button
                                 icon={<UploadOutlined />}
@@ -357,6 +357,7 @@ const WorkMaster = () => {
                                     dataSource={templates}
                                     rowKey="id"
                                     loading={loading}
+                                    scroll={{ x: 800 }}
                                     pagination={templatePagination}
                                     onChange={(p) => setTemplatePagination(prev => ({
                                         ...prev,
@@ -389,6 +390,7 @@ const WorkMaster = () => {
                                     dataSource={workItemTypes}
                                     rowKey="id"
                                     loading={loading}
+                                    scroll={{ x: 1000 }}
                                     pagination={typePagination}
                                     onChange={(p) => setTypePagination(prev => ({
                                         ...prev,
@@ -409,29 +411,30 @@ const WorkMaster = () => {
                 onOk={handleSaveTemplate}
                 onCancel={() => setIsTemplateModalVisible(false)}
                 width={900}
+                style={{ top: 20, maxWidth: '98vw' }}
                 centered
             >
                 <Form form={templateForm} layout="vertical">
                     <Row gutter={16}>
-                        <Col span={12}><Form.Item name="name" label="Template Name" rules={[{ required: true }]}><Input placeholder="e.g. D-Wall Package" /></Form.Item></Col>
-                        <Col span={12}>
+                        <Col xs={24} md={12}><Form.Item name="name" label="Template Name" rules={[{ required: true }]}><Input placeholder="e.g. D-Wall Package" /></Form.Item></Col>
+                        <Col xs={24} md={12}>
                             <Form.Item name="is_active" label="Status" initialValue={true}>
                                 <Select options={[{ label: 'Active', value: true }, { label: 'Inactive', value: false }]} />
                             </Form.Item>
                         </Col>
                     </Row>
                     <Row gutter={16}>
-                        <Col span={24}><Form.Item name="description" label="Description"><Input placeholder="Brief purpose" /></Form.Item></Col>
+                        <Col xs={24}><Form.Item name="description" label="Description"><Input placeholder="Brief purpose" /></Form.Item></Col>
                     </Row>
                     <Divider orientation="left">Template Components</Divider>
                     <Form.List name="items">
                         {(fields, { add, remove }) => (
                             <>
                                 {fields.map(({ key, name, ...restField }) => (
-                                    <div key={key} style={{ background: '#fafafa', padding: 12, borderRadius: 8, marginBottom: 12, border: '1px solid #f0f0f0' }}>
-                                        <Row gutter={12}>
-                                            <Col span={6}>
-                                                <Form.Item {...restField} name={[name, 'parent_work_item_type_id']} rules={[{ required: true }]} label={<span style={{ fontSize: 12 }}>Main Work Type</span>}>
+                                    <div key={key} style={{ background: '#fafafa', padding: 12, borderRadius: 8, marginBottom: 16, border: '1px solid #f0f0f0' }}>
+                                        <Row gutter={[12, 12]}>
+                                            <Col xs={24} md={6}>
+                                                <Form.Item {...restField} name={[name, 'parent_work_item_type_id']} rules={[{ required: true }]} label={<span style={{ fontSize: 12 }}>Main Work Type</span>} style={{ marginBottom: 0 }}>
                                                     <Select placeholder="Category" showSearch optionFilterProp="children" onChange={() => {
                                                         const currentItems = templateForm.getFieldValue('items');
                                                         currentItems[name].work_item_type_id = undefined;
@@ -441,7 +444,7 @@ const WorkMaster = () => {
                                                     </Select>
                                                 </Form.Item>
                                             </Col>
-                                            <Col span={6}>
+                                            <Col xs={24} md={6}>
                                                 <Form.Item
                                                     noStyle
                                                     shouldUpdate={(prevValues, currentValues) => {
@@ -457,7 +460,7 @@ const WorkMaster = () => {
                                                             : allWorkItemTypes.filter((t: any) => t.parent_id);
 
                                                         return (
-                                                            <Form.Item {...restField} name={[name, 'work_item_type_id']} rules={[{ required: true }]} label={<span style={{ fontSize: 12 }}>Sub Work Type / Spec</span>}>
+                                                            <Form.Item {...restField} name={[name, 'work_item_type_id']} rules={[{ required: true }]} label={<span style={{ fontSize: 12 }}>Sub Work Type / Spec</span>} style={{ marginBottom: 0 }}>
                                                                 <Select placeholder="Specification" showSearch optionFilterProp="children" onChange={(val) => {
                                                                     const type = allWorkItemTypes.find(t => t.id === val);
                                                                     if (type) {
@@ -480,20 +483,28 @@ const WorkMaster = () => {
                                                     }}
                                                 </Form.Item>
                                             </Col>
-                                            <Col span={5}>
-                                                <Form.Item {...restField} name={[name, 'item_type']} initialValue="labour" label={<span style={{ fontSize: 12 }}>Category</span>}>
+                                            <Col xs={24} md={5}>
+                                                <Form.Item {...restField} name={[name, 'item_type']} initialValue="labour" label={<span style={{ fontSize: 12 }}>Category</span>} style={{ marginBottom: 0 }}>
                                                     <Select><Select.Option value="labour">Labour</Select.Option><Select.Option value="contract">Contract</Select.Option><Select.Option value="material">Material</Select.Option></Select>
                                                 </Form.Item>
                                             </Col>
-                                            <Col span={4}>
-                                                <Form.Item {...restField} name={[name, 'unit']} label={<span style={{ fontSize: 12 }}>Unit</span>}>
+                                            <Col xs={20} md={4}>
+                                                <Form.Item {...restField} name={[name, 'unit']} label={<span style={{ fontSize: 12 }}>Unit</span>} style={{ marginBottom: 0 }}>
                                                     <Select placeholder="Unit" showSearch optionFilterProp="children">{units.map((u: any) => <Select.Option key={u.id} value={u.code}>{u.code}</Select.Option>)}</Select>
                                                 </Form.Item>
                                             </Col>
-                                            <Col span={3} style={{ textAlign: 'right', paddingTop: 32 }}><DeleteOutlined onClick={() => remove(name)} style={{ color: 'red' }} /></Col>
+                                            <Col xs={4} md={3} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingTop: 28 }}>
+                                                <Tooltip title="Remove Item">
+                                                    <Button type="text" danger icon={<DeleteOutlined />} onClick={() => remove(name)} />
+                                                </Tooltip>
+                                            </Col>
                                         </Row>
-                                        <Row gutter={12}>
-                                            <Col span={24}><Form.Item {...restField} name={[name, 'description']} label={<span style={{ fontSize: 12 }}>Custom Description / Spec for this Template</span>} style={{ marginBottom: 0 }}><Input placeholder="Specific details for this template" /></Form.Item></Col>
+                                        <Row gutter={12} style={{ marginTop: 12 }}>
+                                            <Col span={24}>
+                                                <Form.Item {...restField} name={[name, 'description']} label={<span style={{ fontSize: 12 }}>Custom Description / Spec for this Template</span>} style={{ marginBottom: 0 }}>
+                                                    <Input placeholder="Specific details for this template" />
+                                                </Form.Item>
+                                            </Col>
                                         </Row>
                                     </div>
                                 ))}

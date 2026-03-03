@@ -558,14 +558,14 @@ const WorkMaster = () => {
                 columns={[
                     { title: 'Name', dataIndex: 'name', key: 'name', required: true },
                     { title: 'Code', dataIndex: 'code', key: 'code' },
-                    { title: 'Parent Category ID', dataIndex: 'parent_id', key: 'parent_id' },
+                    { title: 'Parent Category', dataIndex: 'parent_category', key: 'parent_category' },
                     { title: 'UOM', dataIndex: 'uom', key: 'uom', required: true },
                     { title: 'Description', dataIndex: 'description', key: 'description' },
                 ]}
                 templateData={[
-                    { name: 'Diaphragm Wall', code: 'DW', parent_id: '', uom: 'SQM', description: 'Primary Category (Leave Parent ID Blank)' },
-                    { name: 'Guide Wall', code: 'GW', parent_id: '1', uom: 'RMT', description: 'Sub-Category (Assign Parent ID = 1)' },
-                    { name: 'D-Wall Excavation', code: 'DWE', parent_id: '1', uom: 'SQM', description: 'Sub-Category (Assign Parent ID = 1)' },
+                    { name: 'Diaphragm Wall', code: 'DW', parent_category: '', uom: 'SQM', description: 'Primary Category (Leave Blank)' },
+                    { name: 'Guide Wall', code: 'GW', parent_category: 'Diaphragm Wall', uom: 'RMT', description: 'Sub-Category (Provide exact Name of Parent)' },
+                    { name: 'D-Wall Excavation', code: 'DWE', parent_category: 'Diaphragm Wall', uom: 'SQM', description: 'Sub-Category (Provide exact Name of Parent)' },
                 ]}
             />
         </PageContainer>

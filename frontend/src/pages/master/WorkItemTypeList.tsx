@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Input, Modal, Form, message, Popconfirm, Tag, Tooltip, Select, Space } from 'antd'
+import { Card, Table, Button, Input, Modal, Form, message, Popconfirm, Tag, Tooltip, Select, Space, Typography } from 'antd'
 import {
     PlusOutlined,
     EditOutlined,
@@ -15,6 +15,8 @@ import { theme } from '../../styles/theme'
 import CSVImportModal from '../../components/common/CSVImportModal'
 
 const { TextArea } = Input
+const { Text } = Typography
+
 
 const WorkItemTypeList = () => {
     const [loading, setLoading] = useState(false)
@@ -110,6 +112,15 @@ const WorkItemTypeList = () => {
             render: (text: string) => text ? <Tag>{text}</Tag> : '-'
         },
         {
+            title: 'Sub-Category Of',
+            dataIndex: 'parent_id',
+            key: 'parent_id',
+            render: (parentId: number) => {
+                const parent = types.find(t => t.id === parentId);
+                return parent ? <Tag color="blue">{parent.name}</Tag> : <Text type="secondary">Primary Category</Text>
+            }
+        },
+        {
             title: 'UOM',
             dataIndex: 'uom',
             key: 'uom',
@@ -157,13 +168,15 @@ const WorkItemTypeList = () => {
     const importColumns = [
         { title: 'Name', dataIndex: 'name', key: 'name', required: true },
         { title: 'Code', dataIndex: 'code', key: 'code' },
+        { title: 'Parent Category ID', dataIndex: 'parent_id', key: 'parent_id' },
         { title: 'UOM', dataIndex: 'uom', key: 'uom', required: true },
         { title: 'Description', dataIndex: 'description', key: 'description' },
     ]
 
     const templateData = [
-        { name: 'Guide Wall', code: 'GW', uom: 'RMT', description: 'Construction of guide wall' },
-        { name: 'D-Wall Excavation', code: 'DWE', uom: 'SQM', description: 'Excavation of diaphragm wall panels' },
+        { name: 'Diaphragm Wall', code: 'DW', parent_id: '', uom: 'SQM', description: 'Main category' },
+        { name: 'Guide Wall', code: 'GW', parent_id: '1', uom: 'RMT', description: 'Construction of guide wall' },
+        { name: 'D-Wall Excavation', code: 'DWE', parent_id: '1', uom: 'SQM', description: 'Excavation of diaphragm wall panels' },
     ]
 
     return (
@@ -232,6 +245,13 @@ const WorkItemTypeList = () => {
                         rules={[{ required: true, message: 'Please enter name' }]}
                     >
                         <Input placeholder="e.g. Guide Wall" />
+                    </Form.Item>
+                    <Form.Item name="parent_id" label="Parent Category (Optional)">
+                        <Select placeholder="Select Parent Category if sub-type" showSearch optionFilterProp="children" allowClear>
+                            {types.filter(t => !t.parent_id).map((t: any) => (
+                                <Select.Option key={t.id} value={t.id}>{t.name}</Select.Option>
+                            ))}
+                        </Select>
                     </Form.Item>
                     <Form.Item
                         name="code"

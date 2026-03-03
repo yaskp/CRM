@@ -85,6 +85,7 @@ const WorkTemplateList = () => {
             ...record,
             items: record.items?.map((it: any) => ({
                 work_item_type_id: it.work_item_type_id,
+                parent_work_item_type_id: it.parent_work_item_type_id,
                 item_type: it.item_type,
                 description: it.description,
                 unit: it.unit
@@ -253,49 +254,91 @@ const WorkTemplateList = () => {
                                 {fields.map(({ key, name, ...restField }) => (
                                     <div key={key} style={{ background: '#fafafa', padding: 12, borderRadius: 8, marginBottom: 12, border: '1px solid #f0f0f0' }}>
                                         <Row gutter={12}>
-                                            <Col span={9}>
+                                            <Col span={6}>
                                                 <Form.Item
                                                     {...restField}
-                                                    name={[name, 'work_item_type_id']}
+                                                    name={[name, 'parent_work_item_type_id']}
                                                     rules={[{ required: true, message: 'Select type' }]}
-                                                    label={<span style={{ fontSize: 12 }}>Work Type</span>}
+                                                    label={<span style={{ fontSize: 12 }}>Main Work Type</span>}
                                                 >
                                                     <Select
-                                                        placeholder="Select Work Type"
+                                                        placeholder="Category"
                                                         showSearch
                                                         optionFilterProp="children"
-                                                        onChange={(val) => {
-                                                            const type = workItemTypes.find(t => t.id === val);
-                                                            if (type) {
-                                                                const currentItems = form.getFieldValue('items');
-                                                                currentItems[name].unit = type.uom;
-                                                                form.setFieldsValue({ items: currentItems });
-                                                            }
+                                                        onChange={() => {
+                                                            const currentItems = form.getFieldValue('items');
+                                                            currentItems[name].work_item_type_id = undefined;
+                                                            form.setFieldsValue({ items: currentItems });
                                                         }}
-                                                        popupRender={(menu) => (
-                                                            <>
-                                                                {menu}
-                                                                <Divider style={{ margin: '8px 0' }} />
-                                                                <Space style={{ padding: '0 8px 4px' }}>
-                                                                    <Button
-                                                                        type="text"
-                                                                        icon={<PlusOutlined />}
-                                                                        onClick={() => setIsItemTypeModalVisible(true)}
-                                                                        style={{ color: '#14b8a6' }}
-                                                                    >
-                                                                        New Type
-                                                                    </Button>
-                                                                </Space>
-                                                            </>
-                                                        )}
                                                     >
-                                                        {workItemTypes.map(t => (
-                                                            <Select.Option key={t.id} value={t.id}>{t.name} ({t.code})</Select.Option>
+                                                        {workItemTypes.filter(t => !t.parent_id).map(t => (
+                                                            <Select.Option key={t.id} value={t.id}>{t.name} ({t.code || '-'})</Select.Option>
                                                         ))}
                                                     </Select>
                                                 </Form.Item>
                                             </Col>
+
                                             <Col span={6}>
+                                                <Form.Item
+                                                    noStyle
+                                                    shouldUpdate={(prevValues, currentValues) => {
+                                                        const p1 = prevValues.items && prevValues.items[name]?.parent_work_item_type_id;
+                                                        const p2 = currentValues.items && currentValues.items[name]?.parent_work_item_type_id;
+                                                        return p1 !== p2;
+                                                    }}
+                                                >
+                                                    {({ getFieldValue }) => {
+                                                        const parentId = getFieldValue(['items', name, 'parent_work_item_type_id']);
+                                                        const filteredItems = parentId
+                                                            ? workItemTypes.filter((t: any) => t.parent_id === parentId || t.id === parentId)
+                                                            : workItemTypes.filter((t: any) => t.parent_id);
+
+                                                        return (
+                                                            <Form.Item
+                                                                {...restField}
+                                                                name={[name, 'work_item_type_id']}
+                                                                rules={[{ required: true, message: 'Select sub-type' }]}
+                                                                label={<span style={{ fontSize: 12 }}>Sub Work Type / Spec</span>}
+                                                            >
+                                                                <Select
+                                                                    placeholder="Specification"
+                                                                    showSearch
+                                                                    optionFilterProp="children"
+                                                                    onChange={(val) => {
+                                                                        const type = workItemTypes.find(t => t.id === val);
+                                                                        if (type) {
+                                                                            const currentItems = form.getFieldValue('items');
+                                                                            currentItems[name].unit = type.uom;
+                                                                            form.setFieldsValue({ items: currentItems });
+                                                                        }
+                                                                    }}
+                                                                    popupRender={(menu) => (
+                                                                        <>
+                                                                            {menu}
+                                                                            <Divider style={{ margin: '8px 0' }} />
+                                                                            <Space style={{ padding: '0 8px 4px' }}>
+                                                                                <Button
+                                                                                    type="text"
+                                                                                    icon={<PlusOutlined />}
+                                                                                    onClick={() => setIsItemTypeModalVisible(true)}
+                                                                                    style={{ color: '#14b8a6' }}
+                                                                                >
+                                                                                    New Type
+                                                                                </Button>
+                                                                            </Space>
+                                                                        </>
+                                                                    )}
+                                                                >
+                                                                    {filteredItems.map((t: any) => (
+                                                                        <Select.Option key={t.id} value={t.id}>{t.name} ({t.code || '-'})</Select.Option>
+                                                                    ))}
+                                                                </Select>
+                                                            </Form.Item>
+                                                        );
+                                                    }}
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={5}>
                                                 <Form.Item
                                                     {...restField}
                                                     name={[name, 'item_type']}
@@ -310,7 +353,7 @@ const WorkTemplateList = () => {
                                                     </Select>
                                                 </Form.Item>
                                             </Col>
-                                            <Col span={6}>
+                                            <Col span={4}>
                                                 <Form.Item
                                                     {...restField}
                                                     name={[name, 'unit']}
@@ -365,6 +408,13 @@ const WorkTemplateList = () => {
                         rules={[{ required: true, message: 'Please enter name' }]}
                     >
                         <Input placeholder="e.g. Guide Wall" />
+                    </Form.Item>
+                    <Form.Item name="parent_id" label="Parent Category (Optional)">
+                        <Select placeholder="Select Parent Category if sub-type" showSearch optionFilterProp="children" allowClear>
+                            {workItemTypes.filter(t => !t.parent_id).map(t => (
+                                <Select.Option key={t.id} value={t.id}>{t.name}</Select.Option>
+                            ))}
+                        </Select>
                     </Form.Item>
                     <Form.Item
                         name="code"

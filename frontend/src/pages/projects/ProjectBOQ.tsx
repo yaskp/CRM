@@ -262,7 +262,7 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                 updates.grabbing_qty = Number((L * D).toFixed(2))
                 updates.stop_end_area = Number((L * D).toFixed(2))
                 updates.guide_wall_rm = Number(L.toFixed(2))
-                updates.ramming_qty = Number((L * W).toFixed(2))
+                updates.ramming_qty = Number(D.toFixed(2))
             }
 
             await drawingService.bulkUpdatePanels(ids, updates)

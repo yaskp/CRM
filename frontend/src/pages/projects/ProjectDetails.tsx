@@ -596,7 +596,7 @@ const ProjectDetails = () => {
             label: (
               <span>
                 <TeamOutlined />
-                Team & Vendors
+                Project Team
               </span>
             ),
             children: (

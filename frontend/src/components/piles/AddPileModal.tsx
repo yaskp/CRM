@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Modal, Form, Row, Col, Input, Select, Statistic, Divider } from 'antd'
 import PileDiagram from './PileDiagram'
 import { theme } from '../../styles/theme'
@@ -42,13 +42,11 @@ const AddPileModal = ({ open, onCancel, onSubmit, loading }: AddPileModalProps) 
     const onFormValuesChange = (_changedValues: any, allValues: any) => {
         let Dia = Number(allValues.diameter || 0) / 1000 // mm to m
         let D = Number(allValues.design_depth || 0)
-        let Overbreak = 1 + (Number(allValues.overflow_pct || 0) / 100)
 
         const concreteBase = Number((Math.PI * Math.pow(Dia / 2, 2) * D).toFixed(3))
-        const concreteWithOverbreak = Number((concreteBase * Overbreak).toFixed(3))
 
         form.setFieldsValue({
-            concrete_design_qty: concreteWithOverbreak
+            concrete_design_qty: concreteBase
         })
 
         setCalculatedValues({
@@ -90,7 +88,6 @@ const AddPileModal = ({ open, onCancel, onSubmit, loading }: AddPileModalProps) 
                         initialValues={{
                             panel_identifier: 'PL-',
                             concrete_grade: 'M30',
-                            overflow_pct: 5,
                             diameter: 1000,
                             design_depth: 28,
                             rock_socket_depth: 1.5
@@ -142,11 +139,6 @@ const AddPileModal = ({ open, onCancel, onSubmit, loading }: AddPileModalProps) 
                                     <Input type="number" step="0.1" placeholder="1.5" />
                                 </Form.Item>
                             </Col>
-                            <Col span={6}>
-                                <Form.Item name="sbc_ton_sqm" label="SBC (kN/m²)">
-                                    <Input type="number" placeholder="350" />
-                                </Form.Item>
-                            </Col>
                         </Row>
 
                         <Row gutter={16}>
@@ -156,18 +148,13 @@ const AddPileModal = ({ open, onCancel, onSubmit, loading }: AddPileModalProps) 
                                 </Form.Item>
                             </Col>
                             <Col span={6}>
-                                <Form.Item name="bottom_rl" label="Toe Level (RL)">
+                                <Form.Item name="bottom_rl" label="Starting Level">
                                     <Input type="number" step="0.001" placeholder="Rock/Toe" />
                                 </Form.Item>
                             </Col>
                             <Col span={6}>
                                 <Form.Item name="reinforcement_ton" label="Steel Qty (Ton)">
                                     <Input type="number" step="0.001" placeholder="Cage Wt" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={6}>
-                                <Form.Item name="overflow_pct" label="Overbreak (%)">
-                                    <Input type="number" min={0} max={100} />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -184,7 +171,7 @@ const AddPileModal = ({ open, onCancel, onSubmit, loading }: AddPileModalProps) 
                                 />
                             </Col>
                             <Col span={12}>
-                                <Form.Item name="concrete_design_qty" label="Estimated Billing Quantity (m³)">
+                                <Form.Item name="concrete_design_qty" label="Estimated Concrete Quantity (m³)">
                                     <Input readOnly style={{ background: '#f6ffed', fontWeight: 'bold' }} />
                                 </Form.Item>
                             </Col>

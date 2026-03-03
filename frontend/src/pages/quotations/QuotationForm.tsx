@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Form, Input, Button, Card, Row, Col, Space, InputNumber, Table, DatePicker, Select, Typography, App, Tabs, Checkbox } from 'antd'
+import { Form, Input, Button, Card, Row, Col, Space, InputNumber, Table, DatePicker, Select, Typography, App, Checkbox } from 'antd'
 import { PlusOutlined, DeleteOutlined, SaveOutlined, ArrowLeftOutlined, CalculatorOutlined, UserOutlined, CalendarOutlined, ToolOutlined, ShoppingCartOutlined, LayoutOutlined } from '@ant-design/icons'
 import { quotationService } from '../../services/api/quotations'
 import { leadService } from '../../services/api/leads'
@@ -22,6 +22,7 @@ const QuotationForm = () => {
     const navigate = useNavigate()
     const { message } = App.useApp()
     const [form] = Form.useForm()
+    const quoteType = Form.useWatch('quote_type', form)
     const [loading, setLoading] = useState(false)
     const [leads, setLeads] = useState<any[]>([])
     const [branches, setBranches] = useState<any[]>([])
@@ -123,7 +124,9 @@ const QuotationForm = () => {
                 annexure_id: quote.annexure_id,
                 client_scope: quote.client_scope,
                 contractor_scope: quote.contractor_scope,
-                terms_conditions: quote.terms_conditions || ''
+                terms_conditions: quote.terms_conditions || '',
+                quote_type: quote.quote_type || 'with_material',
+                material_scope: quote.material_scope || 'full_supply'
             })
 
             // Set Selected Templates
@@ -198,14 +201,17 @@ const QuotationForm = () => {
         const afterDiscountRatio = (100 - discountPercent) / 100
 
         currentItems.forEach(it => {
-            const lineSubtotal = (it.quantity * it.rate || 0) * afterDiscountRatio
-            const breakup = calculateGSTBreakup(lineSubtotal, 0, currentGstType) // Set GST rate to 0% as requested
+            // Only sum up if NOT a reference only item
+            if (!it.is_reference_only) {
+                const lineSubtotal = (it.quantity * it.rate || 0) * afterDiscountRatio
+                const breakup = calculateGSTBreakup(lineSubtotal, 0, currentGstType)
 
-            subtotal += (it.quantity * it.rate || 0)
-            totalCGST += breakup.cgst_amount
-            totalSGST += breakup.sgst_amount
-            totalIGST += breakup.igst_amount
-            grandTotal += breakup.grand_total
+                subtotal += (it.quantity * it.rate || 0)
+                totalCGST += breakup.cgst_amount
+                totalSGST += breakup.sgst_amount
+                totalIGST += breakup.igst_amount
+                grandTotal += breakup.grand_total
+            }
         })
 
         setTotals({
@@ -244,7 +250,7 @@ const QuotationForm = () => {
         calculateTotals(newItems, form.getFieldValue('discount_percentage') || 0)
     }
 
-    const addItem = (type: string) => {
+    const addItem = (type: string, isReference: boolean = false) => {
         const newItem = {
             key: Date.now(),
             item_type: type,
@@ -252,7 +258,10 @@ const QuotationForm = () => {
             quantity: 1,
             unit: type === 'material' ? 'Nos' : (type === 'labour' ? 'Sqm' : 'LS'),
             rate: 0,
-            reference_id: null
+            reference_id: null,
+            is_reference_only: isReference,
+            work_item_type_id: null,
+            parent_work_item_type_id: null
         }
         setItems([...items, newItem])
     }
@@ -320,7 +329,7 @@ const QuotationForm = () => {
             const payload = {
                 ...values,
                 valid_until: values.valid_until ? values.valid_until.format('YYYY-MM-DD') : null,
-                items: items.map(({ description, quantity, unit, rate, amount, item_type, reference_id, work_item_type_id }) => ({
+                items: items.map(({ description, quantity, unit, rate, amount, item_type, reference_id, work_item_type_id, is_reference_only, parent_work_item_type_id }) => ({
                     description,
                     quantity,
                     unit: (Array.isArray(unit) ? unit[0] : unit) || 'LS',
@@ -328,7 +337,9 @@ const QuotationForm = () => {
                     amount,
                     item_type,
                     reference_id,
-                    work_item_type_id
+                    work_item_type_id,
+                    is_reference_only: is_reference_only || false,
+                    parent_work_item_type_id
                 })),
                 scope_matrix: scopeMatrix,
                 total_amount: totals.subtotal,
@@ -355,64 +366,96 @@ const QuotationForm = () => {
         }
     }
 
-    const materialItems = items.filter(it => it.item_type === 'material')
-    const labourItems = items.filter(it => it.item_type === 'labour')
-    const contractItems = items.filter(it => it.item_type === 'contract')
+    const referenceMaterialItems = items.filter(it => it.item_type === 'material' && it.is_reference_only)
+    const workEstimateItems = items.filter(it => ['labour', 'contract'].includes(it.item_type))
 
     const getItemColumns = (itemType: string) => [
-        {
-            title: 'Work Type',
-            key: 'work_item_type_id',
-            width: 280,
-            render: (_: any, record: any) => (
-                <Select
-                    showSearch
-                    placeholder="Select Type"
-                    value={record.work_item_type_id}
-                    onChange={v => handleItemChange(record.key, 'work_item_type_id', v)}
-                    style={{ width: '100%', height: 'auto' }}
-                    variant="borderless"
-                    popupMatchSelectWidth={false}
-                    optionFilterProp="label"
-                >
-                    {workItemTypes.map(t => (
-                        <Option key={t.id} value={t.id} label={t.name}>
-                            <div style={{ whiteSpace: 'normal', wordBreak: 'break-word', padding: '4px 0' }}>
+        ...(itemType !== 'material' ? [
+            {
+                title: 'Work Type', // Main Category
+                key: 'parent_work_item_type_id',
+                width: 200,
+                render: (_: any, record: any) => (
+                    <Select
+                        showSearch
+                        placeholder="Select Main Type"
+                        value={record.parent_work_item_type_id}
+                        onChange={v => {
+                            handleItemChange(record.key, 'parent_work_item_type_id', v)
+                            handleItemChange(record.key, 'work_item_type_id', null) // Reset sub-type
+                        }}
+                        style={{ width: '100%' }}
+                        variant="borderless"
+                        optionFilterProp="label"
+                    >
+                        {workItemTypes.filter(t => !t.parent_id).map(t => (
+                            <Option key={t.id} value={t.id} label={t.name}>
                                 {t.name}
-                            </div>
-                        </Option>
-                    ))}
-                </Select>
-            )
-        },
-        ...(itemType === 'material' ? [{
-            title: 'Material',
-            key: 'material',
-            width: 250,
-            render: (_: any, record: any) => (
-                <Select
-                    showSearch
-                    placeholder="Select Material"
-                    value={record.reference_id}
-                    onChange={v => handleItemChange(record.key, 'reference_id', v)}
-                    style={{ width: '100%' }}
-                    optionFilterProp="children"
-                >
-                    {materials.map(m => (
-                        <Option key={m.id} value={m.id}>
-                            {m.name} ({m.material_code})
-                        </Option>
-                    ))}
-                </Select>
-            )
-        }] : []),
+                            </Option>
+                        ))}
+                    </Select>
+                )
+            },
+            {
+                title: 'Sub-Work Type', // Specific Work
+                key: 'work_item_type_id',
+                width: 200,
+                render: (_: any, record: any) => (
+                    <Select
+                        showSearch
+                        placeholder="Select Sub Type"
+                        value={record.work_item_type_id}
+                        onChange={v => {
+                            handleItemChange(record.key, 'work_item_type_id', v)
+                            // Auto-fill description if empty and not material
+                            if (!record.description && record.item_type !== 'material') {
+                                const found = workItemTypes.find(t => t.id === v)
+                                if (found) handleItemChange(record.key, 'description', found.name)
+                            }
+                        }}
+                        style={{ width: '100%' }}
+                        variant="borderless"
+                        optionFilterProp="label"
+                        disabled={!record.parent_work_item_type_id}
+                    >
+                        {workItemTypes.filter(t => t.parent_id === record.parent_work_item_type_id).map(t => (
+                            <Option key={t.id} value={t.id} label={t.name}>
+                                {t.name}
+                            </Option>
+                        ))}
+                    </Select>
+                )
+            }
+        ] : [
+            {
+                title: 'Material',
+                key: 'material',
+                width: 250,
+                render: (_: any, record: any) => (
+                    <Select
+                        showSearch
+                        placeholder="Select Material"
+                        value={record.reference_id}
+                        onChange={v => handleItemChange(record.key, 'reference_id', v)}
+                        style={{ width: '100%' }}
+                        optionFilterProp="children"
+                    >
+                        {materials.map(m => (
+                            <Option key={m.id} value={m.id}>
+                                {m.name} ({m.material_code})
+                            </Option>
+                        ))}
+                    </Select>
+                )
+            }
+        ]),
         {
             title: 'Description',
             dataIndex: 'description',
             key: 'description',
             render: (text: string, record: any) => (
                 <Input.TextArea
-                    placeholder={itemType === 'material' ? 'Auto-filled from material' : 'Enter work description'}
+                    placeholder={record.item_type === 'material' ? 'Auto-filled from material' : 'Enter work description'}
                     value={text}
                     onChange={e => handleItemChange(record.key, 'description', e.target.value)}
                     autoSize={{ minRows: 1, maxRows: 6 }}
@@ -481,7 +524,9 @@ const QuotationForm = () => {
             width: 150,
             align: 'right' as const,
             render: (_: any, record: any) => (
-                <Text strong style={{ color: '#1890ff' }}>₹{(record.quantity * record.rate || 0).toLocaleString('en-IN')}</Text>
+                <Text strong style={{ color: record.is_reference_only ? '#8c8c8c' : '#1890ff' }}>
+                    {record.is_reference_only ? '(Ref) ' : ''}₹{(record.quantity * record.rate || 0).toLocaleString('en-IN')}
+                </Text>
             )
         },
         {
@@ -627,35 +672,26 @@ const QuotationForm = () => {
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={6}>
                             <Form.Item
                                 name="billing_unit_id"
-                                label="Billing From (VHSHRI Unit)"
+                                label="Billing Unit"
                             >
                                 <Select
                                     size="large"
                                     showSearch
                                     optionFilterProp="children"
-                                    placeholder="Select Branch/Unit"
-                                    onChange={(val) => {
-                                        const branch = branches.find(b => b.id === val)
-                                        if (selectedLead?.client?.gstin && branch) {
-                                            const detected = detectGSTType(branch.state_code, selectedLead.client.gstin.substring(0, 2))
-                                            setGstType(detected)
-                                            form.setFieldsValue({ gst_type: detected })
-                                            calculateTotals(items, form.getFieldValue('discount_percentage'), detected)
-                                        }
-                                    }}
+                                    placeholder="Select VHSHRI Unit"
                                 >
                                     {branches.map(b => (
                                         <Option key={b.id} value={b.id}>
-                                            {b.branch_name} ({b.state_code}) - GST: {b.gstin}
+                                            {b.branch_name}
                                         </Option>
                                     ))}
                                 </Select>
                             </Form.Item>
                         </Col>
-                        <Col span={8}>
+                        <Col span={6}>
                             <Form.Item name="valid_until" label="Valid Until">
                                 <DatePicker
                                     style={{ width: '100%' }}
@@ -664,7 +700,35 @@ const QuotationForm = () => {
                                 />
                             </Form.Item>
                         </Col>
-                        {/* GST Treatment Hidden as per user request */}
+                        <Col span={6}>
+                            <Form.Item
+                                name="quote_type"
+                                label="Quotation Type"
+                                rules={[{ required: true }]}
+                            >
+                                <Select size="large">
+                                    <Option value="with_material">With Material (Turnkey)</Option>
+                                    <Option value="labour_only">Without Material (Labour Only)</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={24}>
+                        <Col span={6}>
+                            <Form.Item
+                                name="material_scope"
+                                label="Material Scope"
+                            >
+                                <Select size="large">
+                                    <Option value="full_supply">Full Material Supply (VHSHRI)</Option>
+                                    <Option value="client_supply">Client Supply (Labour Only)</Option>
+                                    <Option value="partial">Partial Supply</Option>
+                                </Select>
+                            </Form.Item>
+                        </Col>
+                        <Col span={18}>
+                            {/* GST Treatment Hidden/Auto */}
+                        </Col>
                     </Row>
 
                 </Card>
@@ -692,7 +756,8 @@ const QuotationForm = () => {
                                         unit: it.unit || it.workItemType?.uom || 'Nos',
                                         rate: 0,
                                         item_type: it.item_type || 'labour',
-                                        work_item_type_id: it.work_item_type_id
+                                        work_item_type_id: it.work_item_type_id,
+                                        parent_work_item_type_id: it.parent_work_item_type_id || it.workItemType?.parent_id
                                     }));
 
                                     // Append template items to existing items
@@ -710,88 +775,20 @@ const QuotationForm = () => {
                     </Space>
                 </Card>
 
-                {/* LABOUR / CONTRACT WORK SECTION - Now before Materials */}
+                {/* WORK ESTIMATE SECTION - Merged Labour & Contract */}
                 <Card
                     variant="borderless"
                     style={{ marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: 12 }}
                     title={
                         <Space>
                             <ToolOutlined style={{ color: '#52c41a' }} />
-                            <Text strong>Labour & Contract Work</Text>
-                        </Space>
-                    }
-                >
-                    <Tabs
-                        defaultActiveKey="labour"
-                        items={[
-                            {
-                                key: 'labour',
-                                label: 'Labour Work',
-                                children: (
-                                    <>
-                                        <Table
-                                            columns={getItemColumns('labour')}
-                                            dataSource={labourItems}
-                                            pagination={false}
-                                            rowKey="key"
-                                            size="small"
-                                            scroll={{ x: 'max-content' }}
-                                        />
-                                        <Button
-                                            type="dashed"
-                                            block
-                                            icon={<PlusOutlined />}
-                                            onClick={() => addItem('labour')}
-                                            style={{ marginTop: 16, height: 40 }}
-                                        >
-                                            Add Extra Labour Row
-                                        </Button>
-                                    </>
-                                )
-                            },
-                            {
-                                key: 'contract',
-                                label: 'Contract Work',
-                                children: (
-                                    <>
-                                        <Table
-                                            columns={getItemColumns('contract')}
-                                            dataSource={contractItems}
-                                            pagination={false}
-                                            rowKey="key"
-                                            size="small"
-                                            scroll={{ x: 'max-content' }}
-                                        />
-                                        <Button
-                                            type="dashed"
-                                            block
-                                            icon={<PlusOutlined />}
-                                            onClick={() => addItem('contract')}
-                                            style={{ marginTop: 16, height: 40 }}
-                                        >
-                                            Add Extra Contract Row
-                                        </Button>
-                                    </>
-                                )
-                            }
-                        ]}
-                    />
-                </Card>
-
-                {/* MATERIAL COST SECTION - Now after Work sections */}
-                <Card
-                    variant="borderless"
-                    style={{ marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: 12 }}
-                    title={
-                        <Space>
-                            <ShoppingCartOutlined style={{ color: '#1890ff' }} />
-                            <Text strong>Material Cost (Estimate for Reference)</Text>
+                            <Text strong>Work Estimate (Labour & Contract)</Text>
                         </Space>
                     }
                 >
                     <Table
-                        columns={getItemColumns('material')}
-                        dataSource={materialItems}
+                        columns={getItemColumns('labour')}
+                        dataSource={workEstimateItems}
                         pagination={false}
                         rowKey="key"
                         size="small"
@@ -801,19 +798,52 @@ const QuotationForm = () => {
                         type="dashed"
                         block
                         icon={<PlusOutlined />}
-                        onClick={() => addItem('material')}
+                        onClick={() => addItem('labour')}
                         style={{ marginTop: 16, height: 40 }}
                     >
-                        Add Extra Material Row
+                        Add Work Row
                     </Button>
-                    {materialItems.length > 0 && (
-                        <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 8, textAlign: 'right' }}>
-                            <Text strong style={{ fontSize: 15 }}>
-                                Total Material Cost: ₹{materialItems.reduce((acc, it) => acc + (it.quantity * it.rate || 0), 0).toLocaleString('en-IN')}
-                            </Text>
-                        </div>
-                    )}
                 </Card>
+
+                {/* MATERIAL ESTIMATE - Conditional */}
+                {quoteType === 'labour_only' && (
+                    <Card
+                        variant="borderless"
+                        style={{ marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderRadius: 12 }}
+                        title={
+                            <Space>
+                                <ShoppingCartOutlined style={{ color: '#1890ff' }} />
+                                <Text strong>Material Cost (Estimate for Reference)</Text>
+                                <Text type="secondary" style={{ fontSize: 12, fontWeight: 'normal' }}>* Note: This amount is not included in the quotation total</Text>
+                            </Space>
+                        }
+                    >
+                        <Table
+                            columns={getItemColumns('material')}
+                            dataSource={referenceMaterialItems}
+                            pagination={false}
+                            rowKey="key"
+                            size="small"
+                            scroll={{ x: 'max-content' }}
+                        />
+                        <Button
+                            type="dashed"
+                            block
+                            icon={<PlusOutlined />}
+                            onClick={() => addItem('material', true)}
+                            style={{ marginTop: 16, height: 40 }}
+                        >
+                            Add Reference Material Row
+                        </Button>
+                        {referenceMaterialItems.length > 0 && (
+                            <div style={{ marginTop: 16, padding: 12, background: '#f5f5f5', borderRadius: 8, textAlign: 'right' }}>
+                                <Text strong style={{ fontSize: 15, color: '#8c8c8c' }}>
+                                    Total Reference Material Cost: ₹{referenceMaterialItems.reduce((acc, it) => acc + (it.quantity * it.rate || 0), 0).toLocaleString('en-IN')}
+                                </Text>
+                            </div>
+                        )}
+                    </Card>
+                )}
 
                 {/* SCOPE SECTIONS */}
                 <Card

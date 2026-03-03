@@ -401,7 +401,7 @@ const ProjectPiles = ({ projectId }: ProjectPilesProps) => {
                                 render: (v) => v || '0.00'
                             },
                             {
-                                title: 'Toe RL (m)',
+                                title: 'Starting Level',
                                 dataIndex: 'bottom_rl',
                                 key: 'bottom_rl',
                                 width: 110,
@@ -420,15 +420,6 @@ const ProjectPiles = ({ projectId }: ProjectPilesProps) => {
                                 key: 'concrete',
                                 width: 120,
                                 render: (v) => <Text strong type="success">{Number(v || 0).toFixed(3)}</Text>
-                            },
-                            {
-                                title: 'SBC (kN/m²)',
-                                key: 'sbc',
-                                width: 120,
-                                render: (_, record) => {
-                                    const extra = typeof record.coordinates_json === 'string' ? JSON.parse(record.coordinates_json) : (record.coordinates_json || {})
-                                    return extra.sbc_ton_sqm || 'N/A'
-                                }
                             },
                             {
                                 title: 'Execution Status',

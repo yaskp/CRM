@@ -104,6 +104,7 @@ interface PanelWorkLog {
     concrete_end_time?: string
     concrete_grade?: string
     theoretical_concrete_qty?: number
+    actual_concrete_qty?: number
     cage_id_ref?: string
 }
 
@@ -1038,7 +1039,7 @@ const UnifiedDailyReport = () => {
                 dataIndex: 'issued_quantity',
                 width: '12%',
                 render: (val: any, _: any, index: number) => (
-                    <InputNumber min={0} style={{ width: '100%' }} value={val} onChange={v => updateItem(index, 'issued_quantity', v)} size="small" />
+                    <InputNumber min={0} precision={3} step={0.001} style={{ width: '100%' }} value={val} onChange={v => updateItem(index, 'issued_quantity', v)} size="small" />
                 )
             },
             {
@@ -1046,7 +1047,7 @@ const UnifiedDailyReport = () => {
                 dataIndex: 'returned_quantity',
                 width: '12%',
                 render: (val: any, _: any, index: number) => (
-                    <InputNumber min={0} style={{ width: '100%' }} value={val} onChange={v => updateItem(index, 'returned_quantity', v)} size="small" />
+                    <InputNumber min={0} precision={3} step={0.001} style={{ width: '100%' }} value={val} onChange={v => updateItem(index, 'returned_quantity', v)} size="small" />
                 )
             }
         ] : []),
@@ -1058,7 +1059,7 @@ const UnifiedDailyReport = () => {
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     {detailedMode ? <Tag color="blue">{val || 0}</Tag> :
                         <Space.Compact style={{ width: '100%' }}>
-                            <InputNumber min={0} style={{ width: '70%' }} value={val} onChange={v => updateItem(index, 'quantity', v)} size="small" />
+                            <InputNumber min={0} precision={3} step={0.001} style={{ width: '70%' }} value={val} onChange={v => updateItem(index, 'quantity', v)} size="small" />
                             <Input style={{ width: '30%' }} value={record.unit || ''} disabled size="small" />
                         </Space.Compact>
                     }
@@ -1075,7 +1076,7 @@ const UnifiedDailyReport = () => {
             dataIndex: 'wastage',
             width: '12%',
             render: (val: any, _: any, index: number) => (
-                <InputNumber min={0} style={{ width: '100%' }} value={val} onChange={v => updateItem(index, 'wastage', v)} size="small" />
+                <InputNumber min={0} precision={3} step={0.001} style={{ width: '100%' }} value={val} onChange={v => updateItem(index, 'wastage', v)} size="small" />
             )
         },
         {
@@ -1084,7 +1085,7 @@ const UnifiedDailyReport = () => {
             width: '20%',
             render: (val: any, record: any, index: number) => (
                 <Space.Compact style={{ width: '100%' }}>
-                    <InputNumber min={0} style={{ width: '70%' }} value={val} onChange={v => updateItem(index, 'work_done_quantity', v)} size="small" />
+                    <InputNumber min={0} precision={3} step={0.001} style={{ width: '70%' }} value={val} onChange={v => updateItem(index, 'work_done_quantity', v)} size="small" />
                     <Input style={{ width: '30%' }} value={selectedWorkType?.uom || record.unit || 'm'} disabled size="small" />
                 </Space.Compact>
             )
@@ -1128,14 +1129,14 @@ const UnifiedDailyReport = () => {
             title: 'Qty (cum)',
             dataIndex: 'quantity',
             render: (val: any, _: any, index: number) => (
-                <InputNumber min={0} value={val} onChange={v => updateRmcLog(index, 'quantity', v)} size="small" />
+                <InputNumber min={0} precision={3} step={0.001} value={val} onChange={v => updateRmcLog(index, 'quantity', v)} size="small" />
             )
         },
         {
             title: 'Slump',
             dataIndex: 'slump',
             render: (val: any, _: any, index: number) => (
-                <InputNumber min={0} value={val} onChange={v => updateRmcLog(index, 'slump', v)} size="small" />
+                <InputNumber min={0} precision={1} step={0.5} value={val} onChange={v => updateRmcLog(index, 'slump', v)} size="small" />
             )
         },
         {
@@ -1207,6 +1208,8 @@ const UnifiedDailyReport = () => {
             render: (val: any, _: any, index: number) => (
                 <InputNumber
                     min={0}
+                    precision={3}
+                    step={0.001}
                     value={val}
                     onChange={v => updatePanelWorkLog(index, 'grabbing_depth', v)}
                     size="small"
@@ -1222,7 +1225,8 @@ const UnifiedDailyReport = () => {
             width: '10%',
             render: (val: any) => (
                 <InputNumber
-                    value={val?.toFixed(2)}
+                    value={val?.toFixed ? val : undefined}
+                    precision={3}
                     size="small"
                     style={{ width: '100%' }}
                     disabled
@@ -1230,7 +1234,7 @@ const UnifiedDailyReport = () => {
             )
         },
         {
-            title: 'Grab Start',
+            title: 'Grabbing Start Time',
             dataIndex: 'grabbing_start_time',
             width: '10%',
             render: (val: any, _: any, index: number) => (
@@ -1244,7 +1248,7 @@ const UnifiedDailyReport = () => {
             )
         },
         {
-            title: 'Grab End',
+            title: 'Grabbing End Time',
             dataIndex: 'grabbing_end_time',
             width: '10%',
             render: (val: any, _: any, index: number) => (
@@ -1258,7 +1262,7 @@ const UnifiedDailyReport = () => {
             )
         },
         {
-            title: 'Conc Start',
+            title: 'Concrete Start Time',
             dataIndex: 'concrete_start_time',
             width: '10%',
             render: (val: any, _: any, index: number) => (
@@ -1272,7 +1276,7 @@ const UnifiedDailyReport = () => {
             )
         },
         {
-            title: 'Conc End',
+            title: 'Concrete End Time',
             dataIndex: 'concrete_end_time',
             width: '10%',
             render: (val: any, _: any, index: number) => (
@@ -1290,36 +1294,56 @@ const UnifiedDailyReport = () => {
             dataIndex: 'concrete_grade',
             width: '8%',
             render: (val: any, _: any, index: number) => (
-                <AutoComplete
+                <Select
                     value={val}
                     onChange={v => updatePanelWorkLog(index, 'concrete_grade', v)}
                     size="small"
                     style={{ width: '100%' }}
-                    options={[
-                        { value: 'M20' },
-                        { value: 'M25' },
-                        { value: 'M30' },
-                        { value: 'M35' },
-                        { value: 'M40' },
-                        { value: 'M50' },
-                    ]}
                     placeholder="M25"
+                    showSearch
+                    optionFilterProp="label"
+                    options={[
+                        { value: 'M20', label: 'M20' },
+                        { value: 'M25', label: 'M25' },
+                        { value: 'M30', label: 'M30' },
+                        { value: 'M35', label: 'M35' },
+                        { value: 'M40', label: 'M40' },
+                        { value: 'M45', label: 'M45' },
+                        { value: 'M50', label: 'M50' },
+                    ]}
                 />
             )
         },
         {
-            title: 'Concrete Qty',
+            title: 'Concrete Qty (Theoretical)',
             dataIndex: 'theoretical_concrete_qty',
             width: '8%',
+            render: (val: any) => (
+                <InputNumber
+                    min={0}
+                    precision={3}
+                    value={val}
+                    size="small"
+                    style={{ width: '100%', background: '#f0f9ff' }}
+                    placeholder="Auto"
+                    disabled
+                />
+            )
+        },
+        {
+            title: 'Actual Concrete Qty (Site)',
+            dataIndex: 'actual_concrete_qty',
+            width: '9%',
             render: (val: any, _: any, index: number) => (
                 <InputNumber
                     min={0}
+                    precision={3}
+                    step={0.001}
                     value={val}
-                    onChange={v => updatePanelWorkLog(index, 'theoretical_concrete_qty', v)}
+                    onChange={v => updatePanelWorkLog(index, 'actual_concrete_qty', v)}
                     size="small"
-                    style={{ width: '100%', background: '#f5f5f5' }}
-                    placeholder="Auto"
-                    disabled
+                    style={{ width: '100%', background: '#f6ffed', borderColor: '#52c41a' }}
+                    placeholder="Enter actual"
                 />
             )
         },
@@ -1369,11 +1393,13 @@ const UnifiedDailyReport = () => {
             render: (val: any, _: any, index: number) => (
                 <InputNumber
                     min={0}
+                    precision={3}
+                    step={0.001}
                     value={val}
                     onChange={v => updatePileWorkLog(index, 'achieved_depth', v)}
                     size="small"
                     style={{ width: '100%' }}
-                    placeholder="28.00"
+                    placeholder="28.000"
                 />
             )
         },
@@ -1384,11 +1410,13 @@ const UnifiedDailyReport = () => {
             render: (val: any, _: any, index: number) => (
                 <InputNumber
                     min={0}
+                    precision={3}
+                    step={0.001}
                     value={val}
                     onChange={v => updatePileWorkLog(index, 'rock_socket_length', v)}
                     size="small"
                     style={{ width: '100%' }}
-                    placeholder="1.5"
+                    placeholder="1.500"
                 />
             )
         },
@@ -1421,12 +1449,13 @@ const UnifiedDailyReport = () => {
             )
         },
         {
-            title: 'Concrete Qty',
+            title: 'Concrete Qty (Theoretical)',
             dataIndex: 'concrete_poured',
             width: '10%',
             render: (val: any, _: any, index: number) => (
                 <InputNumber
                     min={0}
+                    precision={3}
                     value={val}
                     onChange={v => updatePileWorkLog(index, 'concrete_poured', v)}
                     size="small"
@@ -1437,17 +1466,36 @@ const UnifiedDailyReport = () => {
             )
         },
         {
+            title: 'Actual Concrete Qty (Site)',
+            dataIndex: 'actual_concrete_qty',
+            width: '10%',
+            render: (val: any, _: any, index: number) => (
+                <InputNumber
+                    min={0}
+                    precision={3}
+                    step={0.001}
+                    value={val}
+                    onChange={v => updatePileWorkLog(index, 'actual_concrete_qty', v)}
+                    size="small"
+                    style={{ width: '100%', background: '#f6ffed', borderColor: '#52c41a' }}
+                    placeholder="Enter actual"
+                />
+            )
+        },
+        {
             title: 'Steel (kg)',
             dataIndex: 'steel_installed',
             width: '10%',
             render: (val: any, _: any, index: number) => (
                 <InputNumber
                     min={0}
+                    precision={3}
+                    step={0.001}
                     value={val}
                     onChange={v => updatePileWorkLog(index, 'steel_installed', v)}
                     size="small"
                     style={{ width: '100%' }}
-                    placeholder="1200"
+                    placeholder="1200.000"
                 />
             )
         },
@@ -1456,18 +1504,23 @@ const UnifiedDailyReport = () => {
             dataIndex: 'concrete_grade',
             width: '8%',
             render: (val: any, _: any, index: number) => (
-                <AutoComplete
+                <Select
                     value={val}
                     onChange={v => updatePileWorkLog(index, 'concrete_grade', v)}
                     size="small"
                     style={{ width: '100%' }}
-                    options={[
-                        { value: 'M25' },
-                        { value: 'M30' },
-                        { value: 'M35' },
-                        { value: 'M40' },
-                    ]}
                     placeholder="M30"
+                    showSearch
+                    optionFilterProp="label"
+                    options={[
+                        { value: 'M20', label: 'M20' },
+                        { value: 'M25', label: 'M25' },
+                        { value: 'M30', label: 'M30' },
+                        { value: 'M35', label: 'M35' },
+                        { value: 'M40', label: 'M40' },
+                        { value: 'M45', label: 'M45' },
+                        { value: 'M50', label: 'M50' },
+                    ]}
                 />
             )
         },
@@ -2034,6 +2087,7 @@ const UnifiedDailyReport = () => {
                                                 render: (val, _, idx) => (
                                                     <InputNumber
                                                         min={0}
+                                                        precision={0}
                                                         value={val}
                                                         onChange={v => {
                                                             const realIdx = manpower.findIndex(m => m === manpower.filter(x => x.is_staff)[idx]);
@@ -2113,7 +2167,7 @@ const UnifiedDailyReport = () => {
                                                 dataIndex: 'count',
                                                 width: '100px',
                                                 render: (val, _, idx) => (
-                                                    <InputNumber min={0} value={val} onChange={v => updateMachinery(idx, 'count', v)} />
+                                                    <InputNumber min={0} precision={0} value={val} onChange={v => updateMachinery(idx, 'count', v)} />
                                                 )
                                             },
                                             {
@@ -2121,7 +2175,7 @@ const UnifiedDailyReport = () => {
                                                 dataIndex: 'hours',
                                                 width: '100px',
                                                 render: (val, _, idx) => (
-                                                    <InputNumber min={0} value={val} onChange={v => updateMachinery(idx, 'hours', v)} />
+                                                    <InputNumber min={0} precision={1} step={0.5} value={val} onChange={v => updateMachinery(idx, 'hours', v)} />
                                                 )
                                             },
                                             {
@@ -2193,6 +2247,7 @@ const UnifiedDailyReport = () => {
                                         render: (val, _, idx) => (
                                             <InputNumber
                                                 min={0}
+                                                precision={0}
                                                 style={{ width: '100%' }}
                                                 value={val}
                                                 onChange={v => {
@@ -2208,6 +2263,7 @@ const UnifiedDailyReport = () => {
                                         render: (val, _, idx) => (
                                             <InputNumber
                                                 min={0}
+                                                precision={2}
                                                 step={0.5}
                                                 style={{ width: '100%' }}
                                                 value={val}

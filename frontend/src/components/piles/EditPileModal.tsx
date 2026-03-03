@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Modal, Form, Row, Col, Input, Select, Statistic, Divider } from 'antd'
 import PileDiagram from './PileDiagram'
 import { theme } from '../../styles/theme'
@@ -32,28 +32,25 @@ const EditPileModal = ({ open, onCancel, onSubmit, loading, editingPile }: EditP
                 ...editingPile,
                 diameter: editingPile.length, // Dia was stored in length
                 design_depth: editingPile.design_depth,
-                overflow_pct: editingPile.overflow_pct || 5
             }
             form.setFieldsValue(initialValues)
-            calculateConcrete(editingPile.length, editingPile.design_depth, editingPile.overflow_pct || 5)
+            calculateConcrete(editingPile.length, editingPile.design_depth)
             setFormData(initialValues)
         }
     }, [open, editingPile, form])
 
-    const calculateConcrete = (diaMm: number, depth: number, overflowPct: number = 5) => {
+    const calculateConcrete = (diaMm: number, depth: number) => {
         const diaM = Number(diaMm || 0) / 1000
         const d = Number(depth || 0)
-        const overbreak = 1 + (Number(overflowPct || 0) / 100)
 
         const concreteBase = Number((Math.PI * Math.pow(diaM / 2, 2) * d).toFixed(3))
-        const concreteWithOverbreak = Number((concreteBase * overbreak).toFixed(3))
 
         setCalculatedValues({ concrete_volume: concreteBase })
-        form.setFieldsValue({ concrete_design_qty: concreteWithOverbreak })
+        form.setFieldsValue({ concrete_design_qty: concreteBase })
     }
 
     const onFormValuesChange = (_changedValues: any, allValues: any) => {
-        calculateConcrete(allValues.diameter, allValues.design_depth, allValues.overflow_pct)
+        calculateConcrete(allValues.diameter, allValues.design_depth)
         setFormData(allValues)
     }
 
@@ -128,11 +125,6 @@ const EditPileModal = ({ open, onCancel, onSubmit, loading, editingPile }: EditP
                                     <Input type="number" step="0.1" placeholder="1.5" />
                                 </Form.Item>
                             </Col>
-                            <Col span={6}>
-                                <Form.Item name="sbc_ton_sqm" label="SBC (kN/m²)">
-                                    <Input type="number" placeholder="350" />
-                                </Form.Item>
-                            </Col>
                         </Row>
 
                         <Row gutter={16}>
@@ -142,18 +134,13 @@ const EditPileModal = ({ open, onCancel, onSubmit, loading, editingPile }: EditP
                                 </Form.Item>
                             </Col>
                             <Col span={6}>
-                                <Form.Item name="bottom_rl" label="Toe Level (RL)">
+                                <Form.Item name="bottom_rl" label="Starting Level">
                                     <Input type="number" step="0.001" placeholder="Rock/Toe" />
                                 </Form.Item>
                             </Col>
                             <Col span={6}>
                                 <Form.Item name="reinforcement_ton" label="Steel Qty (Ton)">
                                     <Input type="number" step="0.001" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={6}>
-                                <Form.Item name="overflow_pct" label="Overbreak (%)">
-                                    <Input type="number" min={0} max={100} />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -170,7 +157,7 @@ const EditPileModal = ({ open, onCancel, onSubmit, loading, editingPile }: EditP
                                 />
                             </Col>
                             <Col span={12}>
-                                <Form.Item name="concrete_design_qty" label="Estimated Billing Quantity (with Overbreak)">
+                                <Form.Item name="concrete_design_qty" label="Estimated Concrete Quantity (m³)">
                                     <Input readOnly style={{ background: '#f6ffed', fontWeight: 'bold' }} />
                                 </Form.Item>
                             </Col>

@@ -43,7 +43,7 @@ const BatchPanelModal = ({ open, onCancel, onSubmit, loading }: BatchPanelModalP
             grabbing_qty: Number((L * D).toFixed(2)),
             stop_end_area: Number((L * D).toFixed(2)),
             guide_wall_rm: Number(L.toFixed(2)),
-            ramming_qty: Number((L * W).toFixed(2))
+            ramming_qty: Number(D.toFixed(2))
         })
 
         syncAnchorLayers(changedValues, allValues, form)
@@ -149,7 +149,7 @@ const BatchPanelModal = ({ open, onCancel, onSubmit, loading }: BatchPanelModalP
                         </Form.Item>
                     </Col>
                     <Col span={8}>
-                        <Form.Item name="depth" label="Depth (D)" rules={[{ required: true }]}>
+                        <Form.Item name="depth" label="Depth (D) in Soil" rules={[{ required: true }]}>
                             <Input type="number" step="0.1"
                                 onFocus={() => setActiveDim('D')} onBlur={() => setActiveDim(null)} />
                         </Form.Item>
@@ -182,7 +182,7 @@ const BatchPanelModal = ({ open, onCancel, onSubmit, loading }: BatchPanelModalP
                 </Row>
                 <Row gutter={16} style={{ marginBottom: 16 }}>
                     <Col span={12}><Form.Item name="guide_wall_rm" label="Guide Wall (RM)"><Input readOnly style={{ background: '#f5f5f5' }} /></Form.Item></Col>
-                    <Col span={12}><Form.Item name="ramming_qty" label="Ramming (m²)"><Input readOnly style={{ background: '#f5f5f5' }} /></Form.Item></Col>
+                    <Col span={12}><Form.Item name="ramming_qty" label="Rubber Stop = D (RMT)"><Input readOnly style={{ background: '#f5f5f5' }} /></Form.Item></Col>
                 </Row>
 
                 <Divider orientation="left">Anchors & Layers</Divider>

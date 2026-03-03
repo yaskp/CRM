@@ -3,11 +3,19 @@ import api from './auth'
 export interface ProjectContact {
     id?: number
     project_id: number
-    contact_type: 'site' | 'office' | 'decision_maker' | 'accounts'
+    contact_type: string
     name: string
     phone?: string
     email?: string
     designation?: string
+    // Labour contractor specific
+    company_name?: string
+    labour_count?: number
+    helper_count?: number
+    operator_count?: number
+    // Internal staff link
+    user_id?: number
+    notes?: string
 }
 
 export const projectContactService = {

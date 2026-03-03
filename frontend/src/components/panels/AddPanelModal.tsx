@@ -60,7 +60,7 @@ const AddPanelModal = ({ open, onCancel, onSubmit, loading }: AddPanelModalProps
         const grab = Number((L * D).toFixed(2))
         const stopEnd = Number((L * D).toFixed(2))
         const guideWall = Number(L.toFixed(2))
-        const ramming = Number((L * W).toFixed(2))
+        const ramming = Number(D.toFixed(2))
 
         form.setFieldsValue({
             concrete_design_qty: concrete,
@@ -184,7 +184,7 @@ const AddPanelModal = ({ open, onCancel, onSubmit, loading }: AddPanelModalProps
                         </Form.Item>
                     </Col>
                     <Col span={8}>
-                        <Form.Item name="depth" label="Depth (D)" rules={[{ required: true }]}>
+                        <Form.Item name="depth" label="Depth (D) in Soil" rules={[{ required: true }]}>
                             <Input type="number" step="0.1" placeholder="e.g. 22.0"
                                 onFocus={() => setActiveDim('D')} onBlur={() => setActiveDim(null)} />
                         </Form.Item>
@@ -217,7 +217,7 @@ const AddPanelModal = ({ open, onCancel, onSubmit, loading }: AddPanelModalProps
                 </Row>
                 <Row gutter={16} style={{ marginBottom: 16 }}>
                     <Col span={12}><Form.Item name="guide_wall_rm" label="Guide Wall (RM)"><Input readOnly style={{ background: '#f5f5f5' }} /></Form.Item></Col>
-                    <Col span={12}><Form.Item name="ramming_qty" label="Ramming (m²)"><Input readOnly style={{ background: '#f5f5f5' }} /></Form.Item></Col>
+                    <Col span={12}><Form.Item name="ramming_qty" label="Rubber Stop = D (RMT)"><Input readOnly style={{ background: '#f5f5f5' }} /></Form.Item></Col>
                 </Row>
 
                 <Divider orientation="left">Anchors & Layers</Divider>

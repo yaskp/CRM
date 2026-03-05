@@ -241,37 +241,41 @@ const ProjectQuotationBOQ = ({ projectId }: ProjectQuotationBOQProps) => {
     return (
         <Card
             title={
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Space>
-                        <AuditOutlined style={{ color: theme.colors.primary.main }} />
-                        <Title level={4} style={{ margin: 0 }}>Bill of Quantities (BoQ)</Title>
-                    </Space>
-                    <Space>
-                        {quotations.length > 0 && (
-                            <Select
-                                value={selectedQuotation?.id}
-                                onChange={(val) => fetchFullQuotation(val)}
-                                style={{ width: 250 }}
-                                placeholder="Select Quotation Version"
-                            >
-                                {quotations.map(q => (
-                                    <Option key={q.id} value={q.id}>
-                                        {q.quotation_number} ({q.status})
-                                    </Option>
-                                ))}
-                            </Select>
-                        )}
-                        {selectedQuotation && (
-                            <Button
-                                type="primary"
-                                icon={<SafetyCertificateOutlined />}
-                                onClick={() => navigate(`/operations/work-orders/new?quotation_id=${selectedQuotation.id}`)}
-                            >
-                                Create Work Order
-                            </Button>
-                        )}
-                    </Space>
-                </div>
+                <Row gutter={[16, 16]} align="middle" justify="space-between">
+                    <Col xs={24} md={10}>
+                        <Space>
+                            <AuditOutlined style={{ color: theme.colors.primary.main }} />
+                            <Title level={4} style={{ margin: 0 }}>Bill of Quantities (BoQ)</Title>
+                        </Space>
+                    </Col>
+                    <Col xs={24} md={14} style={{ textAlign: window.innerWidth < 768 ? 'left' : 'right' }}>
+                        <Space wrap>
+                            {quotations.length > 0 && (
+                                <Select
+                                    value={selectedQuotation?.id}
+                                    onChange={(val) => fetchFullQuotation(val)}
+                                    style={{ width: window.innerWidth < 576 ? '100%' : 250 }}
+                                    placeholder="Select Quotation Version"
+                                >
+                                    {quotations.map(q => (
+                                        <Option key={q.id} value={q.id}>
+                                            {q.quotation_number} ({q.status})
+                                        </Option>
+                                    ))}
+                                </Select>
+                            )}
+                            {selectedQuotation && (
+                                <Button
+                                    type="primary"
+                                    icon={<SafetyCertificateOutlined />}
+                                    onClick={() => navigate(`/operations/work-orders/new?quotation_id=${selectedQuotation.id}`)}
+                                >
+                                    Create Work Order
+                                </Button>
+                            )}
+                        </Space>
+                    </Col>
+                </Row>
             }
         >
             {loading ? (
@@ -336,6 +340,7 @@ const ProjectQuotationBOQ = ({ projectId }: ProjectQuotationBOQProps) => {
                         rowKey="id"
                         pagination={false}
                         bordered
+                        scroll={{ x: 1000 }}
                         summary={(pageData) => {
                             let totalAmount = 0
                             pageData.forEach(({ amount }) => {

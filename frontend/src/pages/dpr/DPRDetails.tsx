@@ -16,7 +16,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
-import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
+import { getPrimaryButtonStyle, getSecondaryButtonStyle } from '../../styles/styleUtils'
 
 const { Text, Paragraph } = Typography
 
@@ -131,10 +131,10 @@ const DPRDetails = () => {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {/* 1. Header Row: Overview + Actions */}
-        <Row gutter={24}>
-          <Col span={16}>
+        <Row gutter={[24, 24]}>
+          <Col xs={24} lg={16}>
             <SectionCard title="Project & Location Overview" icon={<EnvironmentOutlined />}>
-              <Descriptions bordered column={2} size="small">
+              <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
                 <Descriptions.Item label="Project" span={2}><b>{log.project?.name}</b></Descriptions.Item>
 
                 {log.drawingPanel ? (
@@ -180,7 +180,7 @@ const DPRDetails = () => {
               </Descriptions>
             </SectionCard>
           </Col>
-          <Col span={8}>
+          <Col xs={24} lg={8}>
             <SectionCard title="Report Actions" icon={<FileTextOutlined />}>
               <Space direction="vertical" style={{ width: '100%' }} size="middle">
                 <Button
@@ -226,15 +226,16 @@ const DPRDetails = () => {
             rowKey="id"
             bordered
             size="middle"
+            scroll={{ x: 800 }}
           />
         </SectionCard>
 
         {/* 2B. D-Wall Specialized Technical Logs */}
         {log.drawing_panel_id && (
-          <Row gutter={24}>
-            <Col span={14}>
+          <Row gutter={[24, 24]}>
+            <Col xs={24} lg={14}>
               <SectionCard title="QC & Technical Compliance Logs" icon={<CheckCircleOutlined />}>
-                <Descriptions bordered column={2} size="small">
+                <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
                   <Descriptions.Item label="Actual Depth"><b>{log.actual_depth || '-'} m</b></Descriptions.Item>
                   <Descriptions.Item label="Cage ID">{log.cage_id_ref || '-'}</Descriptions.Item>
                   <Descriptions.Item label="Verticality X">{log.verticality_x || '-'} %</Descriptions.Item>
@@ -255,13 +256,14 @@ const DPRDetails = () => {
                 </Descriptions>
               </SectionCard>
             </Col>
-            <Col span={10}>
+            <Col xs={24} lg={10}>
               <SectionCard title="RMC Delivery Details" icon={<DashboardOutlined />}>
                 <Table
                   dataSource={log.rmcLogs || []}
                   size="small"
                   pagination={false}
                   rowKey="id"
+                  scroll={{ x: 'max-content' }}
                   columns={[
                     { title: 'Truck', dataIndex: 'vehicle_no' },
                     { title: 'Qty', dataIndex: 'quantity', align: 'right' },
@@ -275,14 +277,15 @@ const DPRDetails = () => {
         )}
 
         {/* 3. Manpower & Site Conditions */}
-        <Row gutter={24}>
-          <Col span={12}>
+        <Row gutter={[24, 24]}>
+          <Col xs={24} lg={12}>
             <SectionCard title="Manpower Deployment (Labor Hajri)" icon={<TeamOutlined />}>
               <Table
                 dataSource={manpowerList}
                 size="small"
                 pagination={false}
                 rowKey={(r: any) => r.worker_type || Math.random()}
+                scroll={{ x: 'max-content' }}
                 columns={[
                   { title: 'Category', dataIndex: 'worker_type' },
                   { title: 'Count', dataIndex: 'count', align: 'center' },
@@ -292,9 +295,9 @@ const DPRDetails = () => {
               />
             </SectionCard>
           </Col>
-          <Col span={12}>
+          <Col xs={24} lg={12}>
             <SectionCard title="Site Conditions" icon={<CloudOutlined />}>
-              <Descriptions column={1} size="small" bordered>
+              <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered>
                 <Descriptions.Item label="Weather">{log.weather_condition || 'Clear'}</Descriptions.Item>
                 <Descriptions.Item label="Work Hours">{log.work_hours || 'N/A'}</Descriptions.Item>
                 <Descriptions.Item label="Temperature">{log.temperature ? `${log.temperature}°C` : 'N/A'}</Descriptions.Item>
@@ -312,7 +315,7 @@ const DPRDetails = () => {
               if (!photoUrl) return null
               const fullUrl = photoUrl?.startsWith('http') ? photoUrl : `http://localhost:5000/${photoUrl}`
               return (
-                <Col span={6} key={idx}>
+                <Col xs={24} sm={12} md={8} lg={6} key={idx}>
                   <Image
                     src={fullUrl}
                     style={{ width: '100%', height: '180px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #e2e8f0' }}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, DatePicker, InputNumber, Typography, Select, Switch } from 'antd'
+import { Form, Input, Button, Card, message, DatePicker, InputNumber, Typography, Select, Switch, Row, Col, Space } from 'antd'
 import {
   ProjectOutlined,
   EnvironmentOutlined,
@@ -18,8 +18,6 @@ import {
   getLabelStyle,
   getPrimaryButtonStyle,
   getSecondaryButtonStyle,
-  threeColumnGridStyle,
-  flexBetweenStyle,
   actionCardStyle,
   prefixIconStyle
 } from '../../styles/styleUtils'
@@ -154,248 +152,257 @@ const ProjectCreate = () => {
         }}
       >
         {/* Three Column Layout */}
-        <div style={threeColumnGridStyle}>
-
+        <Row gutter={[16, 16]}>
           {/* Column 1: Basic Information */}
-          <SectionCard title="Basic Information" icon={<EnvironmentOutlined />}>
-            <Form.Item
-              label={<span style={getLabelStyle()}>Client</span>}
-              name="client_id"
-              tooltip="Select the client for this project"
-            >
-              <div style={{ display: 'flex', gap: '8px' }}>
+          <Col xs={24} lg={8}>
+            <SectionCard title="Basic Information" icon={<EnvironmentOutlined />}>
+              <Form.Item
+                label={<span style={getLabelStyle()}>Client</span>}
+                name="client_id"
+                tooltip="Select the client for this project"
+              >
+                <Row gutter={[8, 8]}>
+                  <Col xs={24} sm={10}>
+                    <Select
+                      placeholder="Filter by Group"
+                      style={{ width: '100%' }}
+                      allowClear
+                      onChange={handleGroupChange}
+                      value={selectedGroupId}
+                    >
+                      {clientGroups.map(group => (
+                        <Select.Option key={group.id} value={group.id}>{group.group_name}</Select.Option>
+                      ))}
+                    </Select>
+                  </Col>
+                  <Col xs={24} sm={14}>
+                    <Select
+                      placeholder="Select client"
+                      size="large"
+                      allowClear
+                      showSearch
+                      optionFilterProp="children"
+                      style={{ ...largeInputStyle, width: '100%' }}
+                    >
+                      {clients.map(client => (
+                        <Select.Option key={client.id} value={client.id}>
+                          {client.company_name} ({client.client_code})
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Col>
+                </Row>
+              </Form.Item>
+
+              <Form.Item
+                label={<span style={getLabelStyle()}>Link Lead (Optional)</span>}
+                name="lead_id"
+                tooltip="Select a sales lead to pre-fill project details"
+              >
                 <Select
-                  placeholder="Filter by Group"
-                  style={{ width: '180px' }}
-                  allowClear
-                  onChange={handleGroupChange}
-                  value={selectedGroupId}
-                >
-                  {clientGroups.map(group => (
-                    <Select.Option key={group.id} value={group.id}>{group.group_name}</Select.Option>
-                  ))}
-                </Select>
-                <Select
-                  placeholder="Select client"
+                  placeholder="Select a lead to convert"
                   size="large"
                   allowClear
-                  showSearch
-                  optionFilterProp="children"
-                  style={{ ...largeInputStyle, flex: 1 }}
-                >
-                  {clients.map(client => (
-                    <Select.Option key={client.id} value={client.id}>
-                      {client.company_name} ({client.client_code})
-                    </Select.Option>
-                  ))}
-                </Select>
-              </div>
-            </Form.Item>
+                  onChange={onLeadChange}
+                  style={largeInputStyle}
+                  options={leads.map(lead => ({
+                    label: `${lead.name} (${lead.company_name || 'No Company'})`,
+                    value: lead.id
+                  }))}
+                // If the lead from location.state isn't in the list (e.g. pagination limit), we might need to handle that, 
+                // but usually it will be 'new' and thus in the 'null' list.
+                />
+              </Form.Item>
 
-            <Form.Item
-              label={<span style={getLabelStyle()}>Link Lead (Optional)</span>}
-              name="lead_id"
-              tooltip="Select a sales lead to pre-fill project details"
-            >
-              <Select
-                placeholder="Select a lead to convert"
-                size="large"
-                allowClear
-                onChange={onLeadChange}
-                style={largeInputStyle}
-                options={leads.map(lead => ({
-                  label: `${lead.name} (${lead.company_name || 'No Company'})`,
-                  value: lead.id
-                }))}
-              // If the lead from location.state isn't in the list (e.g. pagination limit), we might need to handle that, 
-              // but usually it will be 'new' and thus in the 'null' list.
-              />
-            </Form.Item>
-
-            <Form.Item
-              label={<span style={getLabelStyle()}>Project Name</span>}
-              name="name"
-              rules={[{ required: true, message: 'Please enter project name!' }]}
-            >
-              <Input
-                prefix={<ProjectOutlined style={prefixIconStyle} />}
-                placeholder="Enter project name"
-                size="large"
-                style={largeInputStyle}
-              />
-            </Form.Item>
-
-            <Form.Item
-              label={<span style={getLabelStyle()}>Location</span>}
-              name="site_location"
-            >
-              <Input
-                prefix={<EnvironmentOutlined style={prefixIconStyle} />}
-                placeholder="Enter location"
-                size="large"
-                style={largeInputStyle}
-              />
-            </Form.Item>
-
-            <Form.Item
-              label={<span style={getLabelStyle()}>City</span>}
-              name="site_city"
-            >
-              <Input
-                placeholder="Enter city"
-                size="large"
-                style={largeInputStyle}
-              />
-            </Form.Item>
-
-            <Form.Item
-              label={<span style={getLabelStyle()}>State</span>}
-              name="site_state"
-            >
-              <StateSelect
-                onChange={(val) => {
-                  form.setFieldsValue({ site_state: val })
-                }}
-              />
-            </Form.Item>
-          </SectionCard>
-
-          {/* Column 2: Client & Compliance */}
-          <SectionCard title="Client & Compliance" icon={<BankOutlined />}>
-            <Form.Item
-              label={<span style={getLabelStyle()}>Client HO Address</span>}
-              name="client_ho_address"
-            >
-              <TextArea
-                rows={4}
-                placeholder="Enter client head office address"
-                style={largeInputStyle}
-              />
-            </Form.Item>
-
-            <Form.Item
-              label={<span style={getLabelStyle()}>Is Client GST Registered?</span>}
-              name="is_gst_registered"
-              valuePropName="checked"
-            >
-              <Switch
-                checkedChildren="Yes"
-                unCheckedChildren="No"
-                onChange={(checked) => {
-                  if (!checked) {
-                    form.setFieldsValue({ client_gstin: undefined })
-                  }
-                }}
-              />
-            </Form.Item>
-
-            {isGstRegistered && (
               <Form.Item
-                label={<span style={getLabelStyle()}>Client GSTIN</span>}
-                name="client_gstin"
-                rules={[
-                  { required: true, message: 'GSTIN is required for registered clients' },
-                  {
-                    pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
-                    message: 'Invalid GSTIN Format'
-                  }
-                ]}
+                label={<span style={getLabelStyle()}>Project Name</span>}
+                name="name"
+                rules={[{ required: true, message: 'Please enter project name!' }]}
               >
                 <Input
-                  prefix={<FileTextOutlined style={prefixIconStyle} />}
-                  placeholder="27AABCU9603R1ZM"
+                  prefix={<ProjectOutlined style={prefixIconStyle} />}
+                  placeholder="Enter project name"
                   size="large"
                   style={largeInputStyle}
-                  onChange={(e) => {
-                    const val = e.target.value.toUpperCase();
-                    if (val.length >= 2) {
-                      const code = val.substring(0, 2);
-                      form.setFieldsValue({ site_state_code: code });
+                />
+              </Form.Item>
+
+              <Form.Item
+                label={<span style={getLabelStyle()}>Location</span>}
+                name="site_location"
+              >
+                <Input
+                  prefix={<EnvironmentOutlined style={prefixIconStyle} />}
+                  placeholder="Enter location"
+                  size="large"
+                  style={largeInputStyle}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label={<span style={getLabelStyle()}>City</span>}
+                name="site_city"
+              >
+                <Input
+                  placeholder="Enter city"
+                  size="large"
+                  style={largeInputStyle}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label={<span style={getLabelStyle()}>State</span>}
+                name="site_state"
+              >
+                <StateSelect
+                  onChange={(val) => {
+                    form.setFieldsValue({ site_state: val })
+                  }}
+                />
+              </Form.Item>
+            </SectionCard>
+          </Col>
+
+          {/* Column 2: Client & Compliance */}
+          <Col xs={24} lg={8}>
+            <SectionCard title="Client & Compliance" icon={<BankOutlined />}>
+              <Form.Item
+                label={<span style={getLabelStyle()}>Client HO Address</span>}
+                name="client_ho_address"
+              >
+                <TextArea
+                  rows={4}
+                  placeholder="Enter client head office address"
+                  style={largeInputStyle}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label={<span style={getLabelStyle()}>Is Client GST Registered?</span>}
+                name="is_gst_registered"
+                valuePropName="checked"
+              >
+                <Switch
+                  checkedChildren="Yes"
+                  unCheckedChildren="No"
+                  onChange={(checked) => {
+                    if (!checked) {
+                      form.setFieldsValue({ client_gstin: undefined })
                     }
                   }}
                 />
               </Form.Item>
-            )}
 
-            <Form.Item
-              label={<span style={getLabelStyle()}>Site State Code</span>}
-              name="site_state_code"
-              rules={[{ required: true, message: 'Please select site state code' }]}
-              tooltip="State where the construction site is located (used for GST calculation)"
-            >
-              <StateSelect
-                onChange={(_, code) => {
-                  form.setFieldsValue({ site_state_code: code })
-                }}
-              />
-            </Form.Item>
+              {isGstRegistered && (
+                <Form.Item
+                  label={<span style={getLabelStyle()}>Client GSTIN</span>}
+                  name="client_gstin"
+                  rules={[
+                    { required: true, message: 'GSTIN is required for registered clients' },
+                    {
+                      pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/,
+                      message: 'Invalid GSTIN Format'
+                    }
+                  ]}
+                >
+                  <Input
+                    prefix={<FileTextOutlined style={prefixIconStyle} />}
+                    placeholder="27AABCU9603R1ZM"
+                    size="large"
+                    style={largeInputStyle}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      if (val.length >= 2) {
+                        const code = val.substring(0, 2);
+                        form.setFieldsValue({ site_state_code: code });
+                      }
+                    }}
+                  />
+                </Form.Item>
+              )}
 
-            <Form.Item
-              label={<span style={getLabelStyle()}>RERA Number</span>}
-              name="rera_number"
-            >
-              <Input
-                prefix={<FileTextOutlined style={prefixIconStyle} />}
-                placeholder="Enter RERA registration no."
-                size="large"
-                style={largeInputStyle}
-              />
-            </Form.Item>
-          </SectionCard>
+              <Form.Item
+                label={<span style={getLabelStyle()}>Site State Code</span>}
+                name="site_state_code"
+                rules={[{ required: true, message: 'Please select site state code' }]}
+                tooltip="State where the construction site is located (used for GST calculation)"
+              >
+                <StateSelect
+                  onChange={(_, code) => {
+                    form.setFieldsValue({ site_state_code: code })
+                  }}
+                />
+              </Form.Item>
+
+              <Form.Item
+                label={<span style={getLabelStyle()}>RERA Number</span>}
+                name="rera_number"
+              >
+                <Input
+                  prefix={<FileTextOutlined style={prefixIconStyle} />}
+                  placeholder="Enter RERA registration no."
+                  size="large"
+                  style={largeInputStyle}
+                />
+              </Form.Item>
+            </SectionCard>
+          </Col>
 
           {/* Column 3: Project Details */}
-          <SectionCard title="Project Details" icon={<CalendarOutlined />}>
-            <Form.Item
-              label={<span style={getLabelStyle()}>Start Date</span>}
-              name="start_date"
-            >
-              <DatePicker
-                style={{ width: '100%', ...largeInputStyle }}
-                size="large"
-                placeholder="Select start date"
-                format="DD/MM/YYYY"
-              />
-            </Form.Item>
+          <Col xs={24} lg={8}>
+            <SectionCard title="Project Details" icon={<CalendarOutlined />}>
+              <Form.Item
+                label={<span style={getLabelStyle()}>Start Date</span>}
+                name="start_date"
+              >
+                <DatePicker
+                  style={{ width: '100%', ...largeInputStyle }}
+                  size="large"
+                  placeholder="Select start date"
+                  format="DD/MM/YYYY"
+                />
+              </Form.Item>
 
-            <Form.Item
-              label={<span style={getLabelStyle()}>Estimated End Date</span>}
-              name="end_date"
-            >
-              <DatePicker
-                style={{ width: '100%', ...largeInputStyle }}
-                size="large"
-                placeholder="Select end date"
-                format="DD/MM/YYYY"
-              />
-            </Form.Item>
+              <Form.Item
+                label={<span style={getLabelStyle()}>Estimated End Date</span>}
+                name="end_date"
+              >
+                <DatePicker
+                  style={{ width: '100%', ...largeInputStyle }}
+                  size="large"
+                  placeholder="Select end date"
+                  format="DD/MM/YYYY"
+                />
+              </Form.Item>
 
-            <Form.Item
-              label={<span style={getLabelStyle()}>Contract Value</span>}
-              name="contract_value"
-            >
-              <InputNumber
-                prefix="₹"
-                style={{ width: '100%', ...largeInputStyle }}
-                size="large"
-                placeholder="0.00"
-                formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                parser={value => value!.replace(/\₹\s?|(,*)/g, '')}
-              />
-            </Form.Item>
+              <Form.Item
+                label={<span style={getLabelStyle()}>Contract Value</span>}
+                name="contract_value"
+              >
+                <InputNumber
+                  prefix="₹"
+                  style={{ width: '100%', ...largeInputStyle }}
+                  size="large"
+                  placeholder="0.00"
+                  formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={value => value!.replace(/\₹\s?|(,*)/g, '')}
+                />
+              </Form.Item>
 
-            <InfoCard title="💡 Quick Tip">
-              Ensure all compliance documents are ready before project creation
-            </InfoCard>
-          </SectionCard>
-        </div>
+              <InfoCard title="💡 Quick Tip">
+                Ensure all compliance documents are ready before project creation
+              </InfoCard>
+            </SectionCard>
+          </Col>
+        </Row>
 
         {/* Action Buttons */}
         <Card style={actionCardStyle}>
-          <div style={flexBetweenStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
             <Text style={{ color: '#666', fontSize: 14 }}>
               All fields marked with <span style={{ color: '#ff4d4f' }}>*</span> are required
             </Text>
-            <div style={{ display: 'flex', gap: 12 }}>
+            <Space size="middle" wrap>
               <Button
                 onClick={() => navigate('/sales/projects')}
                 size="large"
@@ -412,7 +419,7 @@ const ProjectCreate = () => {
               >
                 Create Project
               </Button>
-            </div>
+            </Space>
           </div>
         </Card>
       </Form>

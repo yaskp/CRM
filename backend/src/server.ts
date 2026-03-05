@@ -30,7 +30,7 @@ app.use('/uploads', express.static('uploads'))
 app.use('/api', routes)
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', message: 'CRM API is running' })
 })
 

@@ -764,186 +764,188 @@ const PurchaseOrderForm = () => {
                                         style={{ marginBottom: 16, background: '#f9f9f9', border: '1px solid #eee' }}
                                         styles={{ body: { padding: '12px' } }}
                                     >
-                                        <Row gutter={16} align="middle">
-                                            <Col span={1} style={{ textAlign: 'center' }}>
-                                                <Text type="secondary">#{index + 1}</Text>
-                                            </Col>
+                                        <div style={{ overflowX: 'auto' }}>
+                                            <Row gutter={16} align="middle" style={{ minWidth: 800 }}>
+                                                <Col span={1} style={{ textAlign: 'center' }}>
+                                                    <Text type="secondary">#{index + 1}</Text>
+                                                </Col>
 
-                                            <Col span={6}>
-                                                <Form.Item
-                                                    {...restField}
-                                                    name={[name, 'material_id']}
-                                                    label={
-                                                        <Space>
-                                                            <span>Material</span>
-                                                            {selectedProjectId && procurementFor === 'project' && (
-                                                                <Checkbox
-                                                                    checked={showBoqOnly}
-                                                                    onChange={(e) => setShowBoqOnly(e.target.checked)}
-                                                                    style={{ fontSize: 12 }}
-                                                                >
-                                                                    Show Project Items Only
-                                                                </Checkbox>
-                                                            )}
-                                                        </Space>
-                                                    }
-                                                    rules={[{ required: true, message: 'Required' }]}
-                                                    style={{ marginBottom: 8 }}
-                                                >
-                                                    <Select
-                                                        placeholder="Select Material"
-                                                        onChange={(val) => onMaterialChange(val, index)}
-                                                        showSearch
-                                                        optionFilterProp="children"
-                                                    >
-                                                        {(showBoqOnly && selectedProjectId && procurementFor === 'project' && boqItems.length > 0
-                                                            ? materials.filter(m => boqItems.some(bi => bi.material_id === m.id))
-                                                            : materials
-                                                        ).map(m => (
-                                                            <Option key={m.id} value={m.id}>
-                                                                {m.name} ({m.material_code})
-                                                                {/* Only show BOQ tag if we have BOQ items loaded, relevant for project procurement */}
-                                                                {procurementFor === 'project' && boqItems.find(bi => bi.material_id === m.id) && (
-                                                                    <Tag color="blue" style={{ marginLeft: 8 }}>BOQ</Tag>
+                                                <Col span={6}>
+                                                    <Form.Item
+                                                        {...restField}
+                                                        name={[name, 'material_id']}
+                                                        label={
+                                                            <Space>
+                                                                <span>Material</span>
+                                                                {selectedProjectId && procurementFor === 'project' && (
+                                                                    <Checkbox
+                                                                        checked={showBoqOnly}
+                                                                        onChange={(e) => setShowBoqOnly(e.target.checked)}
+                                                                        style={{ fontSize: 12 }}
+                                                                    >
+                                                                        Show Project Items Only
+                                                                    </Checkbox>
                                                                 )}
-                                                            </Option>
-                                                        ))}
-                                                    </Select>
-                                                </Form.Item>
-                                                <Form.Item
-                                                    {...restField}
-                                                    name={[name, 'boq_item_id']}
-                                                    label={<span style={{ fontSize: 12 }}>Link to BOQ Entry</span>}
-                                                    style={{ marginBottom: 0 }}
-                                                >
-                                                    <Select
-                                                        placeholder="Optional: Link to BOQ"
-                                                        size="small"
-                                                        allowClear
-                                                        onChange={(val) => onBoqItemChange(val, index)}
+                                                            </Space>
+                                                        }
+                                                        rules={[{ required: true, message: 'Required' }]}
+                                                        style={{ marginBottom: 8 }}
                                                     >
-                                                        {boqItems
-                                                            .filter(bi => bi.material_id === items[index]?.material_id)
-                                                            .map(bi => (
-                                                                <Option key={bi.id} value={bi.id}>
-                                                                    {bi.workItemType?.name} | Max: {bi.quantity - bi.ordered_quantity} {bi.unit}
+                                                        <Select
+                                                            placeholder="Select Material"
+                                                            onChange={(val) => onMaterialChange(val, index)}
+                                                            showSearch
+                                                            optionFilterProp="children"
+                                                        >
+                                                            {(showBoqOnly && selectedProjectId && procurementFor === 'project' && boqItems.length > 0
+                                                                ? materials.filter(m => boqItems.some(bi => bi.material_id === m.id))
+                                                                : materials
+                                                            ).map(m => (
+                                                                <Option key={m.id} value={m.id}>
+                                                                    {m.name} ({m.material_code})
+                                                                    {/* Only show BOQ tag if we have BOQ items loaded, relevant for project procurement */}
+                                                                    {procurementFor === 'project' && boqItems.find(bi => bi.material_id === m.id) && (
+                                                                        <Tag color="blue" style={{ marginLeft: 8 }}>BOQ</Tag>
+                                                                    )}
                                                                 </Option>
                                                             ))}
-                                                    </Select>
-                                                </Form.Item>
-                                                <Form.Item
-                                                    {...restField}
-                                                    name={[name, 'description']}
-                                                    style={{ marginBottom: 0, marginTop: 8 }}
-                                                >
-                                                    <Input placeholder="Description / Notes" />
-                                                </Form.Item>
-                                            </Col>
+                                                        </Select>
+                                                    </Form.Item>
+                                                    <Form.Item
+                                                        {...restField}
+                                                        name={[name, 'boq_item_id']}
+                                                        label={<span style={{ fontSize: 12 }}>Link to BOQ Entry</span>}
+                                                        style={{ marginBottom: 0 }}
+                                                    >
+                                                        <Select
+                                                            placeholder="Optional: Link to BOQ"
+                                                            size="small"
+                                                            allowClear
+                                                            onChange={(val) => onBoqItemChange(val, index)}
+                                                        >
+                                                            {boqItems
+                                                                .filter(bi => bi.material_id === items[index]?.material_id)
+                                                                .map(bi => (
+                                                                    <Option key={bi.id} value={bi.id}>
+                                                                        {bi.workItemType?.name} | Max: {bi.quantity - bi.ordered_quantity} {bi.unit}
+                                                                    </Option>
+                                                                ))}
+                                                        </Select>
+                                                    </Form.Item>
+                                                    <Form.Item
+                                                        {...restField}
+                                                        name={[name, 'description']}
+                                                        style={{ marginBottom: 0, marginTop: 8 }}
+                                                    >
+                                                        <Input placeholder="Description / Notes" />
+                                                    </Form.Item>
+                                                </Col>
 
-                                            <Col span={3}>
-                                                <Form.Item
-                                                    {...restField}
-                                                    name={[name, 'quantity']}
-                                                    label="Qty"
-                                                    rules={[{ required: true, message: 'Req' }]}
-                                                    style={{ marginBottom: 0 }}
-                                                >
-                                                    <InputNumber min={0.01} controls={false} style={{ width: '100%' }} placeholder="Qty" />
-                                                </Form.Item>
-                                            </Col>
+                                                <Col span={3}>
+                                                    <Form.Item
+                                                        {...restField}
+                                                        name={[name, 'quantity']}
+                                                        label="Qty"
+                                                        rules={[{ required: true, message: 'Req' }]}
+                                                        style={{ marginBottom: 0 }}
+                                                    >
+                                                        <InputNumber min={0.01} controls={false} style={{ width: '100%' }} placeholder="Qty" />
+                                                    </Form.Item>
+                                                </Col>
 
-                                            <Col span={3}>
-                                                <Form.Item
-                                                    {...restField}
-                                                    name={[name, 'unit']}
-                                                    label="Unit"
-                                                    rules={[{ required: true, message: 'Req' }]}
-                                                    style={{ marginBottom: 0 }}
-                                                >
-                                                    {(() => {
-                                                        const currentMaterialId = items[index]?.material_id;
-                                                        const material = materials.find(m => m.id === currentMaterialId);
-                                                        // Check if material unit is array or string
-                                                        const unitOptions = Array.isArray(material?.unit) ? material.unit : (material?.unit ? [material.unit] : []);
+                                                <Col span={3}>
+                                                    <Form.Item
+                                                        {...restField}
+                                                        name={[name, 'unit']}
+                                                        label="Unit"
+                                                        rules={[{ required: true, message: 'Req' }]}
+                                                        style={{ marginBottom: 0 }}
+                                                    >
+                                                        {(() => {
+                                                            const currentMaterialId = items[index]?.material_id;
+                                                            const material = materials.find(m => m.id === currentMaterialId);
+                                                            // Check if material unit is array or string
+                                                            const unitOptions = Array.isArray(material?.unit) ? material.unit : (material?.unit ? [material.unit] : []);
 
-                                                        if (unitOptions.length > 1) {
-                                                            return (
-                                                                <Select placeholder="Select Unit">
-                                                                    {unitOptions.map((u: string) => (
-                                                                        <Option key={u} value={u}>{u}</Option>
-                                                                    ))}
-                                                                </Select>
-                                                            );
-                                                        }
-                                                        return <Input placeholder="Unit" />; // Fallback to input if single or no units finding
-                                                    })()}
-                                                </Form.Item>
-                                            </Col>
+                                                            if (unitOptions.length > 1) {
+                                                                return (
+                                                                    <Select placeholder="Select Unit">
+                                                                        {unitOptions.map((u: string) => (
+                                                                            <Option key={u} value={u}>{u}</Option>
+                                                                        ))}
+                                                                    </Select>
+                                                                );
+                                                            }
+                                                            return <Input placeholder="Unit" />; // Fallback to input if single or no units finding
+                                                        })()}
+                                                    </Form.Item>
+                                                </Col>
 
-                                            <Col span={4}>
-                                                <Form.Item
-                                                    {...restField}
-                                                    name={[name, 'unit_price']}
-                                                    label="Price"
-                                                    rules={[{ required: true, message: 'Req' }]}
-                                                    style={{ marginBottom: 0 }}
-                                                >
-                                                    <InputNumber
-                                                        min={0}
-                                                        controls={false}
-                                                        style={{ width: '100%' }}
-                                                        prefix="₹"
-                                                        placeholder="Rate"
-                                                    />
-                                                </Form.Item>
-                                            </Col>
+                                                <Col span={4}>
+                                                    <Form.Item
+                                                        {...restField}
+                                                        name={[name, 'unit_price']}
+                                                        label="Price"
+                                                        rules={[{ required: true, message: 'Req' }]}
+                                                        style={{ marginBottom: 0 }}
+                                                    >
+                                                        <InputNumber
+                                                            min={0}
+                                                            controls={false}
+                                                            style={{ width: '100%' }}
+                                                            prefix="₹"
+                                                            placeholder="Rate"
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
 
-                                            <Col span={3}>
-                                                <Form.Item
-                                                    {...restField}
-                                                    name={[name, 'tax_percentage']}
-                                                    label="Tax %"
-                                                    initialValue={0}
-                                                    style={{ marginBottom: 0 }}
-                                                >
-                                                    <InputNumber min={0} max={100} controls={false} style={{ width: '100%' }} suffix="%" />
-                                                </Form.Item>
-                                            </Col>
+                                                <Col span={3}>
+                                                    <Form.Item
+                                                        {...restField}
+                                                        name={[name, 'tax_percentage']}
+                                                        label="Tax %"
+                                                        initialValue={0}
+                                                        style={{ marginBottom: 0 }}
+                                                    >
+                                                        <InputNumber min={0} max={100} controls={false} style={{ width: '100%' }} suffix="%" />
+                                                    </Form.Item>
+                                                </Col>
 
-                                            <Col span={3} style={{ textAlign: 'right' }}>
-                                                <div style={{ padding: '30px 0 0 0' }}>
-                                                    {items[index] ? (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                                                            <Text strong>
-                                                                {'₹' + ((items[index].quantity || 0) * (items[index].unit_price || 0) * (1 + (items[index].tax_percentage || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                            </Text>
-                                                            <Text type="secondary" style={{ fontSize: '11px' }}>
-                                                                {(() => {
-                                                                    const base = (items[index].quantity || 0) * (items[index].unit_price || 0)
-                                                                    const tax = base * (items[index].tax_percentage || 0) / 100
-                                                                    if (gstType === 'intra_state') {
-                                                                        return `CGST: ₹${(tax / 2).toFixed(2)} | SGST: ₹${(tax / 2).toFixed(2)}`
-                                                                    } else {
-                                                                        return `IGST: ₹${tax.toFixed(2)}`
-                                                                    }
-                                                                })()}
-                                                            </Text>
-                                                        </div>
-                                                    ) : (
-                                                        <Text strong>₹0.00</Text>
-                                                    )}
-                                                </div>
-                                            </Col>
+                                                <Col span={3} style={{ textAlign: 'right' }}>
+                                                    <div style={{ padding: '30px 0 0 0' }}>
+                                                        {items[index] ? (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                                                <Text strong>
+                                                                    {'₹' + ((items[index].quantity || 0) * (items[index].unit_price || 0) * (1 + (items[index].tax_percentage || 0) / 100)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                </Text>
+                                                                <Text type="secondary" style={{ fontSize: '11px' }}>
+                                                                    {(() => {
+                                                                        const base = (items[index].quantity || 0) * (items[index].unit_price || 0)
+                                                                        const tax = base * (items[index].tax_percentage || 0) / 100
+                                                                        if (gstType === 'intra_state') {
+                                                                            return `CGST: ₹${(tax / 2).toFixed(2)} | SGST: ₹${(tax / 2).toFixed(2)}`
+                                                                        } else {
+                                                                            return `IGST: ₹${tax.toFixed(2)}`
+                                                                        }
+                                                                    })()}
+                                                                </Text>
+                                                            </div>
+                                                        ) : (
+                                                            <Text strong>₹0.00</Text>
+                                                        )}
+                                                    </div>
+                                                </Col>
 
-                                            <Col span={1} style={{ textAlign: 'right' }}>
-                                                <div style={{ padding: '30px 0 0 0' }}>
-                                                    <DeleteOutlined
-                                                        onClick={() => remove(name)}
-                                                        style={{ color: 'red', cursor: 'pointer', fontSize: '16px' }}
-                                                    />
-                                                </div>
-                                            </Col>
-                                        </Row>
+                                                <Col span={1} style={{ textAlign: 'right' }}>
+                                                    <div style={{ padding: '30px 0 0 0' }}>
+                                                        <DeleteOutlined
+                                                            onClick={() => remove(name)}
+                                                            style={{ color: 'red', cursor: 'pointer', fontSize: '16px' }}
+                                                        />
+                                                    </div>
+                                                </Col>
+                                            </Row>
+                                        </div>
                                     </Card>
                                 ))}
                                 <Form.Item>
@@ -958,7 +960,7 @@ const PurchaseOrderForm = () => {
                     <Divider />
 
                     <Row justify="end">
-                        <Col span={8}>
+                        <Col xs={24} sm={12} md={8}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                                 <Text>Subtotal:</Text>
                                 <Text>₹{totals.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</Text>
@@ -1071,7 +1073,7 @@ const PurchaseOrderForm = () => {
                 </SectionCard>
 
                 <Card style={actionCardStyle}>
-                    <div style={flexBetweenStyle}>
+                    <div style={{ ...flexBetweenStyle, flexWrap: 'wrap', gap: 12 }}>
                         <Button
                             size="large"
                             onClick={() => navigate('/procurement/purchase-orders')}

@@ -256,6 +256,7 @@ const MaterialRequisitionDetails = () => {
                             columns={itemColumns}
                             pagination={false}
                             rowKey="id"
+                            scroll={{ x: 800 }}
                             summary={() => {
                                 const total = requisition.items?.reduce((sum: number, item: any) => sum + (Number(item.estimated_amount) || 0), 0) || 0;
                                 return (
@@ -328,12 +329,12 @@ const MaterialRequisitionDetails = () => {
                 cancelButtonProps={{ size: 'large' }}
             >
                 <div style={{ padding: '16px 0' }}>
-                    <Row gutter={24} style={{ marginBottom: '16px' }}>
-                        <Col span={12}>
+                    <Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
+                        <Col xs={24} sm={12}>
                             <Text type="secondary">Project</Text>
                             <div style={{ fontSize: '16px', fontWeight: 600 }}>{requisition?.project?.name}</div>
                         </Col>
-                        <Col span={12}>
+                        <Col xs={24} sm={12}>
                             <Text type="secondary">Requester</Text>
                             <div style={{ fontSize: '16px', fontWeight: 600 }}>{requisition?.requester?.name}</div>
                         </Col>
@@ -344,6 +345,7 @@ const MaterialRequisitionDetails = () => {
                         rowKey="id"
                         pagination={false}
                         bordered
+                        scroll={{ x: 600 }}
                         columns={[
                             {
                                 title: 'Material',

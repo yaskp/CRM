@@ -34,7 +34,7 @@ const ProjectStructure = ({ projectId, initialHierarchy, onUpdate }: ProjectStru
 
     const fetchWorkItemTypes = async () => {
         try {
-            const res = await workItemTypeService.getWorkItemTypes()
+            const res = await workItemTypeService.getWorkItemTypes({ is_active: true })
             // Backend returns { success: true, data: [...] }
             setWorkItemTypes(res.data || res.workItemTypes || [])
         } catch (e) {

@@ -161,7 +161,7 @@ const UserList = () => {
             />
 
             {/* Statistics Cards */}
-            <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+            <Row gutter={[16, 16]} style={{ marginBottom: theme.spacing.lg }}>
                 <Col xs={24} sm={8}>
                     <Card
                         hoverable
@@ -224,28 +224,32 @@ const UserList = () => {
                     border: `1px solid ${theme.colors.neutral.gray100}`,
                 }}
             >
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-                    <Search
-                        placeholder="Search by name or email"
-                        allowClear
-                        onSearch={(value) => {
-                            setSearchText(value)
-                            setCurrentPage(1)
-                        }}
-                        style={{ width: 300 }}
-                        prefix={<SearchOutlined style={prefixIconStyle} />}
-                        size="large"
-                    />
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => navigate('/admin/users/new')}
-                        size="large"
-                        style={getPrimaryButtonStyle(130)}
-                    >
-                        Add User
-                    </Button>
-                </div>
+                <Row gutter={[16, 16]} justify="space-between" align="middle">
+                    <Col xs={24} md={18}>
+                        <Search
+                            placeholder="Search by name or email"
+                            allowClear
+                            onSearch={(value) => {
+                                setSearchText(value)
+                                setCurrentPage(1)
+                            }}
+                            style={{ width: window.innerWidth < 576 ? '100%' : 300 }}
+                            prefix={<SearchOutlined style={prefixIconStyle} />}
+                            size="large"
+                        />
+                    </Col>
+                    <Col xs={24} md={6} style={{ textAlign: window.innerWidth < 768 ? 'left' : 'right' }}>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => navigate('/admin/users/new')}
+                            size="large"
+                            style={{ ...getPrimaryButtonStyle(130), width: window.innerWidth < 576 ? '100%' : 'auto' }}
+                        >
+                            Add User
+                        </Button>
+                    </Col>
+                </Row>
             </Card>
 
             {/* Users Table */}

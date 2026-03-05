@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Card, Tag, Button, Space, message, Row, Col, Typography, Divider, Table } from 'antd'
 import {
     ArrowLeftOutlined,
-    EditOutlined,
     SafetyCertificateOutlined,
     ProjectOutlined,
     InfoCircleOutlined,
@@ -23,7 +22,7 @@ import { workOrderService } from '../../services/api/workOrders'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import { theme } from '../../styles/theme'
-import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
+import { getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
 
 const { Text, Title } = Typography
 
@@ -161,10 +160,11 @@ const WorkOrderDetails = () => {
                 title={`Work Order: ${workOrder.work_order_number}`}
                 subtitle={`Created on ${dayjs(workOrder.created_at).format('DD MMM YYYY')}`}
                 icon={<SafetyCertificateOutlined />}
-                extra={[
-                    <Button key="back" icon={<ArrowLeftOutlined />} onClick={() => navigate('/operations/work-orders')} style={getSecondaryButtonStyle()}>Back</Button>,
-                    <Button key="edit" type="primary" icon={<EditOutlined />} onClick={() => navigate(`/operations/work-orders/${id}/edit`)} style={getPrimaryButtonStyle()}>Edit</Button>
-                ]}
+                extra={
+                    <Space wrap>
+                        <Button key="back" icon={<ArrowLeftOutlined />} onClick={() => navigate('/operations/work-orders')} style={getSecondaryButtonStyle()}>Back</Button>
+                    </Space>
+                }
             />
 
             <Row gutter={[16, 16]}>
@@ -238,7 +238,7 @@ const WorkOrderDetails = () => {
                                                     <Tag color="purple" style={{ margin: 0, fontSize: 11 }}>{workOrder.vendor.vendor_type?.toUpperCase() || 'VENDOR'}</Tag>
                                                 </Space>
                                             ) : (
-                                                <Tag color="cyan" style={{ marginTop: 4 }}>INTERNAL TEAM</Tag>
+                                                <Tag color="teal" style={{ marginTop: 4, background: '#e6fffb', color: '#08979c', borderColor: '#87e8de' }}>VH SHRI Enterprise (Internal)</Tag>
                                             )}
                                         </div>
                                     </div>
@@ -307,6 +307,7 @@ const WorkOrderDetails = () => {
                             columns={itemColumns}
                             pagination={false}
                             rowKey="id"
+                            scroll={{ x: 'max-content' }}
                             summary={() => {
                                 const total = workOrder.items?.reduce((sum: number, item: any) => sum + Number(item.amount), 0) || 0;
                                 const final = Number(workOrder.final_amount) || total;
@@ -353,12 +354,15 @@ const WorkOrderDetails = () => {
                     </InfoCard>
 
                     <Card title="Document Actions" style={{ marginTop: '16px' }} size="small">
+                        <div style={{ padding: '4px 0 8px', fontSize: 12, color: '#666', borderLeft: '3px solid #1890ff', paddingLeft: 8, marginBottom: 12, background: '#f0f8ff', borderRadius: 4 }}>
+                            📋 This Work Order is printed on <strong>client letterhead</strong>. Send to client for approval and signature, then upload the signed copy.
+                        </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             <Button icon={<DownloadOutlined />} onClick={handleDownloadPDF} block>
-                                Download Office Copy
+                                Download for Client (PDF)
                             </Button>
                             <Button icon={<PrinterOutlined />} onClick={handlePrintPDF} block>
-                                Print Order
+                                Print on Client Letterhead
                             </Button>
 
                             <Divider style={{ margin: '8px 0' }} />

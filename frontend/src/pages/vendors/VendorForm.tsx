@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Select, Button, Card, message, Switch, Typography, Modal, Divider } from 'antd'
+import { Form, Input, Select, Button, Card, message, Switch, Typography, Modal, Divider, Row, Col, Space } from 'antd'
 import {
     ShopOutlined,
     UserOutlined,
@@ -16,7 +16,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { vendorService } from '../../services/api/vendors'
 import StateSelect from '../../components/common/StateSelect'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
-import { largeInputStyle, getLabelStyle, getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle, actionCardStyle, prefixIconStyle, twoColumnGridStyle } from '../../styles/styleUtils'
+import { largeInputStyle, getLabelStyle, getPrimaryButtonStyle, getSecondaryButtonStyle, actionCardStyle, prefixIconStyle } from '../../styles/styleUtils'
 
 const { Option } = Select
 const { TextArea } = Input
@@ -52,8 +52,6 @@ const VendorForm = () => {
                 msme_category: vendorData.msme_category || undefined
             })
             setGstApplicable(!!vendorData.gst_number)
-
-            // Force update for StateSelect if needed (though form.setFieldsValue should handle it)
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch vendor')
         }
@@ -108,162 +106,175 @@ const VendorForm = () => {
             />
 
             <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ is_active: true }}>
-                <div style={twoColumnGridStyle}>
-                    <SectionCard title="Basic Information" icon={<ShopOutlined />}>
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Vendor Name</span>}
-                            name="name"
-                            rules={[{ required: true, message: 'Please enter vendor name' }]}
-                        >
-                            <Input
-                                prefix={<ShopOutlined style={prefixIconStyle} />}
-                                placeholder="Enter vendor/company name"
-                                size="large"
-                                style={largeInputStyle}
-                            />
-                        </Form.Item>
-
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Vendor Type</span>}
-                            name="vendor_type"
-                            rules={[{ required: true, message: 'Please select vendor type' }]}
-                        >
-                            <Select
-                                placeholder="Select vendor type"
-                                size="large"
-                                style={largeInputStyle}
-                            >
-                                {vendorTypes.map(type => (
-                                    <Option key={type.value} value={type.value}>{type.label}</Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
-
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Status</span>}
-                            name="is_active"
-                            valuePropName="checked"
-                        >
-                            <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
-                        </Form.Item>
-
-                        <InfoCard title="💡 Vendor Type">
-                            Select the primary service or material this vendor provides.
-                        </InfoCard>
-                    </SectionCard>
-
-                    <SectionCard title="Address Details" icon={<EnvironmentOutlined />}>
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Address</span>}
-                            name="address"
-                        >
-                            <TextArea
-                                rows={3}
-                                placeholder="Enter complete address"
-                                style={largeInputStyle}
-                            />
-                        </Form.Item>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: 16 }}>
+                <Row gutter={[24, 24]}>
+                    <Col xs={24} lg={12}>
+                        <SectionCard title="Basic Information" icon={<ShopOutlined />}>
                             <Form.Item
-                                label={<span style={getLabelStyle()}>City</span>}
-                                name="city"
-                                style={{ marginBottom: 0 }}
+                                label={<span style={getLabelStyle()}>Vendor Name</span>}
+                                name="name"
+                                rules={[{ required: true, message: 'Please enter vendor name' }]}
                             >
                                 <Input
-                                    placeholder="Enter city"
+                                    prefix={<ShopOutlined style={prefixIconStyle} />}
+                                    placeholder="Enter vendor/company name"
                                     size="large"
                                     style={largeInputStyle}
                                 />
                             </Form.Item>
 
                             <Form.Item
-                                label={<span style={getLabelStyle()}>State</span>}
-                                name="state"
-                                style={{ marginBottom: 0 }}
+                                label={<span style={getLabelStyle()}>Vendor Type</span>}
+                                name="vendor_type"
+                                rules={[{ required: true, message: 'Please select vendor type' }]}
                             >
-                                <StateSelect
-                                    onChange={(val, code) => {
-                                        form.setFieldsValue({ state: val, state_code: code })
-                                    }}
-                                />
+                                <Select
+                                    placeholder="Select vendor type"
+                                    size="large"
+                                    style={largeInputStyle}
+                                >
+                                    {vendorTypes.map(type => (
+                                        <Option key={type.value} value={type.value}>{type.label}</Option>
+                                    ))}
+                                </Select>
                             </Form.Item>
 
                             <Form.Item
-                                label={<span style={getLabelStyle()}>PIN Code</span>}
-                                name="pincode"
-                                rules={[
-                                    { pattern: /^[0-9]{6}$/, message: 'Please enter valid 6-digit PIN code' }
-                                ]}
-                                style={{ marginBottom: 0 }}
+                                label={<span style={getLabelStyle()}>Status</span>}
+                                name="is_active"
+                                valuePropName="checked"
                             >
-                                <Input
-                                    placeholder="Enter 6-digit PIN code"
-                                    size="large"
+                                <Switch checkedChildren="Active" unCheckedChildren="Inactive" />
+                            </Form.Item>
+
+                            <InfoCard title="💡 Vendor Type">
+                                Select the primary service or material this vendor provides.
+                            </InfoCard>
+                        </SectionCard>
+                    </Col>
+
+                    <Col xs={24} lg={12}>
+                        <SectionCard title="Address Details" icon={<EnvironmentOutlined />}>
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>Address</span>}
+                                name="address"
+                            >
+                                <TextArea
+                                    rows={3}
+                                    placeholder="Enter complete address"
                                     style={largeInputStyle}
-                                    maxLength={6}
                                 />
                             </Form.Item>
-                        </div>
-                        <Form.Item name="state_code" hidden />
-                    </SectionCard>
-                </div>
 
-                <SectionCard title="Tax & Compliance" icon={<BankOutlined />}>
-                    <div style={twoColumnGridStyle}>
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>GST Registered?</span>}
-                        >
-                            <Switch
-                                checked={gstApplicable}
-                                onChange={setGstApplicable}
-                                checkedChildren="Yes"
-                                unCheckedChildren="No"
-                            />
-                        </Form.Item>
+                            <Row gutter={[16, 16]}>
+                                <Col xs={24} sm={12}>
+                                    <Form.Item
+                                        label={<span style={getLabelStyle()}>City</span>}
+                                        name="city"
+                                    >
+                                        <Input
+                                            placeholder="Enter city"
+                                            size="large"
+                                            style={largeInputStyle}
+                                        />
+                                    </Form.Item>
+                                </Col>
+
+                                <Col xs={24} sm={12}>
+                                    <Form.Item
+                                        label={<span style={getLabelStyle()}>State</span>}
+                                        name="state"
+                                    >
+                                        <StateSelect
+                                            onChange={(val, code) => {
+                                                form.setFieldsValue({ state: val, state_code: code })
+                                            }}
+                                        />
+                                    </Form.Item>
+                                </Col>
+
+                                <Col xs={24}>
+                                    <Form.Item
+                                        label={<span style={getLabelStyle()}>PIN Code</span>}
+                                        name="pincode"
+                                        rules={[
+                                            { pattern: /^[0-9]{6}$/, message: 'Please enter valid 6-digit PIN code' }
+                                        ]}
+                                    >
+                                        <Input
+                                            placeholder="Enter 6-digit PIN code"
+                                            size="large"
+                                            style={largeInputStyle}
+                                            maxLength={6}
+                                        />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Form.Item name="state_code" hidden />
+                        </SectionCard>
+                    </Col>
+                </Row>
+
+                <SectionCard title="Tax & Compliance" icon={<BankOutlined />} style={{ marginTop: 24 }}>
+                    <Row gutter={[24, 0]}>
+                        <Col xs={24} sm={12}>
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>GST Registered?</span>}
+                            >
+                                <Switch
+                                    checked={gstApplicable}
+                                    onChange={setGstApplicable}
+                                    checkedChildren="Yes"
+                                    unCheckedChildren="No"
+                                />
+                            </Form.Item>
+                        </Col>
 
                         {gstApplicable && (
+                            <Col xs={24} sm={12}>
+                                <Form.Item
+                                    label={<span style={getLabelStyle()}>GST Number</span>}
+                                    name="gst_number"
+                                    rules={[
+                                        { required: true, message: 'GST Number is required' },
+                                        { pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, message: 'Invalid GST format' }
+                                    ]}
+                                >
+                                    <Input
+                                        prefix={<SafetyOutlined style={prefixIconStyle} />}
+                                        placeholder="e.g., 27AAAAA0000A1Z5"
+                                        size="large"
+                                        style={{ textTransform: 'uppercase', ...largeInputStyle }}
+                                        maxLength={15}
+                                        onChange={(e) => {
+                                            const val = e.target.value.toUpperCase();
+                                            if (val.length >= 2) {
+                                                const code = val.substring(0, 2);
+                                                form.setFieldsValue({ state_code: code });
+                                            }
+                                        }}
+                                    />
+                                </Form.Item>
+                            </Col>
+                        )}
+
+                        <Col xs={24} sm={12}>
                             <Form.Item
-                                label={<span style={getLabelStyle()}>GST Number</span>}
-                                name="gst_number"
+                                label={<span style={getLabelStyle()}>PAN Number</span>}
+                                name="pan_number"
                                 rules={[
-                                    { required: true, message: 'GST Number is required' },
-                                    { pattern: /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, message: 'Invalid GST format' }
+                                    { pattern: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, message: 'Invalid PAN format' }
                                 ]}
                             >
                                 <Input
-                                    prefix={<SafetyOutlined style={prefixIconStyle} />}
-                                    placeholder="e.g., 27AAAAA0000A1Z5"
+                                    prefix={<BankOutlined style={prefixIconStyle} />}
+                                    placeholder="e.g., AAAAA0000A"
                                     size="large"
                                     style={{ textTransform: 'uppercase', ...largeInputStyle }}
-                                    maxLength={15}
-                                    onChange={(e) => {
-                                        const val = e.target.value.toUpperCase();
-                                        if (val.length >= 2) {
-                                            const code = val.substring(0, 2);
-                                            form.setFieldsValue({ state_code: code });
-                                        }
-                                    }}
+                                    maxLength={10}
                                 />
                             </Form.Item>
-                        )}
-
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>PAN Number</span>}
-                            name="pan_number"
-                            rules={[
-                                { pattern: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, message: 'Invalid PAN format' }
-                            ]}
-                        >
-                            <Input
-                                prefix={<BankOutlined style={prefixIconStyle} />}
-                                placeholder="e.g., AAAAA0000A"
-                                size="large"
-                                style={{ textTransform: 'uppercase', ...largeInputStyle }}
-                                maxLength={10}
-                            />
-                        </Form.Item>
-                    </div>
+                        </Col>
+                    </Row>
 
                     <Divider style={{ margin: '16px 0' }} />
 
@@ -281,36 +292,40 @@ const VendorForm = () => {
                     <Form.Item noStyle shouldUpdate={(prevValues, currentValues) => prevValues.is_msme !== currentValues.is_msme}>
                         {({ getFieldValue }) =>
                             getFieldValue('is_msme') ? (
-                                <div style={twoColumnGridStyle}>
-                                    <Form.Item
-                                        label={<span style={getLabelStyle()}>MSME Number</span>}
-                                        name="msme_number"
-                                        rules={[{ required: true, message: 'Please enter MSME number' }]}
-                                    >
-                                        <Input
-                                            prefix={<SafetyOutlined style={prefixIconStyle} />}
-                                            placeholder="Enter MSME/Udyam number"
-                                            size="large"
-                                            style={largeInputStyle}
-                                        />
-                                    </Form.Item>
-
-                                    <Form.Item
-                                        label={<span style={getLabelStyle()}>MSME Category</span>}
-                                        name="msme_category"
-                                        rules={[{ required: true, message: 'Please select MSME category' }]}
-                                    >
-                                        <Select
-                                            placeholder="Select category"
-                                            size="large"
-                                            style={largeInputStyle}
+                                <Row gutter={[24, 0]}>
+                                    <Col xs={24} sm={12}>
+                                        <Form.Item
+                                            label={<span style={getLabelStyle()}>MSME Number</span>}
+                                            name="msme_number"
+                                            rules={[{ required: true, message: 'Please enter MSME number' }]}
                                         >
-                                            <Option value="Micro">Micro</Option>
-                                            <Option value="Small">Small</Option>
-                                            <Option value="Medium">Medium</Option>
-                                        </Select>
-                                    </Form.Item>
-                                </div>
+                                            <Input
+                                                prefix={<SafetyOutlined style={prefixIconStyle} />}
+                                                placeholder="Enter MSME/Udyam number"
+                                                size="large"
+                                                style={largeInputStyle}
+                                            />
+                                        </Form.Item>
+                                    </Col>
+
+                                    <Col xs={24} sm={12}>
+                                        <Form.Item
+                                            label={<span style={getLabelStyle()}>MSME Category</span>}
+                                            name="msme_category"
+                                            rules={[{ required: true, message: 'Please select MSME category' }]}
+                                        >
+                                            <Select
+                                                placeholder="Select category"
+                                                size="large"
+                                                style={largeInputStyle}
+                                            >
+                                                <Option value="Micro">Micro</Option>
+                                                <Option value="Small">Small</Option>
+                                                <Option value="Medium">Medium</Option>
+                                            </Select>
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
                             ) : null
                         }
                     </Form.Item>
@@ -322,7 +337,6 @@ const VendorForm = () => {
                     </InfoCard>
                 </SectionCard>
 
-                {/* Contact Persons Section - Full Width */}
                 <Card
                     style={{
                         marginTop: 24,
@@ -337,7 +351,7 @@ const VendorForm = () => {
                             Contact Persons
                         </Text>
                         <Text style={{ display: 'block', marginTop: 4, color: '#666', fontSize: 14 }}>
-                            Add multiple contact persons for this vendor (e.g., Site Manager, Accounts Head, Decision Maker)
+                            Add multiple contact persons for this vendor
                         </Text>
                     </div>
 
@@ -367,78 +381,81 @@ const VendorForm = () => {
                                             border: '1px solid #d9d9d9'
                                         }}
                                     >
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-                                            <Form.Item
-                                                {...field}
-                                                label={<span style={getLabelStyle()}>Contact Name</span>}
-                                                name={[field.name, 'contact_name']}
-                                                rules={[{ required: true, message: 'Contact name is required' }]}
-                                                style={{ marginBottom: 0 }}
-                                            >
-                                                <Input
-                                                    prefix={<UserOutlined style={prefixIconStyle} />}
-                                                    placeholder="Enter contact person name"
-                                                    size="large"
-                                                />
-                                            </Form.Item>
+                                        <Row gutter={[16, 0]}>
+                                            <Col xs={24} md={12}>
+                                                <Form.Item
+                                                    {...field}
+                                                    label={<span style={getLabelStyle()}>Contact Name</span>}
+                                                    name={[field.name, 'contact_name']}
+                                                    rules={[{ required: true, message: 'Contact name is required' }]}
+                                                >
+                                                    <Input
+                                                        prefix={<UserOutlined style={prefixIconStyle} />}
+                                                        placeholder="Name"
+                                                        size="large"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
 
-                                            <Form.Item
-                                                {...field}
-                                                label={<span style={getLabelStyle()}>Designation</span>}
-                                                name={[field.name, 'designation']}
-                                                style={{ marginBottom: 0 }}
-                                            >
-                                                <Input
-                                                    prefix={<IdcardOutlined style={prefixIconStyle} />}
-                                                    placeholder="e.g., Site Manager, CEO"
-                                                    size="large"
-                                                />
-                                            </Form.Item>
+                                            <Col xs={24} md={12}>
+                                                <Form.Item
+                                                    {...field}
+                                                    label={<span style={getLabelStyle()}>Designation</span>}
+                                                    name={[field.name, 'designation']}
+                                                >
+                                                    <Input
+                                                        prefix={<IdcardOutlined style={prefixIconStyle} />}
+                                                        placeholder="Designation"
+                                                        size="large"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
 
-                                            <Form.Item
-                                                {...field}
-                                                label={<span style={getLabelStyle()}>Email</span>}
-                                                name={[field.name, 'email']}
-                                                rules={[{ type: 'email', message: 'Invalid email format' }]}
-                                                style={{ marginBottom: 0 }}
-                                            >
-                                                <Input
-                                                    prefix={<MailOutlined style={prefixIconStyle} />}
-                                                    placeholder="contact@example.com"
-                                                    size="large"
-                                                />
-                                            </Form.Item>
+                                            <Col xs={24} md={12}>
+                                                <Form.Item
+                                                    {...field}
+                                                    label={<span style={getLabelStyle()}>Email</span>}
+                                                    name={[field.name, 'email']}
+                                                    rules={[{ type: 'email', message: 'Invalid email' }]}
+                                                >
+                                                    <Input
+                                                        prefix={<MailOutlined style={prefixIconStyle} />}
+                                                        placeholder="Email"
+                                                        size="large"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
 
-                                            <Form.Item
-                                                {...field}
-                                                label={<span style={getLabelStyle()}>Phone</span>}
-                                                name={[field.name, 'phone']}
-                                                style={{ marginBottom: 0 }}
-                                            >
-                                                <Input
-                                                    prefix={<PhoneOutlined style={prefixIconStyle} />}
-                                                    placeholder="+91 98765 43210"
-                                                    size="large"
-                                                />
-                                            </Form.Item>
+                                            <Col xs={24} md={12}>
+                                                <Form.Item
+                                                    {...field}
+                                                    label={<span style={getLabelStyle()}>Phone</span>}
+                                                    name={[field.name, 'phone']}
+                                                >
+                                                    <Input
+                                                        prefix={<PhoneOutlined style={prefixIconStyle} />}
+                                                        placeholder="Phone"
+                                                        size="large"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
 
-                                            <Form.Item
-                                                {...field}
-                                                label={<span style={getLabelStyle()}>Aadhar Number (Optional)</span>}
-                                                name={[field.name, 'aadhar_number']}
-                                                rules={[
-                                                    { pattern: /^[0-9]{12}$/, message: 'Must be exactly 12 digits' }
-                                                ]}
-                                                style={{ marginBottom: 0 }}
-                                            >
-                                                <Input
-                                                    prefix={<IdcardOutlined style={prefixIconStyle} />}
-                                                    placeholder="XXXX XXXX XXXX"
-                                                    size="large"
-                                                    maxLength={12}
-                                                />
-                                            </Form.Item>
-                                        </div>
+                                            <Col xs={24}>
+                                                <Form.Item
+                                                    {...field}
+                                                    label={<span style={getLabelStyle()}>Aadhar Number (Optional)</span>}
+                                                    name={[field.name, 'aadhar_number']}
+                                                    rules={[{ pattern: /^[0-9]{12}$/, message: 'Must be 12 digits' }]}
+                                                >
+                                                    <Input
+                                                        prefix={<IdcardOutlined style={prefixIconStyle} />}
+                                                        placeholder="XXXX XXXX XXXX"
+                                                        size="large"
+                                                        maxLength={12}
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
                                     </Card>
                                 ))}
 
@@ -463,64 +480,70 @@ const VendorForm = () => {
                     </Form.List>
                 </Card>
 
-                <SectionCard title="Banking Details" icon={<BankOutlined />}>
-                    <div style={twoColumnGridStyle}>
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Bank Name</span>}
-                            name="bank_name"
-                        >
-                            <Input
-                                placeholder="Enter bank name"
-                                size="large"
-                                style={largeInputStyle}
-                            />
-                        </Form.Item>
+                <SectionCard title="Banking Details" icon={<BankOutlined />} style={{ marginTop: 24 }}>
+                    <Row gutter={[24, 0]}>
+                        <Col xs={24} sm={12}>
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>Bank Name</span>}
+                                name="bank_name"
+                            >
+                                <Input
+                                    placeholder="Bank Name"
+                                    size="large"
+                                    style={largeInputStyle}
+                                />
+                            </Form.Item>
+                        </Col>
 
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Account Number</span>}
-                            name="account_number"
-                        >
-                            <Input
-                                placeholder="Enter account number"
-                                size="large"
-                                style={largeInputStyle}
-                            />
-                        </Form.Item>
+                        <Col xs={24} sm={12}>
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>Account Number</span>}
+                                name="account_number"
+                            >
+                                <Input
+                                    placeholder="Account Number"
+                                    size="large"
+                                    style={largeInputStyle}
+                                />
+                            </Form.Item>
+                        </Col>
 
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>IFSC Code</span>}
-                            name="ifsc_code"
-                            rules={[
-                                { pattern: /^[A-Z]{4}0[A-Z0-9]{6}$/, message: 'Invalid IFSC format' }
-                            ]}
-                        >
-                            <Input
-                                placeholder="e.g., SBIN0001234"
-                                size="large"
-                                style={{ textTransform: 'uppercase', ...largeInputStyle }}
-                                maxLength={11}
-                            />
-                        </Form.Item>
+                        <Col xs={24} sm={12}>
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>IFSC Code</span>}
+                                name="ifsc_code"
+                                rules={[{ pattern: /^[A-Z]{4}0[A-Z0-9]{6}$/, message: 'Invalid IFSC' }]}
+                            >
+                                <Input
+                                    placeholder="IFSC"
+                                    size="large"
+                                    style={{ textTransform: 'uppercase', ...largeInputStyle }}
+                                    maxLength={11}
+                                />
+                            </Form.Item>
+                        </Col>
 
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Branch</span>}
-                            name="branch"
-                        >
-                            <Input
-                                placeholder="Enter branch name"
-                                size="large"
-                                style={largeInputStyle}
-                            />
-                        </Form.Item>
-                    </div>
+                        <Col xs={24} sm={12}>
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>Branch</span>}
+                                name="branch"
+                            >
+                                <Input
+                                    placeholder="Branch"
+                                    size="large"
+                                    style={largeInputStyle}
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
                 </SectionCard>
 
                 <Card style={actionCardStyle}>
-                    <div style={flexBetweenStyle}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
                         <Text style={{ color: '#666', fontSize: 14 }}>
                             All fields marked with <span style={{ color: '#ff4d4f' }}>*</span> are required
                         </Text>
-                        <div style={{ display: 'flex', gap: 12 }}>
+                        <Space wrap>
                             <Button
                                 onClick={() => navigate('/master/vendors')}
                                 size="large"
@@ -537,7 +560,7 @@ const VendorForm = () => {
                             >
                                 {isEdit ? 'Update' : 'Create'} Vendor
                             </Button>
-                        </div>
+                        </Space>
                     </div>
                 </Card>
             </Form>

@@ -164,6 +164,7 @@ const UnifiedDailyReport = () => {
     const [stockMap, setStockMap] = useState<Record<number, number>>({})
     const [photoList, setPhotoList] = useState<UploadFile[]>([])
     const [selectedWorkType, setSelectedWorkType] = useState<any>(null)
+    const [selectedPrimaryWorkTypeId, setSelectedPrimaryWorkTypeId] = useState<number | undefined>(undefined)
     const [rmcLogs, setRmcLogs] = useState<RmcItem[]>([])
     const [panelWorkLogs, setPanelWorkLogs] = useState<PanelWorkLog[]>([])
     const [pileWorkLogs, setPileWorkLogs] = useState<PileWorkLog[]>([])
@@ -186,11 +187,17 @@ const UnifiedDailyReport = () => {
             const log = res.transaction
             if (log) {
                 // Initialize form with basic data
+                const subWorkTypeId = log.items?.[0]?.work_item_type_id
+                // Derive parent from sub type
+                const subType = workItemTypes.find((w: any) => w.id === subWorkTypeId)
+                const primaryId = subType?.parent_id || subWorkTypeId
+                setSelectedPrimaryWorkTypeId(primaryId)
                 form.setFieldsValue({
                     project_id: log.project_id,
                     warehouse_id: log.warehouse_id,
                     transaction_date: dayjs(log.transaction_date),
-                    work_item_type_id: log.items?.[0]?.work_item_type_id,
+                    primary_work_item_type_id: primaryId,
+                    work_item_type_id: subWorkTypeId,
                     weather_condition: log.weather_condition,
                     work_hours: log.work_hours,
                     temperature: log.temperature,
@@ -298,7 +305,7 @@ const UnifiedDailyReport = () => {
                 materialService.getMaterials({ limit: 999 }),
                 warehouseService.getWarehouses({ limit: 999 }),
                 projectService.getProjects({ limit: 999 }),
-                workItemTypeService.getWorkItemTypes({ limit: 999 }),
+                workItemTypeService.getWorkItemTypes({ limit: 999, is_active: true }),
                 storeTransactionService.getWorkerCategories(),
                 userService.getUsers({ limit: 1000 }),
                 equipmentService.getEquipment({ limit: 1000 })
@@ -531,6 +538,32 @@ const UnifiedDailyReport = () => {
         }
     }
 
+    // Separate parent and child work types
+    const primaryWorkTypes = workItemTypes.filter(w => !w.parent_id)
+    const subWorkTypesForSelected = selectedPrimaryWorkTypeId
+        ? workItemTypes.filter(w => w.parent_id === selectedPrimaryWorkTypeId)
+        : []
+
+    const handlePrimaryWorkTypeChange = (primaryId: number) => {
+        setSelectedPrimaryWorkTypeId(primaryId)
+        // Reset sub work type selection
+        form.setFieldsValue({ work_item_type_id: undefined })
+        setSelectedWorkType(null)
+
+        // Auto-detect structure from primary type name mapping
+        const workType = workItemTypes.find(w => w.id === primaryId)
+        if (!workType) return
+        const typeName = workType.name.toLowerCase()
+        const bMatch = buildings.find(b =>
+            b.name.toLowerCase().includes(typeName) ||
+            typeName.includes(b.name.toLowerCase())
+        )
+        if (bMatch) {
+            form.setFieldsValue({ building_id: bMatch.id })
+            handleBuildingChange(bMatch.id)
+        }
+    }
+
     const handleWorkTypeChange = async (workTypeId: number) => {
         const workType = workItemTypes.find(w => w.id === workTypeId)
         setSelectedWorkType(workType)
@@ -549,19 +582,6 @@ const UnifiedDailyReport = () => {
             // Fallback: Show materials from the Project's general BOQ list (never the master list)
             const uniqueProjectMatIds = Array.from(new Set(boqItems.map((i: any) => i.material_id)))
             setFilteredMaterials(materials.filter(m => uniqueProjectMatIds.includes(m.id)))
-        }
-
-        // 2. PROFESSIONAL SMART MAPPING:
-        // Linking 'Work Type' (Task) to 'Physical Structure' (Location)
-        const typeName = workType.name.toLowerCase()
-        const bMatch = buildings.find(b =>
-            b.name.toLowerCase().includes(typeName) ||
-            typeName.includes(b.name.toLowerCase())
-        )
-
-        if (bMatch) {
-            form.setFieldsValue({ building_id: bMatch.id })
-            await handleBuildingChange(bMatch.id)
         }
     }
 
@@ -1622,56 +1642,65 @@ const UnifiedDailyReport = () => {
                                 </Col>
                                 <Col xs={24} md={12}>
                                     <Form.Item
+                                        label={<span style={getLabelStyle()}>Primary Work Type</span>}
+                                        name="primary_work_item_type_id"
+                                        rules={[{ required: true, message: 'Select primary work type' }]}
+                                    >
+                                        <Select
+                                            placeholder="Select category (e.g. D-Wall, Piling)"
+                                            size="large"
+                                            onChange={handlePrimaryWorkTypeChange}
+                                            showSearch
+                                            filterOption={(input, option) =>
+                                                (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+                                            }
+                                            allowClear
+                                        >
+                                            {primaryWorkTypes.map(wit => (
+                                                <Option key={wit.id} value={wit.id} label={wit.name}>{wit.name}</Option>
+                                            ))}
+                                        </Select>
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} md={12}>
+                                    <Form.Item
                                         label={
                                             <span style={getLabelStyle()}>
-                                                Primary Work Type
+                                                Sub Work Type
                                                 {boqLinkedWorkTypes.length > 0 && (
                                                     <Tag color="blue" style={{ marginLeft: 8, fontSize: 10 }}>BOQ Filtered</Tag>
                                                 )}
                                             </span>
                                         }
                                         name="work_item_type_id"
-                                        rules={[{ required: true }]}
+                                        rules={[{ required: true, message: 'Select sub work type' }]}
                                     >
                                         <Select
-                                            placeholder="Select work type"
+                                            placeholder={selectedPrimaryWorkTypeId ? 'Select specific work' : 'Select Primary first'}
                                             size="large"
                                             onChange={handleWorkTypeChange}
                                             showSearch
+                                            disabled={!selectedPrimaryWorkTypeId}
                                             filterOption={(input, option) =>
                                                 (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
                                             }
+                                            allowClear
                                         >
-                                            {boqLinkedWorkTypes.length > 0 ? (
-                                                <>
-                                                    <Select.OptGroup label="📋 Project BOQ Work Types">
-                                                        {boqLinkedWorkTypes.map(wit => (
-                                                            <Option key={wit.id} value={wit.id} label={wit.name}>
-                                                                <Space>
-                                                                    {wit.name}
-                                                                    <Tag color="blue" style={{ fontSize: 10, margin: 0 }}>BOQ</Tag>
-                                                                </Space>
-                                                            </Option>
-                                                        ))}
-                                                    </Select.OptGroup>
-                                                    {extraWorkTypes.length > 0 && (
-                                                        <Select.OptGroup label="➕ Other / Extra Work (Not in BOQ)">
-                                                            {extraWorkTypes.map(wit => (
-                                                                <Option key={wit.id} value={wit.id} label={wit.name}>
-                                                                    <Space>
-                                                                        {wit.name}
-                                                                        <Tag color="orange" style={{ fontSize: 10, margin: 0 }}>Extra</Tag>
-                                                                    </Space>
-                                                                </Option>
-                                                            ))}
-                                                        </Select.OptGroup>
-                                                    )}
-                                                </>
-                                            ) : (
-                                                // No BOQ loaded — show all work types flat
-                                                workItemTypes.map(wit => (
+                                            {subWorkTypesForSelected.length > 0 ? (
+                                                subWorkTypesForSelected.map(wit => (
                                                     <Option key={wit.id} value={wit.id} label={wit.name}>{wit.name}</Option>
                                                 ))
+                                            ) : (
+                                                // Fallback: if work type has no children, show all BOQ filtered types
+                                                boqLinkedWorkTypes.length > 0 ? (
+                                                    boqLinkedWorkTypes.map(wit => (
+                                                        <Option key={wit.id} value={wit.id} label={wit.name}>{wit.name}</Option>
+                                                    ))
+                                                ) : (
+                                                    workItemTypes.filter(w => w.parent_id === selectedPrimaryWorkTypeId).map(wit => (
+                                                        <Option key={wit.id} value={wit.id} label={wit.name}>{wit.name}</Option>
+                                                    ))
+                                                )
                                             )}
                                         </Select>
                                     </Form.Item>
@@ -1692,22 +1721,22 @@ const UnifiedDailyReport = () => {
                                 )}
 
                                 {(structureType === 'building' || structureType === 'both') && (
-                                    <Row gutter={16}>
-                                        <Col span={8}>
+                                    <Row gutter={[16, 16]}>
+                                        <Col xs={24} sm={12} md={8}>
                                             <Form.Item label={<span style={getLabelStyle()}>Building</span>} name="building_id">
                                                 <Select placeholder="Bldg" allowClear onChange={handleBuildingChange} size="large" showSearch optionFilterProp="children">
                                                     {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
                                                 </Select>
                                             </Form.Item>
                                         </Col>
-                                        <Col span={8}>
+                                        <Col xs={24} sm={12} md={8}>
                                             <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
                                                 <Select placeholder="Floor" allowClear onChange={handleFloorChange} size="large" showSearch optionFilterProp="children">
                                                     {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
                                                 </Select>
                                             </Form.Item>
                                         </Col>
-                                        <Col span={8}>
+                                        <Col xs={24} sm={12} md={8}>
                                             <Form.Item label={<span style={getLabelStyle()}>Zone</span>} name="zone_id">
                                                 <Select placeholder="Zone" allowClear size="large" showSearch optionFilterProp="children">
                                                     {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
@@ -1719,8 +1748,8 @@ const UnifiedDailyReport = () => {
 
                                 {(structureType === 'panel' || structureType === 'both') && (
                                     <>
-                                        <Row gutter={16} style={{ marginTop: structureType === 'both' ? '16px' : '0' }}>
-                                            <Col span={selectedPanels.length > 0 ? 6 : 12}>
+                                        <Row gutter={[16, 16]} style={{ marginTop: structureType === 'both' ? '16px' : '0' }}>
+                                            <Col xs={24} md={selectedPanels.length > 0 ? 6 : 12}>
                                                 <Form.Item label={<span style={getLabelStyle()}>Drawing</span>} name="drawing_id">
                                                     <Select
                                                         placeholder="Select drawing"
@@ -1742,7 +1771,7 @@ const UnifiedDailyReport = () => {
                                                     </Select>
                                                 </Form.Item>
                                             </Col>
-                                            <Col span={selectedPanels.length > 0 ? 18 : 12}>
+                                            <Col xs={24} md={selectedPanels.length > 0 ? 18 : 12}>
                                                 <Form.Item label={<span style={getLabelStyle()}>Panel(s)</span>} name="drawing_panel_id">
                                                     <Select
                                                         mode="multiple"
@@ -1985,6 +2014,7 @@ const UnifiedDailyReport = () => {
                                 rowKey="tempId"
                                 size="small"
                                 bordered
+                                scroll={{ x: 'max-content' }}
                             />
                             <div style={{ marginTop: 16, padding: '12px', background: '#f8fafc', borderRadius: 8 }}>
                                 <div style={{ marginBottom: 8 }}>
@@ -2023,6 +2053,7 @@ const UnifiedDailyReport = () => {
                                 size="small"
                                 bordered
                                 style={{ marginTop: 8 }}
+                                scroll={{ x: 'max-content' }}
                                 locale={{ emptyText: 'Record materials and work progress below.' }}
                                 footer={() => (
                                     <Button
@@ -2039,8 +2070,8 @@ const UnifiedDailyReport = () => {
                         </SectionCard>
 
                         {/* 3. Resources Deployment (Staff/Manpower/Machinery) */}
-                        <Row gutter={16}>
-                            <Col span={12}>
+                        <Row gutter={[16, 16]}>
+                            <Col xs={24} lg={12}>
                                 <SectionCard title="Staff Deployment" icon={<TeamOutlined />}>
                                     <Table
                                         dataSource={manpower.filter(m => m.is_staff)}
@@ -2115,11 +2146,12 @@ const UnifiedDailyReport = () => {
                                         rowKey="tempId"
                                         size="small"
                                         bordered
+                                        scroll={{ x: 'max-content' }}
                                         footer={() => <Button type="dashed" block onClick={() => addManpower(true)} icon={<PlusOutlined />}>Add Staff</Button>}
                                     />
                                 </SectionCard>
                             </Col>
-                            <Col span={12}>
+                            <Col xs={24} lg={12}>
                                 <SectionCard title="Machinery Deployment" icon={<DashboardOutlined />}>
                                     <Table
                                         dataSource={machinery}
@@ -2189,6 +2221,7 @@ const UnifiedDailyReport = () => {
                                         rowKey="tempId"
                                         size="small"
                                         bordered
+                                        scroll={{ x: 'max-content' }}
                                         footer={() => <Button type="dashed" block onClick={addMachinery} icon={<PlusOutlined />}>Add Machine</Button>}
                                     />
                                 </SectionCard>
@@ -2294,14 +2327,15 @@ const UnifiedDailyReport = () => {
                                 rowKey="tempId"
                                 size="small"
                                 bordered
+                                scroll={{ x: 'max-content' }}
                                 footer={() => <Button type="dashed" block onClick={() => addManpower(false)} icon={<PlusOutlined />}>Add Labor Category</Button>}
                             />
                         </SectionCard>
 
                         {/* 4. Site Conditions & Photos */}
                         <SectionCard title="Site Conditions & Pictures" icon={<CameraOutlined />}>
-                            <Row gutter={16}>
-                                <Col span={12}>
+                            <Row gutter={[16, 16]}>
+                                <Col xs={24} md={12}>
                                     <Form.Item label="Weather" name="weather_condition">
                                         <Select placeholder="Weather" size="large">
                                             <Option value="Clear">☀️ Clear</Option>
@@ -2310,7 +2344,7 @@ const UnifiedDailyReport = () => {
                                         </Select>
                                     </Form.Item>
                                 </Col>
-                                <Col span={12}>
+                                <Col xs={24} md={12}>
                                     <Form.Item label="Work Hours" name="work_hours">
                                         <Input placeholder="e.g. 8-6" size="large" />
                                     </Form.Item>
@@ -2328,14 +2362,14 @@ const UnifiedDailyReport = () => {
 
                         {/* 5. Live Summary Footer */}
                         <Card style={{ background: theme.gradients.primary, color: 'white', marginBottom: 24, borderRadius: 12 }}>
-                            <Row gutter={24} align="middle">
-                                <Col span={8}>
+                            <Row gutter={[16, 16]} align="middle">
+                                <Col xs={24} sm={8}>
                                     <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Achievement</span>} value={summary.totalWorkDone} suffix={selectedWorkType?.uom || 'm'} valueStyle={{ color: 'white' }} />
                                 </Col>
-                                <Col span={8}>
+                                <Col xs={24} sm={8}>
                                     <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Efficiency</span>} value={summary.efficiency} suffix="%" valueStyle={{ color: summary.efficiency >= 90 ? '#52c41a' : '#faad14' }} />
                                 </Col>
-                                <Col span={8}>
+                                <Col xs={24} sm={8}>
                                     <Statistic title={<span style={{ color: 'rgba(255,255,255,0.7)' }}>Daily Cost</span>} value={summary.totalCost} prefix="₹" valueStyle={{ color: 'white' }} />
                                 </Col>
                             </Row>
@@ -2343,9 +2377,9 @@ const UnifiedDailyReport = () => {
 
                         {/* Submit Container */}
                         <Card style={actionCardStyle}>
-                            <div style={flexBetweenStyle}>
+                            <div style={{ ...flexBetweenStyle, flexWrap: 'wrap', gap: 12 }}>
                                 <Text type="secondary"><InfoCircleOutlined /> Auto-updates Inventory & BOQ Progress on submission.</Text>
-                                <Space>
+                                <Space wrap>
                                     <Button onClick={() => navigate(-1)} size="large">Cancel</Button>
                                     <Button type="primary" htmlType="submit" loading={loading} icon={<SaveOutlined />} size="large" style={getPrimaryButtonStyle()}>Submit Site Report</Button>
                                 </Space>

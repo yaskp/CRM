@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Descriptions, Tag, Button, Row, Col, Typography, Divider, Tabs } from 'antd'
+import { Card, Descriptions, Tag, Button, Row, Col, Typography, Divider, Tabs, Space } from 'antd'
 import {
     ShopOutlined,
     ArrowLeftOutlined,
@@ -17,11 +17,9 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import { vendorService } from '../../services/api/vendors'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
-import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
-import { theme } from '../../styles/theme'
-import PurchaseOrderList from '../purchase-orders/PurchaseOrderList'
+import { getPrimaryButtonStyle, getSecondaryButtonStyle } from '../../styles/styleUtils'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 
 const VendorDetails = () => {
     const { id } = useParams()
@@ -66,40 +64,42 @@ const VendorDetails = () => {
                 title={vendor.name}
                 subtitle={`Vendor Code: VEND-${String(vendor.id).padStart(4, '0')}`}
                 icon={<ShopOutlined />}
-                extra={[
-                    <Button
-                        key="back"
-                        icon={<ArrowLeftOutlined />}
-                        onClick={() => navigate('/master/vendors')}
-                        style={getSecondaryButtonStyle()}
-                    >
-                        Back
-                    </Button>,
-                    <Button
-                        key="edit"
-                        type="primary"
-                        icon={<EditOutlined />}
-                        onClick={() => navigate(`/master/vendors/${id}/edit`)}
-                        style={getPrimaryButtonStyle()}
-                    >
-                        Edit Vendor
-                    </Button>,
-                    <Button
-                        key="pay"
-                        type="primary"
-                        icon={<DollarOutlined />}
-                        onClick={() => navigate(`/finance/transactions/new?vendor_id=${id}&category=vendor`)}
-                        style={{ ...getPrimaryButtonStyle(), background: '#722ed1', borderColor: '#722ed1' }}
-                    >
-                        Pay Vendor
-                    </Button>
-                ]}
+                extra={(
+                    <Space wrap>
+                        <Button
+                            key="back"
+                            icon={<ArrowLeftOutlined />}
+                            onClick={() => navigate('/master/vendors')}
+                            style={getSecondaryButtonStyle()}
+                        >
+                            Back
+                        </Button>
+                        <Button
+                            key="edit"
+                            type="primary"
+                            icon={<EditOutlined />}
+                            onClick={() => navigate(`/master/vendors/${id}/edit`)}
+                            style={getPrimaryButtonStyle()}
+                        >
+                            Edit Vendor
+                        </Button>
+                        <Button
+                            key="pay"
+                            type="primary"
+                            icon={<DollarOutlined />}
+                            onClick={() => navigate(`/finance/transactions/new?vendor_id=${id}&category=vendor`)}
+                            style={{ ...getPrimaryButtonStyle(), background: '#722ed1', borderColor: '#722ed1' }}
+                        >
+                            Pay Vendor
+                        </Button>
+                    </Space>
+                )}
             />
 
             <Row gutter={[24, 24]}>
                 <Col xs={24} lg={16}>
                     <SectionCard title="Vendor Overview" icon={<ShopOutlined />}>
-                        <Descriptions bordered column={{ xs: 1, sm: 2 }}>
+                        <Descriptions bordered column={{ xxl: 2, xl: 2, lg: 2, md: 2, sm: 1, xs: 1 }}>
                             <Descriptions.Item label="Vendor Type">
                                 <Tag color="blue" style={{ fontSize: 13, padding: '4px 8px' }}>{typeLabel}</Tag>
                             </Descriptions.Item>

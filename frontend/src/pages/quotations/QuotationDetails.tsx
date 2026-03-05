@@ -317,7 +317,7 @@ const QuotationDetails = () => {
                 }
                 icon={<FileTextOutlined />}
                 extra={[
-                    <Space key="actions" wrap>
+                    <Space key="actions" wrap style={{ width: '100%', justifyContent: 'flex-end', gap: 8 }}>
                         <Button key="back" icon={<ArrowLeftOutlined />} onClick={() => navigate('/sales/quotations')} style={getSecondaryButtonStyle()}>Back</Button>
                         <Button
                             key="revise"
@@ -327,7 +327,7 @@ const QuotationDetails = () => {
                             loading={loading}
                             disabled={quotation.status === 'superseded'}
                         >
-                            Revise Quote
+                            Revise
                         </Button>
                         <Button
                             key="edit"
@@ -348,10 +348,11 @@ const QuotationDetails = () => {
                                 style={{
                                     ...getPrimaryButtonStyle(),
                                     background: quotation.lead?.project_id ? theme.colors.success.main : theme.colors.primary.main,
-                                    borderColor: quotation.lead?.project_id ? theme.colors.success.main : theme.colors.primary.main
+                                    borderColor: quotation.lead?.project_id ? theme.colors.success.main : theme.colors.primary.main,
+                                    width: window.innerWidth < 576 ? '100%' : 'auto'
                                 }}
                             >
-                                {quotation.lead?.project_id ? 'Sync with Project' : 'Create Project'}
+                                {quotation.lead?.project_id ? 'Sync' : 'Create Project'}
                             </Button>
                         )}
                     </Space>
@@ -365,32 +366,32 @@ const QuotationDetails = () => {
                         <div style={{ padding: '8px 0' }}>
                             <Row gutter={[24, 24]}>
                                 <Col xs={24} sm={12} md={6}>
-                                    <Text type="secondary" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Lead Name</Text>
-                                    <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '4px', color: theme.colors.neutral.gray800 }}>
+                                    <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase' }}>Lead Name</Text>
+                                    <div style={{ fontSize: '15px', fontWeight: 600, marginTop: '4px' }}>
                                         {quotation.lead?.name}
                                     </div>
                                 </Col>
                                 <Col xs={24} sm={12} md={8}>
-                                    <Text type="secondary" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Company</Text>
-                                    <div style={{ fontSize: '16px', fontWeight: 600, marginTop: '4px', color: theme.colors.neutral.gray800 }}>
+                                    <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase' }}>Company</Text>
+                                    <div style={{ fontSize: '15px', fontWeight: 600, marginTop: '4px' }}>
                                         {quotation.lead?.company_name || '-'}
                                     </div>
                                 </Col>
                                 <Col xs={12} sm={8} md={5}>
-                                    <Text type="secondary" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Status</Text>
+                                    <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase' }}>Status</Text>
                                     <div style={{ marginTop: '4px' }}>
-                                        <Tag color={getStatusColor(quotation.status)} style={{ marginRight: 0, fontSize: '13px', padding: '2px 10px' }}>
+                                        <Tag color={getStatusColor(quotation.status)} style={{ marginRight: 0 }}>
                                             {quotation.status.toUpperCase()}
                                         </Tag>
                                     </div>
                                 </Col>
                                 <Col xs={12} sm={8} md={5}>
-                                    <Text type="secondary" style={{ fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Valid Until</Text>
-                                    <div style={{ marginTop: '4px', fontSize: '15px' }}>
+                                    <Text type="secondary" style={{ fontSize: '11px', textTransform: 'uppercase' }}>Valid Until</Text>
+                                    <div style={{ marginTop: '4px' }}>
                                         {quotation.valid_until ? (
-                                            <Space>
+                                            <Space size={4}>
                                                 <CalendarOutlined style={{ color: theme.colors.primary.main }} />
-                                                <Text strong>{dayjs(quotation.valid_until).format('DD MMM YYYY')}</Text>
+                                                <Text strong>{dayjs(quotation.valid_until).format('DD MMM YY')}</Text>
                                             </Space>
                                         ) : 'N/A'}
                                     </div>
@@ -693,7 +694,8 @@ const QuotationDetails = () => {
                 onOk={handleConfirmCreateProject}
                 onCancel={() => setIsCreateProjectModalVisible(false)}
                 confirmLoading={creatingProject}
-                width={800}
+                width="95%"
+                style={{ maxWidth: 800 }}
                 okText={quotation.lead?.project_id ? "Sync & Update Project" : "Create Project"}
             >
                 {quotation.lead?.project_id && (
@@ -752,8 +754,8 @@ const QuotationDetails = () => {
                             <Input placeholder="Enter Project Name" />
                         </Form.Item>
 
-                        <Row gutter={16}>
-                            <Col span={12}>
+                        <Row gutter={[16, 0]}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item
                                     name="start_date"
                                     label="Start Date"
@@ -762,7 +764,7 @@ const QuotationDetails = () => {
                                     <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" />
                                 </Form.Item>
                             </Col>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item
                                     name="contract_value"
                                     label="Contract Value"
@@ -784,13 +786,13 @@ const QuotationDetails = () => {
                             <Input.TextArea rows={2} placeholder="Enter Site Address" />
                         </Form.Item>
 
-                        <Row gutter={16}>
-                            <Col span={12}>
+                        <Row gutter={[16, 0]}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="city" label="City">
                                     <Input placeholder="City" />
                                 </Form.Item>
                             </Col>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="state" label="State">
                                     <StateSelect
                                         onChange={(val, code) => {
@@ -852,8 +854,8 @@ const QuotationDetails = () => {
                                     <Input placeholder="Enter Contact Person" />
                                 </Form.Item>
 
-                                <Row gutter={16}>
-                                    <Col span={12}>
+                                <Row gutter={[16, 0]}>
+                                    <Col xs={24} sm={12}>
                                         <Form.Item
                                             name="email"
                                             label="Email Address"
@@ -862,7 +864,7 @@ const QuotationDetails = () => {
                                             <Input placeholder="Enter Email" />
                                         </Form.Item>
                                     </Col>
-                                    <Col span={12}>
+                                    <Col xs={24} sm={12}>
                                         <Form.Item
                                             name="phone"
                                             label="Phone Number"
@@ -887,8 +889,8 @@ const QuotationDetails = () => {
                                     </Select>
                                 </Form.Item>
 
-                                <Row gutter={16}>
-                                    <Col span={12}>
+                                <Row gutter={[16, 0]}>
+                                    <Col xs={16} sm={12}>
                                         <Form.Item
                                             name="client_type"
                                             label="Client Type"
@@ -901,10 +903,10 @@ const QuotationDetails = () => {
                                             </Select>
                                         </Form.Item>
                                     </Col>
-                                    <Col span={12}>
+                                    <Col xs={8} sm={12}>
                                         <Form.Item
                                             name="is_gst_registered"
-                                            label="GST Registered?"
+                                            label="GST?"
                                             valuePropName="checked"
                                             initialValue={true}
                                         >
@@ -926,8 +928,8 @@ const QuotationDetails = () => {
                                     </Form.Item>
                                 )}
 
-                                <Row gutter={16}>
-                                    <Col span={12}>
+                                <Row gutter={[16, 0]}>
+                                    <Col xs={24} sm={14}>
                                         <Form.Item
                                             name="pan"
                                             label="PAN Number"
@@ -936,21 +938,21 @@ const QuotationDetails = () => {
                                             <Input placeholder="Enter PAN" />
                                         </Form.Item>
                                     </Col>
-                                    <Col span={12}>
+                                    <Col xs={24} sm={10}>
                                         <Form.Item name="pincode" label="Pincode">
                                             <Input placeholder="Pincode" maxLength={6} />
                                         </Form.Item>
                                     </Col>
                                 </Row>
 
-                                <Row gutter={16}>
-                                    <Col span={12}>
+                                <Row gutter={[16, 0]}>
+                                    <Col xs={24} sm={12}>
                                         <Form.Item name="credit_limit" label="Credit Limit">
                                             <Input placeholder="Credit Limit" type="number" prefix="₹" />
                                         </Form.Item>
                                     </Col>
-                                    <Col span={12}>
-                                        <Form.Item name="payment_terms" label="Client Payment Terms">
+                                    <Col xs={24} sm={12}>
+                                        <Form.Item name="payment_terms" label="Payment Terms">
                                             <Input placeholder="e.g. Net 30" />
                                         </Form.Item>
                                     </Col>
@@ -978,8 +980,8 @@ const QuotationDetails = () => {
                         style={{ border: '1px solid #f0f0f0', borderRadius: 8, marginTop: 16 }}
                         icon={<ShopOutlined />}
                     >
-                        <Row gutter={16}>
-                            <Col span={12}>
+                        <Row gutter={[16, 0]}>
+                            <Col xs={24} sm={warehouseAction === 'create_new' ? 12 : 24}>
                                 <Form.Item name="warehouse_action" label="Store Setup Strategy">
                                     <Select showSearch optionFilterProp="children" placeholder="Select action">
                                         <Option value="none">Don't create or link store</Option>
@@ -989,7 +991,7 @@ const QuotationDetails = () => {
                                 </Form.Item>
                             </Col>
                             {warehouseAction === 'create_new' && (
-                                <Col span={12}>
+                                <Col xs={24} sm={12}>
                                     <Form.Item name="warehouse_type" label="Store Category">
                                         <Select showSearch optionFilterProp="children" placeholder="Select category">
                                             <Option value="site">🏗️ Site Store</Option>
@@ -1016,22 +1018,22 @@ const QuotationDetails = () => {
                             </Form.Item>
                         ) : (
                             <>
-                                <Row gutter={16}>
-                                    <Col span={14}>
+                                <Row gutter={[16, 0]}>
+                                    <Col xs={24} sm={14}>
                                         <Form.Item
                                             name="warehouse_name"
                                             label="Store Name"
                                             rules={[{ required: true, message: 'Please enter store name' }]}
                                         >
-                                            <Input placeholder="e.g. Site Store - Mumbai Project" />
+                                            <Input placeholder="e.g. Site Store" />
                                         </Form.Item>
                                     </Col>
-                                    <Col span={10}>
+                                    <Col xs={24} sm={10}>
                                         <Form.Item
                                             name="warehouse_code"
-                                            label="Store Code (Optional)"
+                                            label="Store Code"
                                         >
-                                            <Input placeholder="Auto-generated if empty" />
+                                            <Input placeholder="Optional" />
                                         </Form.Item>
                                     </Col>
                                 </Row>
@@ -1055,13 +1057,13 @@ const QuotationDetails = () => {
                                     <Input.TextArea rows={1} placeholder="Site Office Address" />
                                 </Form.Item>
 
-                                <Row gutter={16}>
-                                    <Col span={8}>
+                                <Row gutter={[12, 0]}>
+                                    <Col xs={24} sm={8}>
                                         <Form.Item name="warehouse_city" label="City">
                                             <Input placeholder="City" />
                                         </Form.Item>
                                     </Col>
-                                    <Col span={8}>
+                                    <Col xs={12} sm={8}>
                                         <Form.Item name="warehouse_state" label="State">
                                             <StateSelect
                                                 onChange={(val, code) => {
@@ -1071,20 +1073,20 @@ const QuotationDetails = () => {
                                         </Form.Item>
                                         <Form.Item name="warehouse_state_code" hidden><Input /></Form.Item>
                                     </Col>
-                                    <Col span={8}>
+                                    <Col xs={12} sm={8}>
                                         <Form.Item name="warehouse_pincode" label="Pincode">
                                             <Input placeholder="Pincode" maxLength={6} />
                                         </Form.Item>
                                     </Col>
                                 </Row>
 
-                                <Row gutter={16}>
-                                    <Col span={12}>
-                                        <Form.Item name="warehouse_incharge_name" label="Site Incharge Name">
+                                <Row gutter={[16, 0]}>
+                                    <Col xs={24} sm={12}>
+                                        <Form.Item name="warehouse_incharge_name" label="Incharge Name">
                                             <Input placeholder="Incharge Name" />
                                         </Form.Item>
                                     </Col>
-                                    <Col span={12}>
+                                    <Col xs={24} sm={12}>
                                         <Form.Item name="warehouse_incharge_phone" label="Incharge Phone">
                                             <Input placeholder="Incharge Phone" />
                                         </Form.Item>

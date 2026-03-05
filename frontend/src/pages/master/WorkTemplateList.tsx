@@ -63,7 +63,7 @@ const WorkTemplateList = () => {
 
     const fetchWorkItemTypes = async () => {
         try {
-            const response = await workItemTypeService.getWorkItemTypes({ limit: 1000 })
+            const response = await workItemTypeService.getWorkItemTypes({ limit: 1000, is_active: true })
             setWorkItemTypes(response.data || [])
         } catch (error) {
             console.error('Failed to fetch work item types')
@@ -139,7 +139,38 @@ const WorkTemplateList = () => {
             title: 'Template Name',
             dataIndex: 'name',
             key: 'name',
+            ellipsis: { showTitle: false },
             sorter: (a: any, b: any) => a.name.localeCompare(b.name),
+            render: (text: string) => <Tooltip title={text}><span>{text}</span></Tooltip>
+        },
+        {
+            title: 'Description',
+            dataIndex: 'description',
+            key: 'description',
+            ellipsis: { showTitle: false },
+            render: (text: string) => text
+                ? <Tooltip title={text}><span style={{ display: 'block', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text}</span></Tooltip>
+                : <span style={{ color: '#ccc' }}>-</span>
+        },
+        {
+            title: 'Work Type',
+            key: 'work_type',
+            render: (record: any) => {
+                const primary = workItemTypes.find(t => t.id === record.primary_work_item_type_id);
+                const sub = workItemTypes.find(t => t.id === record.sub_work_item_type_id);
+                const primaryName = primary?.name;
+                const subName = sub?.name;
+                if (!primaryName && !subName) return <span style={{ color: '#aaa' }}>-</span>;
+                const tooltipText = [primaryName, subName].filter(Boolean).join(' › ');
+                return (
+                    <Tooltip title={tooltipText}>
+                        <Space direction="vertical" size={0}>
+                            {primaryName && <span style={{ fontWeight: 500, display: 'block', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{primaryName}</span>}
+                            {subName && <span style={{ fontSize: 12, color: '#666', display: 'block', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subName}</span>}
+                        </Space>
+                    </Tooltip>
+                );
+            }
         },
         {
             title: 'Items',
@@ -230,7 +261,7 @@ const WorkTemplateList = () => {
             >
                 <Form form={form} layout="vertical">
                     <Row gutter={16}>
-                        <Col span={12}>
+                        <Col span={16}>
                             <Form.Item
                                 name="name"
                                 label="Template Name"
@@ -239,9 +270,16 @@ const WorkTemplateList = () => {
                                 <Input placeholder="e.g. D-Wall Template" />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col span={8}>
+                            <Form.Item name="is_active" label="Status" initialValue={true}>
+                                <Select options={[{ label: 'Active', value: true }, { label: 'Inactive', value: false }]} />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={24}>
                             <Form.Item name="description" label="Description">
-                                <Input placeholder="Brief purpose of this template" />
+                                <Input placeholder="Brief purpose of this template (optional)" />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -272,7 +310,7 @@ const WorkTemplateList = () => {
                                                         }}
                                                     >
                                                         {workItemTypes.filter(t => !t.parent_id).map(t => (
-                                                            <Select.Option key={t.id} value={t.id}>{t.name} ({t.code || '-'})</Select.Option>
+                                                            <Select.Option key={t.id} value={t.id} label={`${t.name} ${t.code || ''}`}>{`${t.name} (${t.code || '-'})`}</Select.Option>
                                                         ))}
                                                     </Select>
                                                 </Form.Item>
@@ -330,7 +368,7 @@ const WorkTemplateList = () => {
                                                                     )}
                                                                 >
                                                                     {filteredItems.map((t: any) => (
-                                                                        <Select.Option key={t.id} value={t.id}>{t.name} ({t.code || '-'})</Select.Option>
+                                                                        <Select.Option key={t.id} value={t.id} label={`${t.name} ${t.code || ''}`}>{`${t.name} (${t.code || '-'})`}</Select.Option>
                                                                     ))}
                                                                 </Select>
                                                             </Form.Item>

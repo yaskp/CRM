@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Row, Col, Select, Button, Table, Typography, Statistic, Progress, Modal, InputNumber, message } from 'antd'
+import { Card, Row, Col, Select, Button, Table, Typography, Statistic, Progress, Modal, InputNumber, message, Space } from 'antd'
 import { DollarOutlined, EditOutlined, FundOutlined, RiseOutlined } from '@ant-design/icons'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
 import { projectService } from '../../services/api/projects'
@@ -110,13 +110,13 @@ const BudgetDashboard = () => {
             title: 'Estimated Budget',
             dataIndex: 'estimated_amount',
             key: 'estimated',
-            render: (val: number) => `₹${val.toLocaleString()}`
+            render: (val: number) => `₹${val.toLocaleString()} `
         },
         {
             title: 'Actual Spent',
             dataIndex: 'spent_amount',
             key: 'spent',
-            render: (val: number) => `₹${val.toLocaleString()}`
+            render: (val: number) => `₹${val.toLocaleString()} `
         },
         {
             title: 'Variance',
@@ -151,9 +151,9 @@ const BudgetDashboard = () => {
                 subtitle="Track estimates vs actuals and monitor project costs"
                 icon={<FundOutlined />}
                 extra={
-                    <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                    <Space wrap>
                         <Select
-                            style={{ width: 300 }}
+                            style={{ width: (window.innerWidth < 576 ? '100%' : 300) }}
                             value={selectedProject}
                             onChange={setSelectedProject}
                             placeholder="Select Project"
@@ -172,57 +172,57 @@ const BudgetDashboard = () => {
                         >
                             Edit Budget
                         </Button>
-                    </div>
+                    </Space>
                 }
             />
 
-            <Row gutter={[24, 24]}>
-                <Col span={6}>
-                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+            <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
                         <Statistic
                             title="Total Estimated Budget"
                             value={totalEstimated}
                             precision={0}
                             prefix={<DollarOutlined />}
                             suffix="INR"
-                            valueStyle={{ color: '#1890ff' }}
+                            valueStyle={{ color: '#1890ff', fontSize: window.innerWidth < 576 ? 18 : 22 }}
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
-                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
                         <Statistic
                             title="Total Actual Spent"
                             value={totalSpent}
                             precision={0}
                             prefix={<DollarOutlined />}
                             suffix="INR"
-                            valueStyle={{ color: '#fa8c16' }}
+                            valueStyle={{ color: '#fa8c16', fontSize: window.innerWidth < 576 ? 18 : 22 }}
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
-                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
                         <Statistic
                             title="Variance / Remaining"
                             value={totalVariance}
                             precision={0}
                             prefix={<RiseOutlined />}
                             suffix="INR"
-                            valueStyle={{ color: totalVariance < 0 ? '#cf1322' : '#3f8600' }}
+                            valueStyle={{ color: totalVariance < 0 ? '#cf1322' : '#3f8600', fontSize: window.innerWidth < 576 ? 18 : 22 }}
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
-                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-                        <Statistic title="Overall Utilization" value={totalUtilization} precision={1} suffix="%" />
+                <Col xs={24} sm={12} lg={6}>
+                    <Card variant="borderless" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
+                        <Statistic title="Overall Utilization" value={totalUtilization} precision={1} suffix="%" valueStyle={{ fontSize: window.innerWidth < 576 ? 18 : 22 }} />
                         <Progress percent={Math.round(totalUtilization)} status="active" showInfo={false} />
                     </Card>
                 </Col>
             </Row>
 
-            <Row gutter={[24, 24]} style={{ marginTop: 24 }}>
-                <Col span={14}>
+            <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+                <Col xs={24} lg={14}>
                     <SectionCard title="Budget vs Actuals by Head">
                         <div style={{ height: 400 }}>
                             <ResponsiveContainer width="100%" height="100%">
@@ -231,9 +231,9 @@ const BudgetDashboard = () => {
                                     margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="head.name" />
-                                    <YAxis tickFormatter={(val) => `₹${val / 1000}k`} />
-                                    <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
+                                    <XAxis dataKey="head.name" hide={window.innerWidth < 576} />
+                                    <YAxis tickFormatter={(val) => `₹${val / 1000} k`} />
+                                    <Tooltip formatter={(value: number) => `₹${value.toLocaleString()} `} />
                                     <Legend />
                                     <Bar dataKey="estimated_amount" name="Budget" fill="#8884d8" radius={[4, 4, 0, 0]} />
                                     <Bar dataKey="spent_amount" name="Actuals" fill="#82ca9d" radius={[4, 4, 0, 0]} />
@@ -242,7 +242,7 @@ const BudgetDashboard = () => {
                         </div>
                     </SectionCard>
                 </Col>
-                <Col span={10}>
+                <Col xs={24} lg={10}>
                     <SectionCard title="Spend Distribution">
                         <div style={{ height: 400 }}>
                             <ResponsiveContainer width="100%" height="100%">
@@ -257,13 +257,13 @@ const BudgetDashboard = () => {
                                         paddingAngle={5}
                                         dataKey="spent_amount"
                                         nameKey="head.name"
-                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                        label={window.innerWidth < 576 ? false : ({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}% `}
                                     >
                                         {analysis.map((_, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            <Cell key={`cell - ${index} `} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
+                                    <Tooltip formatter={(value: number) => `₹${value.toLocaleString()} `} />
                                     <Legend />
                                 </PieChart>
                             </ResponsiveContainer>
@@ -279,6 +279,7 @@ const BudgetDashboard = () => {
                     rowKey={(record) => record.head.id}
                     pagination={false}
                     loading={loading}
+                    scroll={{ x: 800 }}
                 />
             </SectionCard>
 
@@ -307,7 +308,7 @@ const BudgetDashboard = () => {
                                     style={{ width: '100%' }}
                                     value={editValues[record.id]}
                                     onChange={(val) => setEditValues(prev => ({ ...prev, [record.id]: val || 0 }))}
-                                    formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                    formatter={value => `${value} `.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                     parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
                                 />
                             )

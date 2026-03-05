@@ -242,9 +242,9 @@ const WorkOrderList = () => {
         icon={<SafetyCertificateOutlined />}
       />
 
-      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
-        <Col xs={24} sm={8}>
-          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: theme.spacing.lg }}>
+        <Col xs={24} sm={12} md={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm, height: '100%' }}>
             <Statistic
               title="Total Orders"
               value={stats.totalCount}
@@ -253,8 +253,8 @@ const WorkOrderList = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
-          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+        <Col xs={24} sm={12} md={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm, height: '100%' }}>
             <Statistic
               title="Active Work"
               value={stats.activeCount}
@@ -263,8 +263,8 @@ const WorkOrderList = () => {
             />
           </Card>
         </Col>
-        <Col xs={24} sm={8}>
-          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
+        <Col xs={24} sm={24} md={8}>
+          <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm, height: '100%' }}>
             <Statistic
               title="Total Order Value"
               value={(stats.totalValue || 0).toFixed(2)}
@@ -277,13 +277,13 @@ const WorkOrderList = () => {
       </Row>
 
       <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <Space size="middle" wrap>
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} md={12} lg={9}>
             <Select
               placeholder="Filter by Progress"
               allowClear
               size="large"
-              style={{ width: 220, ...largeInputStyle }}
+              style={{ width: '100%', ...largeInputStyle }}
               onChange={(value) => {
                 setFilters({ ...filters, status: value || '' })
                 setCurrentPage(1)
@@ -295,18 +295,20 @@ const WorkOrderList = () => {
               <Option value="active">🚀 Active Execution</Option>
               <Option value="completed">🏆 Completed</Option>
             </Select>
-          </Space>
+          </Col>
 
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/operations/work-orders/new')}
-            size="large"
-            style={getPrimaryButtonStyle(200)}
-          >
-            Issue New Work Order
-          </Button>
-        </div>
+          <Col xs={24} md={12} lg={6}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/operations/work-orders/new')}
+              size="large"
+              style={{ ...getPrimaryButtonStyle(), width: '100%' }}
+            >
+              Issue New Work Order
+            </Button>
+          </Col>
+        </Row>
       </Card>
 
       <Card style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>

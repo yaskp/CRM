@@ -235,7 +235,7 @@ const ProjectList = () => {
       />
 
       {/* Statistics Cards */}
-      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: theme.spacing.lg }}>
         <Col xs={24} sm={12} md={6}>
           <Card
             hoverable
@@ -312,44 +312,53 @@ const ProjectList = () => {
           border: `1px solid ${theme.colors.neutral.gray100}`,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <Space wrap>
-            <Search
-              placeholder="Search projects..."
-              allowClear
-              onSearch={handleSearch}
-              style={{ width: 300 }}
-              prefix={<SearchOutlined style={prefixIconStyle} />}
+        <Row gutter={[16, 16]} align="middle" justify="space-between">
+          <Col xs={24} lg={18}>
+            <Row gutter={[12, 12]}>
+              <Col xs={24} sm={14} md={12}>
+                <Search
+                  placeholder="Search projects..."
+                  allowClear
+                  onSearch={handleSearch}
+                  style={{ width: '100%', maxWidth: 400 }}
+                  prefix={<SearchOutlined style={prefixIconStyle} />}
+                  size="large"
+                />
+              </Col>
+              <Col xs={24} sm={10} md={8}>
+                <Select
+                  placeholder="Filter by status"
+                  allowClear
+                  style={{ width: '100%', maxWidth: 250, ...largeInputStyle }}
+                  onChange={handleStatusChange}
+                  size="large"
+                  suffixIcon={<FilterOutlined style={prefixIconStyle} />}
+                >
+                  <Option value="lead">🔵 Lead</Option>
+                  <Option value="quotation">🟠 Quotation</Option>
+                  <Option value="confirmed">🟢 Confirmed</Option>
+                  <Option value="design">🟣 Design</Option>
+                  <Option value="mobilization">🔷 Mobilization</Option>
+                  <Option value="execution">⚡ Execution</Option>
+                  <Option value="completed">✅ Completed</Option>
+                  <Option value="on_hold">⏸️ On Hold</Option>
+                </Select>
+              </Col>
+            </Row>
+          </Col>
+          <Col xs={24} lg={6} style={{ textAlign: 'right' }}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/sales/projects/new')}
               size="large"
-            />
-            <Select
-              placeholder="Filter by status"
-              allowClear
-              style={{ width: 200, ...largeInputStyle }}
-              onChange={handleStatusChange}
-              size="large"
-              suffixIcon={<FilterOutlined style={prefixIconStyle} />}
+              style={{ ...getPrimaryButtonStyle() }}
+              block
             >
-              <Option value="lead">🔵 Lead</Option>
-              <Option value="quotation">🟠 Quotation</Option>
-              <Option value="confirmed">🟢 Confirmed</Option>
-              <Option value="design">🟣 Design</Option>
-              <Option value="mobilization">🔷 Mobilization</Option>
-              <Option value="execution">⚡ Execution</Option>
-              <Option value="completed">✅ Completed</Option>
-              <Option value="on_hold">⏸️ On Hold</Option>
-            </Select>
-          </Space>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/sales/projects/new')}
-            size="large"
-            style={getPrimaryButtonStyle(150)}
-          >
-            New Project
-          </Button>
-        </div>
+              New Project
+            </Button>
+          </Col>
+        </Row>
       </Card>
 
       {/* Projects Table */}

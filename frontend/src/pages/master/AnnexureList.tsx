@@ -236,7 +236,7 @@ const AnnexureList = () => {
                 subtitle="Centralized management of terms, conditions, and scopes for Quotations and POs"
                 icon={<FileTextOutlined />}
                 extra={
-                    <Space>
+                    <Space wrap>
                         <Button icon={<FileTextOutlined />} onClick={() => setImportModalVisible(true)}>
                             Import CSV
                         </Button>
@@ -244,7 +244,7 @@ const AnnexureList = () => {
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={handleAdd}
-                            style={getPrimaryButtonStyle()}
+                            style={{ ...getPrimaryButtonStyle(), width: window.innerWidth < 576 ? '100%' : 'auto' }}
                         >
                             Add New Annexure
                         </Button>
@@ -266,7 +266,7 @@ const AnnexureList = () => {
                                 setPagination(prev => ({ ...prev, current: 1 }))
                             }
                         }}
-                        style={{ width: 300 }}
+                        style={{ width: window.innerWidth < 576 ? '100%' : 300 }}
                         allowClear
                     />
                 </div>

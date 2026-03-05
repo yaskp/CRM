@@ -285,8 +285,8 @@ const MaterialRequisitionList = () => {
                 icon={<ContainerOutlined />}
             />
 
-            <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
-                <Col xs={24} sm={6}>
+            <Row gutter={[16, 16]} style={{ marginBottom: theme.spacing.lg }}>
+                <Col xs={24} sm={12} md={6}>
                     <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Total MRs"
@@ -295,7 +295,7 @@ const MaterialRequisitionList = () => {
                         />
                     </Card>
                 </Col>
-                <Col xs={24} sm={6}>
+                <Col xs={24} sm={12} md={6}>
                     <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Pending"
@@ -305,7 +305,7 @@ const MaterialRequisitionList = () => {
                         />
                     </Card>
                 </Col>
-                <Col xs={24} sm={6}>
+                <Col xs={24} sm={12} md={6}>
                     <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Approved"
@@ -315,7 +315,7 @@ const MaterialRequisitionList = () => {
                         />
                     </Card>
                 </Col>
-                <Col xs={24} sm={6}>
+                <Col xs={24} sm={12} md={6}>
                     <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
                         <Statistic
                             title="Rejected"
@@ -328,11 +328,11 @@ const MaterialRequisitionList = () => {
             </Row>
 
             <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-                    <Space size="middle" wrap>
+                <Row gutter={[16, 16]} align="middle">
+                    <Col xs={24} sm={12} lg={7}>
                         <Select
                             placeholder="All Statuses"
-                            style={{ width: 180, ...largeInputStyle }}
+                            style={{ width: '100%', ...largeInputStyle }}
                             size="large"
                             allowClear
                             onChange={(value) => {
@@ -348,10 +348,12 @@ const MaterialRequisitionList = () => {
                             <Option value="rejected">❌ Rejected</Option>
                             <Option value="cancelled">🚫 Cancelled</Option>
                         </Select>
+                    </Col>
 
+                    <Col xs={24} sm={12} lg={5}>
                         <Select
                             placeholder="Priority"
-                            style={{ width: 150, ...largeInputStyle }}
+                            style={{ width: '100%', ...largeInputStyle }}
                             size="large"
                             allowClear
                             onChange={(value) => {
@@ -364,20 +366,24 @@ const MaterialRequisitionList = () => {
                             <Option value="high">🔴 High</Option>
                             <Option value="urgent">⚡ Urgent</Option>
                         </Select>
+                    </Col>
 
-                        <Button onClick={() => fetchRequisitions(1)} size="large">Refresh</Button>
-                    </Space>
+                    <Col xs={24} sm={12} lg={4}>
+                        <Button onClick={() => fetchRequisitions(1)} size="large" style={{ width: '100%' }}>Refresh</Button>
+                    </Col>
 
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => navigate('/procurement/requisitions/new')}
-                        size="large"
-                        style={getPrimaryButtonStyle(200)}
-                    >
-                        New Requisition
-                    </Button>
-                </div>
+                    <Col xs={24} sm={12} lg={5}>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => navigate('/procurement/requisitions/new')}
+                            size="large"
+                            style={{ ...getPrimaryButtonStyle(), width: '100%' }}
+                        >
+                            New Requisition
+                        </Button>
+                    </Col>
+                </Row>
             </Card>
 
             <Card style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
@@ -406,19 +412,20 @@ const MaterialRequisitionList = () => {
                 open={approvalModalVisible}
                 onCancel={() => setApprovalModalVisible(false)}
                 onOk={handleApprovalSubmit}
-                width={850}
+                width="95%"
+                style={{ maxWidth: 850 }}
                 okText="Approve & Issue"
                 cancelText="Cancel"
                 okButtonProps={{ style: getPrimaryButtonStyle(160), size: 'large' }}
                 cancelButtonProps={{ size: 'large' }}
             >
                 <div style={{ padding: '16px 0' }}>
-                    <Row gutter={24} style={{ marginBottom: '16px' }}>
-                        <Col span={12}>
+                    <Row gutter={[16, 16]} style={{ marginBottom: '16px' }}>
+                        <Col xs={24} sm={12}>
                             <Text type="secondary">Project</Text>
                             <div style={{ fontSize: '16px', fontWeight: 600 }}>{selectedRequisition?.project?.name}</div>
                         </Col>
-                        <Col span={12}>
+                        <Col xs={24} sm={12}>
                             <Text type="secondary">Requester</Text>
                             <div style={{ fontSize: '16px', fontWeight: 600 }}>{selectedRequisition?.requester?.name}</div>
                         </Col>

@@ -189,10 +189,11 @@ export const getDrawingPanelsForProject = async (req: AuthRequest, res: Response
     const drawingIds = drawings.map((d: any) => d.id)
 
     if (drawingIds.length === 0) {
-      return res.json({
+      res.json({
         success: true,
         panels: [],
       })
+      return
     }
 
     // Then get panels for those drawings

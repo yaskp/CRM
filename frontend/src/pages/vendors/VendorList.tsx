@@ -301,52 +301,62 @@ const VendorList = () => {
                     border: `1px solid ${theme.colors.neutral.gray100}`,
                 }}
             >
-                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-                    <Space wrap>
-                        <Search
-                            placeholder="Search by name, contact, or phone"
-                            allowClear
-                            style={{ width: 300 }}
-                            prefix={<SearchOutlined style={prefixIconStyle} />}
+                <Row gutter={[16, 16]} align="middle" justify="space-between">
+                    <Col xs={24} lg={18}>
+                        <Row gutter={[12, 12]}>
+                            <Col xs={24} sm={10} md={9}>
+                                <Search
+                                    placeholder="Search vendors..."
+                                    allowClear
+                                    style={{ width: '100%' }}
+                                    prefix={<SearchOutlined style={prefixIconStyle} />}
+                                    size="large"
+                                    onSearch={(value) => setFilters({ ...filters, search: value })}
+                                />
+                            </Col>
+                            <Col xs={24} sm={7} md={7}>
+                                <Select
+                                    placeholder="Filter by type"
+                                    style={{ width: '100%', ...largeInputStyle }}
+                                    size="large"
+                                    allowClear
+                                    suffixIcon={<FilterOutlined style={prefixIconStyle} />}
+                                    onChange={(value) => setFilters({ ...filters, vendor_type: value || '' })}
+                                >
+                                    <Option value="steel_contractor">🔩 Steel Contractor</Option>
+                                    <Option value="concrete_contractor">🏗️ Concrete Contractor</Option>
+                                    <Option value="rig_vendor">⚙️ Rig Vendor</Option>
+                                    <Option value="crane_vendor">🏗️ Crane Vendor</Option>
+                                    <Option value="jcb_vendor">🚜 JCB Vendor</Option>
+                                    <Option value="other">📦 Other</Option>
+                                </Select>
+                            </Col>
+                            <Col xs={24} sm={7} md={8}>
+                                <Select
+                                    placeholder="Filter by status"
+                                    style={{ width: '100%', ...largeInputStyle }}
+                                    size="large"
+                                    defaultValue={true}
+                                    onChange={(value) => setFilters({ ...filters, is_active: value })}
+                                >
+                                    <Option value={true}>✅ Active</Option>
+                                    <Option value={false}>❌ Inactive</Option>
+                                </Select>
+                            </Col>
+                        </Row>
+                    </Col>
+                    <Col xs={24} lg={6}>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => navigate('/master/vendors/new')}
                             size="large"
-                            onSearch={(value) => setFilters({ ...filters, search: value })}
-                        />
-                        <Select
-                            placeholder="Filter by type"
-                            style={{ width: 200, ...largeInputStyle }}
-                            size="large"
-                            allowClear
-                            suffixIcon={<FilterOutlined style={prefixIconStyle} />}
-                            onChange={(value) => setFilters({ ...filters, vendor_type: value || '' })}
+                            style={{ ...getPrimaryButtonStyle(), width: '100%' }}
                         >
-                            <Option value="steel_contractor">🔩 Steel Contractor</Option>
-                            <Option value="concrete_contractor">🏗️ Concrete Contractor</Option>
-                            <Option value="rig_vendor">⚙️ Rig Vendor</Option>
-                            <Option value="crane_vendor">🏗️ Crane Vendor</Option>
-                            <Option value="jcb_vendor">🚜 JCB Vendor</Option>
-                            <Option value="other">📦 Other</Option>
-                        </Select>
-                        <Select
-                            placeholder="Filter by status"
-                            style={{ width: 150, ...largeInputStyle }}
-                            size="large"
-                            defaultValue={true}
-                            onChange={(value) => setFilters({ ...filters, is_active: value })}
-                        >
-                            <Option value={true}>✅ Active</Option>
-                            <Option value={false}>❌ Inactive</Option>
-                        </Select>
-                    </Space>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => navigate('/master/vendors/new')}
-                        size="large"
-                        style={getPrimaryButtonStyle(140)}
-                    >
-                        Add Vendor
-                    </Button>
-                </div>
+                            Add Vendor
+                        </Button>
+                    </Col>
+                </Row>
             </Card>
 
             {/* Vendors Table */}

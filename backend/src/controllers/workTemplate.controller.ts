@@ -29,7 +29,9 @@ export const getWorkTemplates = async (req: Request, res: Response, next: NextFu
                     model: WorkTemplateItem,
                     as: 'items',
                     include: [{ model: WorkItemType, as: 'workItemType' }]
-                }
+                },
+                { model: WorkItemType, as: 'primaryWorkItemType' },
+                { model: WorkItemType, as: 'subWorkItemType' }
             ],
             distinct: true,
             limit: l,
@@ -56,7 +58,9 @@ export const getWorkTemplate = async (req: Request, res: Response, next: NextFun
                     model: WorkTemplateItem,
                     as: 'items',
                     include: [{ model: WorkItemType, as: 'workItemType' }]
-                }
+                },
+                { model: WorkItemType, as: 'primaryWorkItemType' },
+                { model: WorkItemType, as: 'subWorkItemType' }
             ],
             order: [[{ model: WorkTemplateItem, as: 'items' }, 'sort_order', 'ASC']]
         });
@@ -70,9 +74,13 @@ export const getWorkTemplate = async (req: Request, res: Response, next: NextFun
 export const createWorkTemplate = async (req: Request, res: Response, next: NextFunction) => {
     const t = await sequelize.transaction();
     try {
-        const { name, description, items } = req.body;
-
-        const template = await WorkTemplate.create({ name, description }, { transaction: t });
+        const { name, description, primary_work_item_type_id, sub_work_item_type_id, items } = req.body;
+        const template = await WorkTemplate.create({
+            name,
+            description,
+            primary_work_item_type_id,
+            sub_work_item_type_id
+        }, { transaction: t });
 
         if (items && Array.isArray(items)) {
             const templateItems = items.map((item: any, index: number) => ({
@@ -99,12 +107,18 @@ export const updateWorkTemplate = async (req: Request, res: Response, next: Next
     const t = await sequelize.transaction();
     try {
         const { id } = req.params;
-        const { name, description, items, is_active } = req.body;
+        const { name, description, primary_work_item_type_id, sub_work_item_type_id, items, is_active } = req.body;
 
         const template = await WorkTemplate.findByPk(id);
         if (!template) throw createError('Template not found', 404);
 
-        await template.update({ name, description, is_active }, { transaction: t });
+        await template.update({
+            name,
+            description,
+            primary_work_item_type_id,
+            sub_work_item_type_id,
+            is_active
+        }, { transaction: t });
 
         if (items && Array.isArray(items)) {
             // Re-sync items: simplicity -> delete and recreate

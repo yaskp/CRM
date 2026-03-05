@@ -506,280 +506,240 @@ export const generateQuotationPDF = (quotation: any, stream: any) => {
 
 export const generateWorkOrderPDF = (workOrder: any, stream: any) => {
     const doc = new PDFDocument({ margin: 40, size: 'A4' })
-
     doc.pipe(stream)
 
-    // --- Header ---
-    const companyName = 'VH SHRI ENTERPRISE'
-    const companyAddress = 'B-104, Rajhans Bonista,\nB/H Ramchowk, Ghod Dod Road,\nSurat-395007'
-    const companyContact = 'Contact: 0261-2666515, 2656515\nEmail: vhshrienterprise@gmail.com'
+    // ─── TITLE BLOCK (No company branding — printed on client's letterhead) ───
+    // Large centered title at the top
+    doc.fontSize(18).font('Helvetica-Bold').fillColor('#1a1a2e')
+    doc.text('WORK ORDER', 40, 40, { align: 'center', width: 515 })
+    doc.fontSize(11).font('Helvetica').fillColor('#444')
+    doc.text('(To be signed and returned by Client / Contractor)', 40, 65, { align: 'center', width: 515 })
 
-    const logoPath = path.join(process.cwd(), 'uploads/logo.png')
-    let contentStartY = 160
+    // Horizontal divider
+    doc.moveTo(40, 85).lineTo(550, 85).lineWidth(1.5).stroke('#1a1a2e')
 
-    if (fs.existsSync(logoPath)) {
-        doc.image(logoPath, 40, 30, { width: 220 })
-    } else {
-        doc.fontSize(20).font('Helvetica-Bold').text(companyName, 40, 40)
-    }
-
-    doc.fontSize(10).font('Helvetica')
-    doc.text(companyAddress, 300, 40, { align: 'right', width: 250 })
-    doc.text(companyContact, 300, 85, { align: 'right', width: 250 })
-
-    doc.moveTo(40, 135).lineTo(550, 135).stroke()
-
-    // --- Info Block ---
-    const startY = contentStartY
+    // ─── WO INFO GRID ───
+    let y = 100
     const leftX = 40
-    const rightX = 350
+    const rightX = 320
 
-    doc.fontSize(10).font('Helvetica-Bold')
+    doc.fontSize(9).font('Helvetica').fillColor('black')
 
-    // Left Column
-    doc.text('WO No.:', leftX, startY).font('Helvetica').text(` ${workOrder.work_order_number}`, leftX + 50, startY)
-    doc.font('Helvetica-Bold').text('Date:', leftX, startY + 15).font('Helvetica').text(` ${new Date(workOrder.created_at).toLocaleDateString('en-GB')}`, leftX + 35, startY + 15)
+    // Left column
+    doc.font('Helvetica-Bold').text('Work Order No.:', leftX, y)
+    doc.font('Helvetica').text(workOrder.work_order_number, leftX + 95, y)
 
-    // Right Column
-    doc.font('Helvetica-Bold').text('To:', rightX, startY)
+    doc.font('Helvetica-Bold').text('Date:', leftX, y + 14)
+    doc.font('Helvetica').text(new Date(workOrder.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), leftX + 95, y + 14)
 
-    // Check if Vendor or Internal
-    if (workOrder.vendor) {
-        doc.font('Helvetica').text(workOrder.vendor.name, rightX + 25, startY)
+    doc.font('Helvetica-Bold').text('Status:', leftX, y + 28)
+    doc.font('Helvetica').text((workOrder.status || 'draft').toUpperCase(), leftX + 95, y + 28)
 
-        // Construct full vendor address
-        const addressParts: string[] = []
-        if (workOrder.vendor.address) addressParts.push(workOrder.vendor.address)
+    // Right column — client/project
+    const project = workOrder.project
+    const client = project?.client
 
-        const cityStateParts: string[] = []
-        if (workOrder.vendor.city) cityStateParts.push(workOrder.vendor.city)
-        if (workOrder.vendor.state) cityStateParts.push(workOrder.vendor.state)
+    doc.font('Helvetica-Bold').text('Project:', rightX, y)
+    doc.font('Helvetica').text(project?.name || '-', rightX + 55, y, { width: 200 })
 
-        if (cityStateParts.length > 0) {
-            let cityStateStr = cityStateParts.join(', ')
-            if (workOrder.vendor.pincode) cityStateStr += ` - ${workOrder.vendor.pincode}`
-            addressParts.push(cityStateStr)
-        }
+    doc.font('Helvetica-Bold').text('Project Code:', rightX, y + 14)
+    doc.font('Helvetica').text(project?.project_code || '-', rightX + 75, y + 14)
 
-        if (addressParts.length > 0) {
-            doc.text(addressParts.join('\n'), rightX + 25, startY + 15, { width: 205 })
-        }
-    } else {
-        doc.font('Helvetica').text('Internal Execution Team', rightX + 25, startY)
+    if (client) {
+        doc.font('Helvetica-Bold').text('Client:', rightX, y + 28)
+        doc.font('Helvetica').text(client.company_name || '-', rightX + 55, y + 28)
     }
 
-    doc.moveDown(2)
+    // Vendor / Team
+    doc.font('Helvetica-Bold').text('To:', leftX, y + 42)
+    if (workOrder.vendor) {
+        doc.font('Helvetica').text(workOrder.vendor.name, leftX + 95, y + 42)
+        const addrParts: string[] = []
+        if (workOrder.vendor.address) addrParts.push(workOrder.vendor.address)
+        const cityState = [workOrder.vendor.city, workOrder.vendor.state].filter(Boolean).join(', ')
+        if (cityState) addrParts.push(cityState)
+        if (addrParts.length > 0) doc.font('Helvetica').text(addrParts.join(', '), leftX + 95, y + 54, { width: 220 })
+    } else {
+        doc.font('Helvetica').text('VH SHRI Enterprise', leftX + 95, y + 42)
+    }
+
+    y = 185
+    doc.moveTo(40, y).lineTo(550, y).lineWidth(0.5).stroke('#cccccc')
+    y += 10
 
     // Subject
-    const currentY = doc.y + 20
-    doc.font('Helvetica-Bold').text('Subject:', leftX, currentY)
-    doc.font('Helvetica').text(` Work Order for Project: ${workOrder.project?.name || '-'}`, leftX + 45, currentY)
+    doc.font('Helvetica-Bold').fontSize(10).text('Subject:', leftX, y)
+    doc.font('Helvetica').text(` Work Order for Project: ${project?.name || '-'}`, leftX + 50, y)
+    y += 22
 
+    // ─── ITEMS TABLE ───
     const items = workOrder.items || []
 
-    let y = currentY + 30;
-
-    // Helper to draw cell
-    const drawCellText = (text: string, cellX: number, y: number, width: number, align: string = 'left') => {
-        const padding = 4;
-        const effectiveWidth = width - (padding * 2);
-        doc.text(text, cellX + padding, y, { width: effectiveWidth, align: align as any })
+    const drawCellText = (text: string, cellX: number, cy: number, width: number, align: string = 'left') => {
+        const padding = 4
+        doc.text(text, cellX + padding, cy, { width: width - padding * 2, align: align as any })
     }
 
-    // Helper to draw lines
-    const drawVerticalLines = (topY: number, bottomY: number) => {
-        const lines = [40, 70, 270, 315, 370, 455, 555]
-        lines.forEach(lineX => {
-            doc.moveTo(lineX, topY).lineTo(lineX, bottomY).stroke()
+    const cols = { sn: 40, desc: 70, unit: 270, qty: 315, rate: 370, amount: 455 }
+    const colW = { sn: 30, desc: 200, unit: 45, qty: 55, rate: 85, amount: 100 }
+
+    const drawVLines = (topY: number, btmY: number) => {
+        [40, 70, 270, 315, 370, 455, 555].forEach(lx => {
+            doc.moveTo(lx, topY).lineTo(lx, btmY).stroke()
         })
     }
 
-    const colX = { sn: 40, desc: 70, unit: 270, quantity: 315, rate: 370, amount: 455 };
-    const colWidths = { sn: 30, desc: 200, unit: 45, quantity: 55, rate: 85, amount: 100 }
-
     const drawTableHeader = (title: string, topY: number) => {
-        doc.rect(40, topY, 515, 20).fill('#444444').stroke();
-        doc.fillColor('white').font('Helvetica-Bold').fontSize(10);
-        doc.text(title.toUpperCase(), 40, topY + 5, { align: 'center', width: 515 });
+        doc.rect(40, topY, 515, 20).fill('#2d3748').stroke()
+        doc.fillColor('white').font('Helvetica-Bold').fontSize(9)
+        doc.text(title.toUpperCase(), 40, topY + 6, { align: 'center', width: 515 })
+        const hY = topY + 20
+        doc.rect(40, hY, 515, 22).fill('#edf2f7').stroke()
+        doc.fillColor('#1a1a2e').font('Helvetica-Bold').fontSize(8.5)
+        drawCellText('S.No', cols.sn, hY + 7, colW.sn, 'center')
+        drawCellText('Description of Work', cols.desc, hY + 7, colW.desc, 'left')
+        drawCellText('Unit', cols.unit, hY + 7, colW.unit, 'center')
+        drawCellText('Qty', cols.qty, hY + 7, colW.qty, 'center')
+        drawCellText('Rate (₹)', cols.rate, hY + 7, colW.rate, 'right')
+        drawCellText('Amount (₹)', cols.amount, hY + 7, colW.amount, 'right')
+        doc.strokeColor('#000000').lineWidth(0.5)
+        drawVLines(hY, hY + 22)
+        return hY + 22
+    }
 
-        const headerY = topY + 20;
-        doc.rect(40, headerY, 515, 25).fill('#e0e0e0').stroke();
-        doc.fillColor('black').font('Helvetica-Bold').fontSize(9);
+    const renderRows = (rows: any[], startY: number, startIdx: number = 0) => {
+        let cy = startY, total = 0
+        doc.font('Helvetica').fontSize(8.5).fillColor('black')
+        rows.forEach((item: any, idx: number) => {
+            const dh = doc.heightOfString(item.description || '-', { width: colW.desc - 8 })
+            const rh = Math.max(dh, 18) + 8
+            if (cy + rh > 750) { doc.moveTo(40, cy).lineTo(550, cy).stroke(); doc.addPage(); cy = 50 }
+            doc.fillColor('black')
+            drawCellText(`${startIdx + idx + 1}`, cols.sn, cy + 4, colW.sn, 'center')
+            drawCellText(item.description || '-', cols.desc, cy + 4, colW.desc, 'left')
+            drawCellText(item.unit || '-', cols.unit, cy + 4, colW.unit, 'center')
+            drawCellText(Number(item.quantity).toFixed(2), cols.qty, cy + 4, colW.qty, 'center')
+            drawCellText(Number(item.rate).toFixed(2), cols.rate, cy + 4, colW.rate, 'right')
+            drawCellText(Number(item.amount).toFixed(2), cols.amount, cy + 4, colW.amount, 'right')
+            doc.rect(40, cy, 515, rh).stroke()
+            drawVLines(cy, cy + rh)
+            cy += rh
+            total += Number(item.amount)
+        })
+        // Row total
+        doc.font('Helvetica-Bold').fontSize(8.5)
+        doc.text('Sub Total', 350, cy + 4, { align: 'right', width: 95 })
+        drawCellText(total.toFixed(2), cols.amount, cy + 4, colW.amount, 'right')
+        doc.rect(40, cy, 515, 20).stroke()
+        doc.moveTo(455, cy).lineTo(455, cy + 20).stroke()
+        return { nextY: cy + 25, total }
+    }
 
-        drawCellText('S.No', colX.sn, headerY + 8, colWidths.sn, 'center');
-        drawCellText('Description', colX.desc, headerY + 8, colWidths.desc, 'left');
-        drawCellText('Unit', colX.unit, headerY + 8, colWidths.unit, 'center');
-        drawCellText('Qty', colX.quantity, headerY + 8, colWidths.quantity, 'center');
-        drawCellText('Rate', colX.rate, headerY + 8, colWidths.rate, 'right');
-        drawCellText('Amount', colX.amount, headerY + 8, colWidths.amount, 'right');
+    const materialItems = items.filter((i: any) => i.category === 'material')
+    const labourItems = items.filter((i: any) => i.category !== 'material')
+    let totalLabour = 0, totalMaterial = 0, itemIndex = 0
 
-        doc.strokeColor('black')
-        drawVerticalLines(headerY, headerY + 25)
-
-        return headerY + 25;
-    };
-
-    // Helper function to render rows with section total
-    const renderTableRows = (rows: any[], startY: number, startIndex: number = 0) => {
-        let currentY = startY;
-        doc.font('Helvetica').fontSize(9);
-        let sectionTotal = 0;
-
-        rows.forEach((item, idx) => {
-            const descWidth = colWidths.desc - 8;
-            const descHeight = doc.heightOfString(item.description || '-', { width: descWidth });
-            const rowHeight = Math.max(descHeight, 20) + 10;
-
-            if (currentY + rowHeight > 750) {
-                doc.moveTo(40, currentY).lineTo(550, currentY).stroke()
-                doc.addPage();
-                currentY = 50;
-                doc.moveTo(40, currentY).lineTo(550, currentY).stroke()
-            }
-
-            doc.fillColor('black');
-            drawCellText(`${startIndex + idx + 1}`, colX.sn, currentY + 5, colWidths.sn, 'center');
-            drawCellText(item.description || '-', colX.desc, currentY + 5, colWidths.desc, 'left');
-            drawCellText(item.unit || '-', colX.unit, currentY + 5, colWidths.unit, 'center');
-            drawCellText(Number(item.quantity).toFixed(2), colX.quantity, currentY + 5, colWidths.quantity, 'center');
-            drawCellText(Number(item.rate).toFixed(2), colX.rate, currentY + 5, colWidths.rate, 'right');
-            drawCellText(Number(item.amount).toFixed(2), colX.amount, currentY + 5, colWidths.amount, 'right');
-
-            doc.rect(40, currentY, 515, rowHeight).stroke();
-            drawVerticalLines(currentY, currentY + rowHeight)
-            currentY += rowHeight;
-            sectionTotal += Number(item.amount);
-        });
-
-        // Section Total Row
-        doc.font('Helvetica-Bold');
-        doc.text('Total', 350, currentY + 5, { align: 'right', width: 90 });
-        drawCellText(sectionTotal.toFixed(2), colX.amount, currentY + 5, colWidths.amount, 'right');
-        doc.rect(40, currentY, 515, 20).stroke();
-        doc.moveTo(455, currentY).lineTo(455, currentY + 20).stroke()
-
-        return { nextY: currentY + 25, total: sectionTotal };
-    };
-
-    // Group items by category - materials vs labour/work
-    const materialItems = items.filter((i: any) => i.category === 'material');
-    const labourItems = items.filter((i: any) => i.category !== 'material');
-
-    let totalLabour = 0;
-    let totalMaterial = 0;
-    let itemIndex = 0;
-
-    // 1. Labour / Works Table
     if (labourItems.length > 0) {
-        if (y + 60 > 750) { doc.addPage(); y = 50; }
-        y = drawTableHeader('Labour / Work Items Cost', y);
-        const res = renderTableRows(labourItems, y, itemIndex);
-        y = res.nextY;
-        totalLabour = res.total;
-        itemIndex += labourItems.length;
+        if (y + 60 > 750) { doc.addPage(); y = 50 }
+        y = drawTableHeader('Scope of Work', y)
+        const r = renderRows(labourItems, y, itemIndex)
+        y = r.nextY; totalLabour = r.total; itemIndex += labourItems.length
     }
-
-    // 2. Material Table
     if (materialItems.length > 0) {
-        if (y + 60 > 750) { doc.addPage(); y = 50; }
-        y = drawTableHeader('Material Cost', y);
-        const res = renderTableRows(materialItems, y, itemIndex);
-        y = res.nextY;
-        totalMaterial = res.total;
+        if (y + 60 > 750) { doc.addPage(); y = 50 }
+        y = drawTableHeader('Material Items', y)
+        const r = renderRows(materialItems, y, itemIndex)
+        y = r.nextY; totalMaterial = r.total
     }
 
-    // --- Summary Section ---
-    if (y + 150 > 750) { doc.addPage(); y = 50; }
-    y += 10;
+    // ─── SUMMARY ───
+    if (y + 80 > 750) { doc.addPage(); y = 50 }
+    y += 8
+    const sumX = 340, sumW = 215
 
-    doc.fillColor('black').font('Helvetica-Bold').fontSize(10);
-    doc.text('SUMMARY OF COSTS', 40, y);
-    y += 20;
+    doc.rect(sumX, y, sumW, 20).fill('#2d3748').stroke()
+    doc.fillColor('white').font('Helvetica-Bold').fontSize(8.5)
+    doc.text('DESCRIPTION', sumX + 10, y + 6, { width: 115 })
+    doc.text('AMOUNT (₹)', 450, y + 6, { align: 'right', width: 100 })
+    y += 20
 
-    const summaryStartX = 340;
-    const summaryWidth = 215;
+    const drawSR = (label: string, value: number, id: string = '') => {
+        doc.rect(sumX, y, sumW, 18).stroke()
+        doc.fillColor('black').font('Helvetica').fontSize(8.5)
+        if (id) doc.text(id, sumX + 5, y + 4, { width: 15 })
+        doc.text(label, sumX + 22, y + 4, { width: 120 })
+        doc.text(value.toFixed(2), 450, y + 4, { align: 'right', width: 100 })
+        y += 18
+    }
 
-    // Header
-    doc.rect(summaryStartX, y, summaryWidth, 20).fill('#666666').stroke();
-    doc.fillColor('white').text('DESCRIPTION', summaryStartX + 10, y + 6, { width: 120 });
-    doc.text('AMOUNT', 450, y + 6, { align: 'right', width: 100 });
-    y += 20;
+    const subTotal = totalLabour + totalMaterial
+    if (totalLabour > 0) drawSR('Labour / Work Cost', totalLabour, 'A')
+    if (totalMaterial > 0) drawSR('Material Cost', totalMaterial, 'B')
 
-    // Helper to draw summary row
-    const drawSummaryRow = (label: string, value: number, labelId: string = '') => {
-        doc.rect(summaryStartX, y, summaryWidth, 20).stroke();
-        doc.fillColor('black').font('Helvetica').fontSize(9);
-        if (labelId) doc.text(labelId, summaryStartX + 5, y + 6, { width: 15 });
-        doc.text(label, summaryStartX + 25, y + 6, { width: 120 });
-        doc.text(value.toFixed(2), 450, y + 6, { align: 'right', width: 100 });
-        y += 20;
-    };
-
-    if (totalLabour > 0) drawSummaryRow('LABOUR / WORK ITEMS COST', totalLabour, 'A');
-    if (totalMaterial > 0) drawSummaryRow('MATERIAL COST', totalMaterial, 'B');
-
-    const subTotal = totalLabour + totalMaterial;
-
-    // Discount
-    let finalTotal = subTotal;
+    let finalTotal = subTotal
     if (workOrder.discount_percentage > 0) {
-        const discount = (subTotal * workOrder.discount_percentage) / 100;
-        drawSummaryRow(`Discount (${workOrder.discount_percentage}%)`, -discount);
-        finalTotal -= discount;
+        const disc = (subTotal * workOrder.discount_percentage) / 100
+        drawSR(`Discount (${workOrder.discount_percentage}%)`, -disc)
+        finalTotal -= disc
     }
 
-    // Grand Total
-    doc.rect(summaryStartX, y, summaryWidth, 25).fill('#e0e0e0').stroke();
-    doc.fillColor('black').font('Helvetica-Bold').fontSize(11);
-    doc.text('GRAND TOTAL', summaryStartX + 25, y + 8, { width: 120 });
-    doc.text(`Rs. ${finalTotal.toFixed(2)}`, 450, y + 8, { align: 'right', width: 100 });
+    doc.rect(sumX, y, sumW, 22).fill('#e2e8f0').stroke()
+    doc.fillColor('#1a1a2e').font('Helvetica-Bold').fontSize(10)
+    doc.text('GRAND TOTAL', sumX + 22, y + 6, { width: 120 })
+    doc.text(`Rs. ${finalTotal.toFixed(2)}`, 450, y + 6, { align: 'right', width: 100 })
+    y += 28
 
-    y += 40;
+    doc.font('Helvetica').fontSize(7.5).fillColor('#666')
+    doc.text('* All taxes / GST will be charged extra as applicable', 40, y)
+    y += 15
 
-    // --- Scopes & Terms ---
-    const ensureNumbering = (text: string): string => {
-        if (!text) return '';
-        const lines = text.split('\n').filter(l => l.trim().length > 0);
-        if (lines.length === 0) return '';
-        if (/^\d+\./.test(lines[0].trim())) return text;
-        return lines.map((l, i) => `${i + 1}. ${l.trim()}`).join('\n');
-    }
-
+    // ─── SECTIONS (Scope, Terms etc) ───
     const sections = [
-        { title: 'CLIENT SCOPE', content: workOrder.client_scope },
-        { title: 'VHSHRI SCOPE', content: workOrder.contractor_scope },
+        { title: 'CLIENT SCOPE OF WORK', content: workOrder.client_scope },
+        { title: 'CONTRACTOR SCOPE OF WORK', content: workOrder.contractor_scope },
         { title: 'PAYMENT TERMS', content: workOrder.payment_terms },
         { title: 'TERMS & CONDITIONS', content: workOrder.terms_conditions },
         { title: 'REMARKS', content: workOrder.remarks }
-    ];
+    ]
 
     sections.forEach(sec => {
-        if (sec.content) {
-            const numbered = ensureNumbering(sec.content);
-            const titleHeight = 20;
-            const contentHeight = doc.heightOfString(numbered, { width: 500 }) + 10;
+        if (!sec.content) return
+        const lines = sec.content.split('\n').filter((l: string) => l.trim().length > 0)
+        if (lines.length === 0) return
+        const titleH = 18
+        const contentH = doc.heightOfString(lines.map((l: string, i: number) => `${i + 1}. ${l.trim()}`).join('\n'), { width: 500 }) + 10
+        if (y + titleH + contentH > 750) { doc.addPage(); y = 50 } else { y += 15 }
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#1a1a2e').text(sec.title, 40, y, { underline: true })
+        y += titleH
+        doc.font('Helvetica').fontSize(8.5).fillColor('black')
+        lines.forEach((line: string, i: number) => {
+            const text = `${i + 1}. ${line.trim()}`
+            const lh = doc.heightOfString(text, { width: 500 })
+            if (y + lh > 750) { doc.addPage(); y = 50 }
+            doc.text(text, 40, y, { width: 500 })
+            y += lh + 4
+        })
+    })
 
-            if (y + titleHeight + contentHeight > 750) { doc.addPage(); y = 50; }
+    // ─── SIGNATURE BLOCKS ───
+    if (y + 100 > 750) { doc.addPage(); y = 50 }
+    y += 50
 
-            doc.font('Helvetica-Bold').fontSize(10).text(sec.title, 40, y, { underline: true });
-            y += titleHeight;
-            doc.font('Helvetica').fontSize(9).text(numbered, 40, y, { width: 500 });
-            y += contentHeight + 10;
-        }
-    });
+    const sigBoxStyle = (sx: number, sy: number, label: string, name: string) => {
+        doc.moveTo(sx, sy + 35).lineTo(sx + 180, sy + 35).stroke()
+        doc.font('Helvetica-Bold').fontSize(9).fillColor('#1a1a2e')
+        doc.text(label, sx, sy + 40, { width: 180, align: 'center' })
+        doc.font('Helvetica').fontSize(8).fillColor('#555')
+        doc.text(name, sx, sy + 53, { width: 180, align: 'center' })
+    }
 
-    // --- Signatures ---
-    if (y + 100 > 750) { doc.addPage(); y = 50; }
-    y += 60;
+    sigBoxStyle(40, y, 'Authorized Signatory (Client)', workOrder.project?.client?.company_name || 'Client')
+    sigBoxStyle(340, y, 'Acknowledged & Accepted By', workOrder.vendor ? workOrder.vendor.name : 'VH SHRI Enterprise')
 
-    doc.text('Authorized Signatory', 40, y, { align: 'center', width: 200 });
-    doc.text('Accepted By', 350, y, { align: 'center', width: 200 });
-    doc.fontSize(8).text('VH SHRI ENTERPRISE', 40, y + 15, { align: 'center', width: 200 });
-    doc.text(workOrder.vendor ? workOrder.vendor.name : 'Internal Team', 350, y + 15, { align: 'center', width: 200 });
+    doc.font('Helvetica').fontSize(7).fillColor('#888').text('Date: _______________', 40, y + 70)
+    doc.text('Date: _______________', 340, y + 70)
 
     doc.end()
-
-
 }
 
 export const generatePurchaseOrderPDF = (po: any, stream: any) => {

@@ -173,7 +173,7 @@ const UnitList = () => {
                 subtitle="Manage units of measurement for materials and services"
                 icon={<ContainerOutlined />}
                 extra={
-                    <Space>
+                    <Space wrap>
                         <Button icon={<UploadOutlined />} onClick={() => setImportModalVisible(true)}>
                             Import CSV
                         </Button>
@@ -181,7 +181,7 @@ const UnitList = () => {
                             setEditingUnit(null)
                             form.resetFields()
                             setIsModalVisible(true)
-                        }}>
+                        }} style={{ width: window.innerWidth < 576 ? '100%' : 'auto' }}>
                             Add New Unit
                         </Button>
                     </Space>
@@ -197,7 +197,7 @@ const UnitList = () => {
                             setSearchText(e.target.value)
                             setCurrentPage(1)
                         }}
-                        style={{ width: 300 }}
+                        style={{ width: window.innerWidth < 576 ? '100%' : 300 }}
                     />
                 </div>
                 <Table

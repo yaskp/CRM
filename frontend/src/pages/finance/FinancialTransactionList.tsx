@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Table, Tag, Button, Space, Card, Input, DatePicker, Select, Typography, message } from 'antd'
+import { Table, Tag, Button, Space, DatePicker, Select, Typography, message } from 'antd'
 import {
     DollarOutlined,
     PlusOutlined,
@@ -18,12 +18,11 @@ import { useNavigate } from 'react-router-dom'
 import {
     getPrimaryButtonStyle,
     getSecondaryButtonStyle,
-    largeInputStyle,
-    flexBetweenStyle
+    largeInputStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 const { RangePicker } = DatePicker
 const { Option } = Select
 
@@ -99,10 +98,9 @@ const FinancialTransactionList = () => {
             key: 'entity',
             render: (_: any, record: any) => {
                 let name = '-'
-                let type = ''
-                if (record.vendor) { name = record.vendor.name; type = 'Vendor' }
-                else if (record.client) { name = record.client.company_name; type = 'Client' }
-                else if (record.project) { name = record.project.name; type = 'Project Site' }
+                if (record.vendor) { name = record.vendor.name }
+                else if (record.client) { name = record.client.company_name }
+                else if (record.project) { name = record.project.name }
 
                 return (
                     <Space direction="vertical" size={0}>
@@ -116,7 +114,7 @@ const FinancialTransactionList = () => {
             title: 'Payment Mode',
             dataIndex: 'payment_mode',
             key: 'payment_mode',
-            render: (text: string, record: any) => (
+            render: (text: string) => (
                 <Space>
                     <BankOutlined style={{ color: theme.colors.primary.main }} />
                     <Text>{text.toUpperCase()}</Text>
@@ -169,15 +167,17 @@ const FinancialTransactionList = () => {
                 subtitle="Central ledger for all payments, receipts, and bank movements across the project lifecycle."
                 icon={<DollarOutlined />}
                 extra={
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => navigate('/finance/transactions/new')}
-                        style={getPrimaryButtonStyle()}
-                        size="large"
-                    >
-                        Record Transaction
-                    </Button>
+                    <Space wrap>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => navigate('/finance/transactions/new')}
+                            style={getPrimaryButtonStyle()}
+                            size="large"
+                        >
+                            Record Transaction
+                        </Button>
+                    </Space>
                 }
             />
 
@@ -201,8 +201,8 @@ const FinancialTransactionList = () => {
                         onChange={(dates) => {
                             setFilters({
                                 ...filters,
-                                start_date: dates ? dates[0]?.format('YYYY-MM-DD') : null,
-                                end_date: dates ? dates[1]?.format('YYYY-MM-DD') : null
+                                start_date: dates ? (dates[0] as any).format('YYYY-MM-DD') : null,
+                                end_date: dates ? (dates[1] as any).format('YYYY-MM-DD') : null
                             })
                         }}
                     />

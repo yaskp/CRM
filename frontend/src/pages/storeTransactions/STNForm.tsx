@@ -15,7 +15,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, Controller } from 'react-hook-form'
 import dayjs from 'dayjs'
 import { PageContainer } from '../../components/common/PremiumComponents'
-import { flexBetweenStyle } from '../../styles/styleUtils'
 
 const { TextArea } = Input
 const { Option } = Select
@@ -263,7 +262,7 @@ const STNInternalForm = () => {
   return (
     <PageContainer maxWidth={1000}>
       <Card loading={loading} style={{ borderRadius: '12px', overflow: 'hidden' }}>
-        <div style={flexBetweenStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <Typography.Title level={4} style={{ margin: 0 }}>
             {id ? 'Modify Store Transfer Note' : 'Create Store Transfer Note'}
           </Typography.Title>
@@ -276,7 +275,7 @@ const STNInternalForm = () => {
         <Divider />
 
         <Row gutter={24}>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Card title="Source (From)" size="small" type="inner">
               <Row gutter={16}>
                 <Col span={24}>
@@ -313,7 +312,7 @@ const STNInternalForm = () => {
             </Card>
           </Col>
 
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Card title="Destination (To)" size="small" type="inner">
               <Row gutter={16}>
                 <Col span={24}>
@@ -364,7 +363,7 @@ const STNInternalForm = () => {
         </Row>
 
         <Row gutter={24} style={{ marginTop: 16 }}>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Form.Item label="Transfer Date" required>
               <Controller
                 name="transaction_date"
@@ -380,7 +379,7 @@ const STNInternalForm = () => {
               />
             </Form.Item>
           </Col>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Form.Item label="Remarks">
               <Controller name="remarks" control={control} render={({ field }) => <TextArea {...field} rows={2} />} />
             </Form.Item>
@@ -395,6 +394,7 @@ const STNInternalForm = () => {
             rowKey={(_, i) => String(i)}
             pagination={false}
             size="small"
+            scroll={{ x: 'max-content' }}
             style={{ marginTop: 8 }}
           />
           <Button type="dashed" block icon={<PlusOutlined />} onClick={addItem} style={{ marginTop: 16 }}>

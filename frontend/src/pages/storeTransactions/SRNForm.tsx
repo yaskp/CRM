@@ -507,7 +507,7 @@ const SRNInternalForm = () => {
   return (
     <PageContainer maxWidth={1100}>
       <Card loading={loading} style={{ borderRadius: '12px' }}>
-        <div style={flexBetweenStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <Title level={4} style={{ margin: 0 }}>
             {id ? 'Modify Site Return Note' : 'Create Site Return Note (SRN)'}
           </Title>
@@ -519,10 +519,10 @@ const SRNInternalForm = () => {
         <Divider />
 
         <Row gutter={24}>
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Card title="Source (From Site/Store)" size="small" type="inner">
               <Row gutter={16}>
-                <Col span={12}>
+                <Col xs={24} sm={12}>
                   <Form.Item label="Type">
                     <Controller
                       name="source_type"
@@ -536,7 +536,7 @@ const SRNInternalForm = () => {
                     />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} sm={12}>
                   <Form.Item label="From Location" required>
                     <Controller
                       name="source_id"
@@ -556,10 +556,10 @@ const SRNInternalForm = () => {
             </Card>
           </Col>
 
-          <Col span={12}>
+          <Col xs={24} md={12}>
             <Card title="Destination (To Warehouse/Vendor)" size="small" type="inner">
               <Row gutter={16}>
-                <Col span={12}>
+                <Col xs={24} sm={12}>
                   <Form.Item label="Type">
                     <Controller
                       name="destination_type"
@@ -573,7 +573,7 @@ const SRNInternalForm = () => {
                     />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} sm={12}>
                   <Form.Item
                     label="To Location"
                     required
@@ -604,7 +604,7 @@ const SRNInternalForm = () => {
         </Row>
 
         <Row gutter={24} style={{ marginTop: 16 }}>
-          <Col span={8}>
+          <Col xs={24} sm={8}>
             <Form.Item label="Return Date" required>
               <Controller
                 name="transaction_date"
@@ -621,7 +621,7 @@ const SRNInternalForm = () => {
             </Form.Item>
           </Col>
           {destType === 'vendor' && (
-            <Col span={8}>
+            <Col xs={24} sm={8}>
               <Form.Item label="Link to PO">
                 <Controller
                   name="purchase_order_id"
@@ -646,6 +646,7 @@ const SRNInternalForm = () => {
             dataSource={items}
             rowKey="key"
             pagination={false}
+            scroll={{ x: 'max-content' }}
             size="small"
             style={{ marginTop: 8 }}
           />
@@ -713,8 +714,8 @@ const SRNInternalForm = () => {
             </Col>
           </Row>
         </div>
-      </Card>
-    </PageContainer>
+      </Card >
+    </PageContainer >
   )
 }
 

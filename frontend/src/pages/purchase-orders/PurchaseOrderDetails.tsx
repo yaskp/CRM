@@ -20,7 +20,7 @@ import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../componen
 import { theme } from '../../styles/theme'
 import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 
 const PurchaseOrderDetails = () => {
     const { id } = useParams()
@@ -230,6 +230,7 @@ const PurchaseOrderDetails = () => {
                             columns={itemColumns}
                             pagination={false}
                             rowKey="id"
+                            scroll={{ x: 'max-content' }}
                             summary={() => {
                                 const subTotal = Number(purchaseOrder.total_amount) - (Number(purchaseOrder.cgst_amount) + Number(purchaseOrder.sgst_amount) + Number(purchaseOrder.igst_amount));
 

@@ -368,7 +368,6 @@ const QuotationList = () => {
         </Col>
       </Row>
 
-      {/* Filters and Actions */}
       <Card
         style={{
           marginBottom: theme.spacing.lg,
@@ -377,45 +376,55 @@ const QuotationList = () => {
           border: `1px solid ${theme.colors.neutral.gray100}`,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <Space wrap>
-            <Search
-              placeholder="Search quotations..."
-              allowClear
-              style={{ width: 300 }}
-              prefix={<SearchOutlined style={prefixIconStyle} />}
-              size="large"
-              onSearch={(value) => {
-                setFilters({ ...filters, search: value, page: 1 })
-                fetchQuotations()
-              }}
-            />
-            <Select
-              placeholder="Filter by status"
-              allowClear
-              style={{ width: 200, ...largeInputStyle }}
-              size="large"
-              suffixIcon={<FilterOutlined style={prefixIconStyle} />}
-              onChange={(value) => setFilters({ ...filters, status: value || '' })}
-            >
-              <Option value="draft">📝 Draft</Option>
-              <Option value="sent">📤 Sent</Option>
-              <Option value="accepted_by_party">✅ Accepted by Party</Option>
-              <Option value="approved">🛡️ Approved (Internal)</Option>
-              <Option value="rejected">❌ Rejected</Option>
-              <Option value="expired">⏰ Expired</Option>
-            </Select>
-          </Space>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/sales/quotations/new')}
-            size="large"
-            style={getPrimaryButtonStyle(180)}
-          >
-            Create Quotation
-          </Button>
-        </div>
+        <Row gutter={[16, 16]} align="middle" justify="space-between">
+          <Col xs={24} md={18} lg={19}>
+            <Row gutter={[12, 12]}>
+              <Col xs={24} sm={14} md={12}>
+                <Search
+                  placeholder="Search quotations..."
+                  allowClear
+                  style={{ width: '100%', maxWidth: 350 }}
+                  prefix={<SearchOutlined style={prefixIconStyle} />}
+                  size="large"
+                  onSearch={(value) => {
+                    setFilters({ ...filters, search: value, page: 1 })
+                    fetchQuotations()
+                  }}
+                />
+              </Col>
+              <Col xs={24} sm={10} md={8}>
+                <Select
+                  placeholder="Filter by status"
+                  allowClear
+                  style={{ width: '100%', maxWidth: 220, ...largeInputStyle }}
+                  size="large"
+                  suffixIcon={<FilterOutlined style={prefixIconStyle} />}
+                  onChange={(value) => setFilters({ ...filters, status: value || '' })}
+                >
+                  <Option value="draft">📝 Draft</Option>
+                  <Option value="sent">📤 Sent</Option>
+                  <Option value="accepted_by_party">✅ Accepted by Party</Option>
+                  <Option value="approved">🛡️ Approved (Internal)</Option>
+                  <Option value="rejected">❌ Rejected</Option>
+                  <Option value="expired">⏰ Expired</Option>
+                </Select>
+              </Col>
+            </Row>
+          </Col>
+          <Col xs={24} md={6} lg={5}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/sales/quotations/new')}
+                size="large"
+                style={{ ...getPrimaryButtonStyle(), width: '100%', maxWidth: 200 }}
+              >
+                Create Quotation
+              </Button>
+            </div>
+          </Col>
+        </Row>
       </Card>
 
       {/* Quotations Table */}

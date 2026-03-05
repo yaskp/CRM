@@ -87,7 +87,7 @@ const DailyWorkLog = () => {
                 materialService.getMaterials(),
                 warehouseService.getWarehouses(),
                 projectService.getProjects(),
-                workItemTypeService.getWorkItemTypes()
+                workItemTypeService.getWorkItemTypes({ is_active: true })
             ])
             setMaterials(matRes.materials || [])
             setWarehouses(whRes.warehouses || [])
@@ -445,9 +445,9 @@ const DailyWorkLog = () => {
             />
 
             <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ transaction_date: dayjs() }}>
-                <Row gutter={24}>
+                <Row gutter={[24, 24]}>
                     {/* Left Column */}
-                    <Col span={16}>
+                    <Col xs={24} lg={16}>
                         {/* Location & Work */}
                         <SectionCard title="📍 Location & Work Details" icon={<ProjectOutlined />}>
                             <div style={threeColumnGridStyle}>
@@ -542,6 +542,7 @@ const DailyWorkLog = () => {
                                 rowKey={(_, i) => i?.toString() || '0'}
                                 size="small"
                                 bordered
+                                scroll={{ x: 1000 }}
                                 locale={{ emptyText: 'No materials added. Click "Add Material" to begin.' }}
                             />
                         </SectionCard>
@@ -560,13 +561,14 @@ const DailyWorkLog = () => {
                                 rowKey={(_, i) => i?.toString() || '0'}
                                 size="small"
                                 bordered
+                                scroll={{ x: 600 }}
                                 locale={{ emptyText: 'No manpower logged. Click "Add Worker" to begin.' }}
                             />
                         </SectionCard>
                     </Col>
 
                     {/* Right Column */}
-                    <Col span={8}>
+                    <Col xs={24} lg={8}>
                         {/* Summary Card */}
                         <Card
                             title={<><CheckCircleOutlined /> Today's Summary</>}
@@ -577,8 +579,8 @@ const DailyWorkLog = () => {
                             }}
                             headStyle={{ color: 'white', borderBottom: '1px solid rgba(255,255,255,0.2)' }}
                         >
-                            <Row gutter={16}>
-                                <Col span={12}>
+                            <Row gutter={[16, 16]}>
+                                <Col xs={12} sm={12}>
                                     <Statistic
                                         title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Work Done</span>}
                                         value={summary.totalWorkDone}
@@ -586,7 +588,7 @@ const DailyWorkLog = () => {
                                         valueStyle={{ color: 'white' }}
                                     />
                                 </Col>
-                                <Col span={12}>
+                                <Col xs={12} sm={12}>
                                     <Statistic
                                         title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Efficiency</span>}
                                         value={summary.efficiency}
@@ -597,8 +599,8 @@ const DailyWorkLog = () => {
                                 </Col>
                             </Row>
                             <Divider style={{ borderColor: 'rgba(255,255,255,0.2)', margin: '16px 0' }} />
-                            <Row gutter={16}>
-                                <Col span={12}>
+                            <Row gutter={[16, 16]}>
+                                <Col xs={12} sm={12}>
                                     <Statistic
                                         title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Materials</span>}
                                         value={summary.totalMaterialCost}
@@ -606,7 +608,7 @@ const DailyWorkLog = () => {
                                         valueStyle={{ color: 'white', fontSize: 18 }}
                                     />
                                 </Col>
-                                <Col span={12}>
+                                <Col xs={12} sm={12}>
                                     <Statistic
                                         title={<span style={{ color: 'rgba(255,255,255,0.8)' }}>Labor</span>}
                                         value={summary.totalLabor}
@@ -677,7 +679,7 @@ const DailyWorkLog = () => {
 
                 {/* Submit */}
                 <Card style={actionCardStyle}>
-                    <div style={flexBetweenStyle}>
+                    <div style={{ ...flexBetweenStyle, flexWrap: 'wrap', gap: 12 }}>
                         <Text type="secondary">
                             <InfoCircleOutlined style={{ marginRight: '8px' }} />
                             This will update inventory, BOQ progress, and project dashboard automatically.

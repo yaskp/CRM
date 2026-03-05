@@ -325,46 +325,46 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
         <div>
             {/* ─── Summary Banner ──────────────────────────────────────────── */}
             <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-                <Col span={6}>
-                    <Card size="small" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none', color: '#fff' }}>
+                <Col xs={12} sm={6}>
+                    <Card size="small" style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', border: 'none', color: '#fff', height: '100%' }}>
                         <Statistic
                             title={<Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>Site Staff</Text>}
                             value={staffList.length}
                             suffix="assigned"
-                            valueStyle={{ color: '#fff', fontSize: 22 }}
+                            valueStyle={{ color: '#fff', fontSize: 20 }}
                             prefix={<TeamOutlined />}
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
-                    <Card size="small" style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', border: 'none' }}>
+                <Col xs={12} sm={6}>
+                    <Card size="small" style={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', border: 'none', height: '100%' }}>
                         <Statistic
                             title={<Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>Labour Contractors</Text>}
                             value={contractorList.length}
                             suffix="firms"
-                            valueStyle={{ color: '#fff', fontSize: 22 }}
+                            valueStyle={{ color: '#fff', fontSize: 20 }}
                             prefix={<ToolOutlined />}
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
-                    <Card size="small" style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', border: 'none' }}>
+                <Col xs={12} sm={6}>
+                    <Card size="small" style={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', border: 'none', height: '100%' }}>
                         <Statistic
                             title={<Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>Total Labourers</Text>}
                             value={totalLabour + totalHelpers + totalOperators}
                             suffix="workers"
-                            valueStyle={{ color: '#fff', fontSize: 22 }}
+                            valueStyle={{ color: '#fff', fontSize: 20 }}
                             prefix={<ToolOutlined />}
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
-                    <Card size="small" style={{ background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', border: 'none' }}>
+                <Col xs={12} sm={6}>
+                    <Card size="small" style={{ background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', border: 'none', height: '100%' }}>
                         <Statistic
                             title={<Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>Client Contacts</Text>}
                             value={clientList.length}
                             suffix="contacts"
-                            valueStyle={{ color: '#fff', fontSize: 22 }}
+                            valueStyle={{ color: '#fff', fontSize: 20 }}
                             prefix={<SolutionOutlined />}
                         />
                     </Card>
@@ -375,16 +375,20 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
             <Card
                 style={{ marginBottom: 20 }}
                 title={
-                    <Space>
-                        <UserSwitchOutlined style={{ color: '#1677ff' }} />
-                        <Title level={5} style={{ margin: 0 }}>Internal Site Team</Title>
-                        <Tag color="blue">{staffList.length} assigned</Tag>
-                    </Space>
-                }
-                extra={
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => openModal('staff')}>
-                        Assign Staff
-                    </Button>
+                    <Row gutter={[8, 8]} align="middle" justify="space-between" style={{ width: '100%' }}>
+                        <Col>
+                            <Space>
+                                <UserSwitchOutlined style={{ color: '#1677ff' }} />
+                                <Title level={5} style={{ margin: 0 }}>Internal Site Team</Title>
+                                <Tag color="blue">{staffList.length} assigned</Tag>
+                            </Space>
+                        </Col>
+                        <Col>
+                            <Button type="primary" icon={<PlusOutlined />} onClick={() => openModal('staff')}>
+                                Assign Staff
+                            </Button>
+                        </Col>
+                    </Row>
                 }
                 styles={{ body: { padding: 0 } }}
             >
@@ -393,6 +397,7 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                     columns={staffColumns}
                     pagination={false}
                     loading={loading}
+                    scroll={{ x: 800 }}
                     rowKey="id"
                     locale={{ emptyText: 'No staff assigned yet. Click "Assign Staff" to add.' }}
                     size="middle"
@@ -403,21 +408,25 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
             <Card
                 style={{ marginBottom: 20 }}
                 title={
-                    <Space>
-                        <ToolOutlined style={{ color: '#fa8c16' }} />
-                        <Title level={5} style={{ margin: 0 }}>Labour Contractors</Title>
-                        <Tag color="volcano">{contractorList.length} contractors</Tag>
-                    </Space>
-                }
-                extra={
-                    <Button icon={<PlusOutlined />} onClick={() => openModal('contractor')} style={{ background: '#fa8c16', color: '#fff', border: 'none' }}>
-                        Add Labour Contractor
-                    </Button>
+                    <Row gutter={[8, 8]} align="middle" justify="space-between" style={{ width: '100%' }}>
+                        <Col>
+                            <Space>
+                                <ToolOutlined style={{ color: '#fa8c16' }} />
+                                <Title level={5} style={{ margin: 0 }}>Labour Contractors</Title>
+                                <Tag color="volcano">{contractorList.length} contractors</Tag>
+                            </Space>
+                        </Col>
+                        <Col>
+                            <Button icon={<PlusOutlined />} onClick={() => openModal('contractor')} style={{ background: '#fa8c16', color: '#fff', border: 'none' }}>
+                                Add Labour Contractor
+                            </Button>
+                        </Col>
+                    </Row>
                 }
                 styles={{ body: { padding: 0 } }}
             >
                 {contractorList.length > 0 && (
-                    <div style={{ padding: '10px 16px', background: '#fff7e6', borderBottom: '1px solid #ffd591', display: 'flex', gap: 24 }}>
+                    <div style={{ padding: '10px 16px', background: '#fff7e6', borderBottom: '1px solid #ffd591', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                         <Text style={{ fontSize: 12 }}>
                             <Text strong style={{ color: '#1677ff' }}>{totalLabour}</Text> Labourers
                         </Text>
@@ -437,6 +446,7 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                     columns={contractorColumns}
                     pagination={false}
                     loading={loading}
+                    scroll={{ x: 800 }}
                     rowKey="id"
                     locale={{ emptyText: 'No contractors added. Click "Add Labour Contractor" to add.' }}
                     size="middle"
@@ -446,16 +456,20 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
             {/* ─── Section 3: Client Contacts ───────────────────────────────── */}
             <Card
                 title={
-                    <Space>
-                        <ContainerOutlined style={{ color: '#722ed1' }} />
-                        <Title level={5} style={{ margin: 0 }}>Client & Office Contacts</Title>
-                        <Tag color="purple">{clientList.length} contacts</Tag>
-                    </Space>
-                }
-                extra={
-                    <Button icon={<PlusOutlined />} onClick={() => openModal('client')}>
-                        Add Contact
-                    </Button>
+                    <Row gutter={[8, 8]} align="middle" justify="space-between" style={{ width: '100%' }}>
+                        <Col>
+                            <Space>
+                                <ContainerOutlined style={{ color: '#722ed1' }} />
+                                <Title level={5} style={{ margin: 0 }}>Client & Office Contacts</Title>
+                                <Tag color="purple">{clientList.length} contacts</Tag>
+                            </Space>
+                        </Col>
+                        <Col>
+                            <Button icon={<PlusOutlined />} onClick={() => openModal('client')}>
+                                Add Contact
+                            </Button>
+                        </Col>
+                    </Row>
                 }
                 styles={{ body: { padding: 0 } }}
             >
@@ -464,6 +478,7 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                     columns={clientColumns}
                     pagination={false}
                     loading={loading}
+                    scroll={{ x: 800 }}
                     rowKey="id"
                     locale={{ emptyText: 'No client contacts added.' }}
                     size="middle"
@@ -519,12 +534,12 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                         </Form.Item>
 
                         <Row gutter={16}>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="phone" label="Phone Number">
                                     <Input prefix={<PhoneOutlined />} placeholder="Mobile" />
                                 </Form.Item>
                             </Col>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="email" label="Email">
                                     <Input prefix={<MailOutlined />} placeholder="Work email" />
                                 </Form.Item>
@@ -546,12 +561,12 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                         </Form.Item>
 
                         <Row gutter={16}>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="name" label="Contractor Name" rules={[{ required: true }]}>
                                     <Input prefix={<UserOutlined />} placeholder="Person name" />
                                 </Form.Item>
                             </Col>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="company_name" label="Company / Firm Name">
                                     <Input placeholder="Firm or contractor company" />
                                 </Form.Item>
@@ -559,12 +574,12 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                         </Row>
 
                         <Row gutter={16}>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="phone" label="Phone / Mobile" rules={[{ required: true }]}>
                                     <Input prefix={<PhoneOutlined />} placeholder="10-digit mobile" />
                                 </Form.Item>
                             </Col>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="designation" label="Work Category">
                                     <Select placeholder="Type of work">
                                         {CONTRACTOR_CATEGORIES.map(c => (
@@ -578,17 +593,17 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                         <Divider orientation="left" style={{ fontSize: 13, color: '#888' }}>👷 Manpower Provided</Divider>
 
                         <Row gutter={16}>
-                            <Col span={8}>
+                            <Col xs={8}>
                                 <Form.Item name="labour_count" label="Labourers">
                                     <Input type="number" min={0} placeholder="0" addonAfter="nos" />
                                 </Form.Item>
                             </Col>
-                            <Col span={8}>
-                                <Form.Item name="helper_count" label="Helpers / Mazdoor">
+                            <Col xs={8}>
+                                <Form.Item name="helper_count" label="Helpers">
                                     <Input type="number" min={0} placeholder="0" addonAfter="nos" />
                                 </Form.Item>
                             </Col>
-                            <Col span={8}>
+                            <Col xs={8}>
                                 <Form.Item name="operator_count" label="Operators">
                                     <Input type="number" min={0} placeholder="0" addonAfter="nos" />
                                 </Form.Item>
@@ -609,7 +624,7 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                         </Form.Item>
 
                         <Row gutter={16}>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="contact_type" label="Role / Type" rules={[{ required: true }]}>
                                     <Select placeholder="Select role">
                                         {CLIENT_ROLES.map(r => (
@@ -618,7 +633,7 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                                     </Select>
                                 </Form.Item>
                             </Col>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="designation" label="Designation">
                                     <Input placeholder="e.g. Project Director" />
                                 </Form.Item>
@@ -626,12 +641,12 @@ const ProjectTeam = ({ projectId }: ProjectTeamProps) => {
                         </Row>
 
                         <Row gutter={16}>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="phone" label="Phone">
                                     <Input prefix={<PhoneOutlined />} placeholder="Mobile number" />
                                 </Form.Item>
                             </Col>
-                            <Col span={12}>
+                            <Col xs={24} sm={12}>
                                 <Form.Item name="email" label="Email">
                                     <Input prefix={<MailOutlined />} placeholder="email@company.com" />
                                 </Form.Item>

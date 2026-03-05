@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react'
 import { Table, Card, Statistic, Row, Col, Typography, Empty, Tag, Button } from 'antd'
-import { StockOutlined, SwapOutlined, HistoryOutlined, ShoppingOutlined } from '@ant-design/icons'
+import { StockOutlined, HistoryOutlined, ShoppingOutlined } from '@ant-design/icons'
 import { inventoryService } from '../../services/api/inventory'
 import { storeTransactionService } from '../../services/api/storeTransactions'
 import { useNavigate } from 'react-router-dom'
@@ -11,7 +11,6 @@ const { Text } = Typography
 const ProjectInventory = ({ projectId }: { projectId: number }) => {
     const [loading, setLoading] = useState(false)
     const [inventory, setInventory] = useState<any[]>([])
-    const [transactions, setTransactions] = useState<any[]>([])
     const navigate = useNavigate()
 
     useEffect(() => {
@@ -23,16 +22,11 @@ const ProjectInventory = ({ projectId }: { projectId: number }) => {
     const fetchData = async () => {
         setLoading(true)
         try {
-            const [invRes, txnRes] = await Promise.all([
+            const [invRes] = await Promise.all([
                 inventoryService.getInventory({ project_id: projectId }),
-                // Assuming we can filter transactions by project, otherwise we might see mixed data.
-                // For now, let's assume getTransactions accepts project_id or we filter on frontend?
-                // The current service definition for getTransactions is: type?, status?, warehouse_id? 
-                // We might need to fetch warehouse first if we want strict filtering, but let's try just inventory for now.
                 storeTransactionService.getTransactions({ limit: 5 })
             ])
             setInventory(invRes.inventory || [])
-            setTransactions(txnRes.transactions || [])
         } catch (error) {
             console.error('Failed to fetch project inventory', error)
         } finally {
@@ -73,8 +67,8 @@ const ProjectInventory = ({ projectId }: { projectId: number }) => {
 
     return (
         <div>
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-                <Col span={8}>
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+                <Col xs={24} sm={8}>
                     <Card size="small">
                         <Statistic
                             title="Total Items on Site"
@@ -83,7 +77,7 @@ const ProjectInventory = ({ projectId }: { projectId: number }) => {
                         />
                     </Card>
                 </Col>
-                <Col span={8}>
+                <Col xs={24} sm={8}>
                     <Card size="small">
                         <Statistic
                             title="Low Stock Alerts"
@@ -92,8 +86,8 @@ const ProjectInventory = ({ projectId }: { projectId: number }) => {
                         />
                     </Card>
                 </Col>
-                <Col span={8} style={{ display: 'flex', alignItems: 'center', justifyContent: 'end' }}>
-                    <Button type="primary" icon={<ShoppingOutlined />} onClick={() => navigate('/procurement/purchase-orders/new')}>
+                <Col xs={24} sm={8} style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                    <Button type="primary" icon={<ShoppingOutlined />} onClick={() => navigate('/procurement/purchase-orders/new')} block={window.innerWidth < 576}>
                         Order Material
                     </Button>
                 </Col>
@@ -107,6 +101,7 @@ const ProjectInventory = ({ projectId }: { projectId: number }) => {
                         rowKey="id"
                         pagination={{ pageSize: 5 }}
                         loading={loading}
+                        scroll={{ x: 'max-content' }}
                     />
                 ) : (
                     <Empty description="No material stock found at this site" />

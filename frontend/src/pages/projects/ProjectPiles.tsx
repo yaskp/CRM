@@ -285,56 +285,60 @@ const ProjectPiles = ({ projectId }: ProjectPilesProps) => {
             <Col xs={24} lg={18}>
                 <Card
                     title={
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Space>
-                                <AppstoreOutlined style={{ color: theme.colors.primary.main }} />
-                                <Title level={4} style={{ margin: 0 }}>
-                                    {selectedDrawing ? `Pile Progress: ${selectedDrawing.drawing_name}` : 'Pile Progress Board'}
-                                </Title>
-                            </Space>
-                            <Space>
-                                <Button onClick={handleOpenBatchModal}>Batch Generate</Button>
-                                <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenPileModal}>Add Single Pile</Button>
-                            </Space>
-                        </div>
+                        <Row gutter={[16, 16]} align="middle" justify="space-between">
+                            <Col xs={24} md={12}>
+                                <Space>
+                                    <AppstoreOutlined style={{ color: theme.colors.primary.main }} />
+                                    <Title level={4} style={{ margin: 0 }}>
+                                        {selectedDrawing ? `Pile Progress: ${selectedDrawing.drawing_name}` : 'Pile Progress Board'}
+                                    </Title>
+                                </Space>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Space wrap style={{ width: '100%', justifyContent: 'flex-end' }}>
+                                    <Button onClick={handleOpenBatchModal}>Batch Generate</Button>
+                                    <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenPileModal}>Add Single Pile</Button>
+                                </Space>
+                            </Col>
+                        </Row>
                     }
                 >
                     <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                        <Col span={6}>
-                            <Card size="small" style={{ background: '#f0f5ff' }}>
-                                <Statistic title="Total Piles" value={piles.length} valueStyle={{ color: '#0050b3' }} />
+                        <Col xs={12} sm={6}>
+                            <Card size="small" style={{ background: '#f0f5ff', height: '100%' }}>
+                                <Statistic title="Total Piles" value={piles.length} valueStyle={{ color: '#0050b3', fontSize: 20 }} />
                             </Card>
                         </Col>
-                        <Col span={6}>
-                            <Card size="small" style={{ background: '#f6ffed' }}>
+                        <Col xs={12} sm={6}>
+                            <Card size="small" style={{ background: '#f6ffed', height: '100%' }}>
                                 <Statistic
                                     title="Total Boring"
                                     value={piles.reduce((acc, p) => acc + Number(p.design_depth || 0), 0)}
-                                    precision={2}
+                                    precision={1}
                                     suffix="m"
-                                    valueStyle={{ color: '#389e0d' }}
+                                    valueStyle={{ color: '#389e0d', fontSize: 20 }}
                                 />
                             </Card>
                         </Col>
-                        <Col span={6}>
-                            <Card size="small" style={{ background: '#fff7e6' }}>
+                        <Col xs={12} sm={6}>
+                            <Card size="small" style={{ background: '#fff7e6', height: '100%' }}>
                                 <Statistic
-                                    title="Total Concrete (Design)"
+                                    title="Concrete (Design)"
                                     value={piles.reduce((acc, p) => acc + Number(p.concrete_design_qty || 0), 0)}
-                                    precision={2}
+                                    precision={1}
                                     suffix="m³"
-                                    valueStyle={{ color: '#d46b08' }}
+                                    valueStyle={{ color: '#d46b08', fontSize: 20 }}
                                 />
                             </Card>
                         </Col>
-                        <Col span={6}>
-                            <Card size="small" style={{ background: '#fff1f0' }}>
+                        <Col xs={12} sm={6}>
+                            <Card size="small" style={{ background: '#fff1f0', height: '100%' }}>
                                 <Statistic
-                                    title="Total Steel (Design)"
+                                    title="Steel (Design)"
                                     value={piles.reduce((acc, p) => acc + Number(p.reinforcement_ton || 0), 0)}
-                                    precision={3}
+                                    precision={2}
                                     suffix="MT"
-                                    valueStyle={{ color: '#cf1322' }}
+                                    valueStyle={{ color: '#cf1322', fontSize: 20 }}
                                 />
                             </Card>
                         </Col>

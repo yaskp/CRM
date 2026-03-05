@@ -346,7 +346,7 @@ const MaterialRequisitionForm = () => {
                 </div>
 
                 <Card style={actionCardStyle}>
-                    <div style={flexBetweenStyle}>
+                    <div style={{ ...flexBetweenStyle, flexWrap: 'wrap', gap: 12 }}>
                         <Text style={{ color: theme.colors.neutral.gray600 }}>
                             <InfoCircleOutlined style={{ marginRight: '8px' }} />
                             Requisition will be sent to the store manager for approval.

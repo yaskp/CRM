@@ -145,9 +145,9 @@ const DailyWorkLogDetails = () => {
 
             <Row gutter={[24, 24]}>
                 {/* Left Side: Details & Materials */}
-                <Col span={16}>
+                <Col xs={24} lg={16}>
                     <Card title={<><EnvironmentOutlined /> Location & Assignment</>} className="premium-card">
-                        <Descriptions bordered column={2}>
+                        <Descriptions bordered column={{ xs: 1, sm: 2 }}>
                             <Descriptions.Item label="Project">{log.project?.name}</Descriptions.Item>
                             <Descriptions.Item label="Store">{log.warehouse?.name}</Descriptions.Item>
                             <Descriptions.Item label="Building">{log.building?.name || 'N/A'}</Descriptions.Item>
@@ -172,6 +172,7 @@ const DailyWorkLogDetails = () => {
                             pagination={false}
                             rowKey="id"
                             bordered
+                            scroll={{ x: 800 }}
                         />
                     </Card>
 
@@ -187,7 +188,7 @@ const DailyWorkLogDetails = () => {
                 </Col>
 
                 {/* Right Side: Site Conditions, Manpower, Photos */}
-                <Col span={8}>
+                <Col xs={24} lg={8}>
                     {/* Efficiency & Summary */}
                     <Card className="premium-card" style={{ background: 'linear-gradient(135deg, #134e4a 0%, #0d9488 100%)', color: 'white' }}>
                         <Statistic

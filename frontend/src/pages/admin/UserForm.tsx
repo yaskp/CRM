@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, Checkbox, Typography } from 'antd'
+import { Form, Input, Button, Card, message, Select, Checkbox, Typography, Row, Col } from 'antd'
 import {
     UserOutlined,
     MailOutlined,
@@ -17,7 +17,6 @@ import {
     getLabelStyle,
     getPrimaryButtonStyle,
     getSecondaryButtonStyle,
-    twoColumnGridStyle,
     flexBetweenStyle,
     actionCardStyle,
     prefixIconStyle
@@ -96,100 +95,104 @@ const UserForm = () => {
                 onFinish={onFinish}
                 initialValues={{ is_active: true }}
             >
-                <div style={twoColumnGridStyle}>
-                    {/* Column 1: Basic Information */}
-                    <SectionCard title="Basic Information" icon={<UserOutlined />}>
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Name</span>}
-                            name="name"
-                            rules={[{ required: true, message: 'Please enter name' }]}
-                        >
-                            <Input
-                                prefix={<UserOutlined style={prefixIconStyle} />}
-                                placeholder="Enter user name"
-                                size="large"
-                                style={largeInputStyle}
-                            />
-                        </Form.Item>
-
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Email</span>}
-                            name="email"
-                            rules={[
-                                { required: true, message: 'Please enter email' },
-                                { type: 'email', message: 'Please enter valid email' }
-                            ]}
-                        >
-                            <Input
-                                prefix={<MailOutlined style={prefixIconStyle} />}
-                                placeholder="user@example.com"
-                                size="large"
-                                style={largeInputStyle}
-                            />
-                        </Form.Item>
-
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Employee ID</span>}
-                            name="employee_id"
-                        >
-                            <Input
-                                prefix={<IdcardOutlined style={prefixIconStyle} />}
-                                placeholder="Enter employee ID"
-                                size="large"
-                                style={largeInputStyle}
-                            />
-                        </Form.Item>
-
-                        <Form.Item name="is_active" valuePropName="checked">
-                            <Checkbox style={{ fontSize: 14, fontWeight: 500 }}>
-                                Active User
-                            </Checkbox>
-                        </Form.Item>
-                    </SectionCard>
-
-                    {/* Column 2: Security & Permissions */}
-                    <SectionCard title="Security & Permissions" icon={<SafetyOutlined />}>
-                        <Form.Item
-                            label={<span style={getLabelStyle()}>Roles</span>}
-                            name="role_ids"
-                            rules={[{ required: true, message: 'Please select at least one role' }]}
-                        >
-                            <Select
-                                mode="multiple"
-                                placeholder="Select roles"
-                                size="large"
-                                style={largeInputStyle}
-                                suffixIcon={<TeamOutlined style={prefixIconStyle} />}
-                            >
-                                {roles.map(role => (
-                                    <Option key={role.id} value={role.id}>{role.name}</Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
-
-                        {!isEdit && (
+                <Row gutter={[16, 16]}>
+                    <Col xs={24} lg={12}>
+                        {/* Column 1: Basic Information */}
+                        <SectionCard title="Basic Information" icon={<UserOutlined />}>
                             <Form.Item
-                                label={<span style={getLabelStyle()}>Password</span>}
-                                name="password"
-                                rules={[{ required: true, message: 'Please enter password' }]}
+                                label={<span style={getLabelStyle()}>Name</span>}
+                                name="name"
+                                rules={[{ required: true, message: 'Please enter name' }]}
                             >
-                                <Input.Password
-                                    prefix={<LockOutlined style={prefixIconStyle} />}
-                                    placeholder="Enter password"
+                                <Input
+                                    prefix={<UserOutlined style={prefixIconStyle} />}
+                                    placeholder="Enter user name"
                                     size="large"
                                     style={largeInputStyle}
                                 />
                             </Form.Item>
-                        )}
 
-                        <InfoCard title="🔒 Security Note" gradient="subtle">
-                            {isEdit
-                                ? 'User password can be reset separately from the user list'
-                                : 'User will receive login credentials via email after account creation'
-                            }
-                        </InfoCard>
-                    </SectionCard>
-                </div>
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>Email</span>}
+                                name="email"
+                                rules={[
+                                    { required: true, message: 'Please enter email' },
+                                    { type: 'email', message: 'Please enter valid email' }
+                                ]}
+                            >
+                                <Input
+                                    prefix={<MailOutlined style={prefixIconStyle} />}
+                                    placeholder="user@example.com"
+                                    size="large"
+                                    style={largeInputStyle}
+                                />
+                            </Form.Item>
+
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>Employee ID</span>}
+                                name="employee_id"
+                            >
+                                <Input
+                                    prefix={<IdcardOutlined style={prefixIconStyle} />}
+                                    placeholder="Enter employee ID"
+                                    size="large"
+                                    style={largeInputStyle}
+                                />
+                            </Form.Item>
+
+                            <Form.Item name="is_active" valuePropName="checked">
+                                <Checkbox style={{ fontSize: 14, fontWeight: 500 }}>
+                                    Active User
+                                </Checkbox>
+                            </Form.Item>
+                        </SectionCard>
+                    </Col>
+
+                    <Col xs={24} lg={12}>
+                        {/* Column 2: Security & Permissions */}
+                        <SectionCard title="Security & Permissions" icon={<SafetyOutlined />}>
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>Roles</span>}
+                                name="role_ids"
+                                rules={[{ required: true, message: 'Please select at least one role' }]}
+                            >
+                                <Select
+                                    mode="multiple"
+                                    placeholder="Select roles"
+                                    size="large"
+                                    style={largeInputStyle}
+                                    suffixIcon={<TeamOutlined style={prefixIconStyle} />}
+                                >
+                                    {roles.map(role => (
+                                        <Option key={role.id} value={role.id}>{role.name}</Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+
+                            {!isEdit && (
+                                <Form.Item
+                                    label={<span style={getLabelStyle()}>Password</span>}
+                                    name="password"
+                                    rules={[{ required: true, message: 'Please enter password' }]}
+                                >
+                                    <Input.Password
+                                        prefix={<LockOutlined style={prefixIconStyle} />}
+                                        placeholder="Enter password"
+                                        size="large"
+                                        style={largeInputStyle}
+                                    />
+                                </Form.Item>
+                            )}
+
+                            <InfoCard title="🔒 Security Note" gradient="subtle">
+                                {isEdit
+                                    ? 'User password can be reset separately from the user list'
+                                    : 'User will receive login credentials via email after account creation'
+                                }
+                            </InfoCard>
+                        </SectionCard>
+                    </Col>
+                </Row>
 
                 {/* Action Buttons */}
                 <Card style={actionCardStyle}>

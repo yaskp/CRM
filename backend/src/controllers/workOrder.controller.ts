@@ -62,7 +62,8 @@ export const createWorkOrder = async (req: AuthRequest, res: Response, next: Nex
   try {
     const {
       project_id, vendor_id, items, discount_percentage, payment_terms, po_wo_document_url,
-      client_scope, contractor_scope, scope_matrix, terms_conditions, remarks, status
+      client_scope, contractor_scope, scope_matrix, terms_conditions, remarks, status,
+      quotation_id
     } = req.body
 
     if (!project_id || !items || items.length === 0) {
@@ -103,6 +104,8 @@ export const createWorkOrder = async (req: AuthRequest, res: Response, next: Nex
       terms_conditions,
       remarks,
       status: workOrderStatus,
+      quotation_id: quotation_id || null,
+      created_by: req.user?.id
     })
 
     // Create work order items with automatic category assignment
@@ -262,7 +265,8 @@ export const updateWorkOrder = async (req: AuthRequest, res: Response, next: Nex
     const { id } = req.params
     const {
       vendor_id, items, discount_percentage, payment_terms, status,
-      client_scope, contractor_scope, scope_matrix, terms_conditions, remarks
+      client_scope, contractor_scope, scope_matrix, terms_conditions, remarks,
+      quotation_id
     } = req.body
 
     const workOrder = await WorkOrder.findByPk(id, {
@@ -317,6 +321,7 @@ export const updateWorkOrder = async (req: AuthRequest, res: Response, next: Nex
         scope_matrix: scope_matrix || workOrder.scope_matrix,
         terms_conditions,
         status,
+        quotation_id: quotation_id !== undefined ? quotation_id : workOrder.quotation_id,
       })
     } else {
       await workOrder.update({
@@ -328,6 +333,7 @@ export const updateWorkOrder = async (req: AuthRequest, res: Response, next: Nex
         terms_conditions,
         remarks,
         status,
+        quotation_id: quotation_id !== undefined ? quotation_id : workOrder.quotation_id,
       })
     }
 
@@ -489,8 +495,11 @@ export const uploadSignedWorkOrder = async (req: AuthRequest, res: Response, nex
 
       const publicUrl = `/uploads/${targetSubDir.replace(/\\/g, '/')}/${finalFileName}`
 
-      // Update work order
-      await workOrder.update({ po_wo_document_url: publicUrl })
+      // Update work order to active, since it's now signed
+      await workOrder.update({
+        po_wo_document_url: publicUrl,
+        status: 'active'
+      })
 
       // Create ProjectDocument entry for organized tracking
       await ProjectDocument.create({

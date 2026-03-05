@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect } from 'react'
-import { Form, Button, Card, App, Select, Input, InputNumber, Space, Table, Typography, Divider, Checkbox } from 'antd'
+import { Form, Button, Card, App, Select, Input, InputNumber, Space, Table, Typography, Divider, Checkbox, Row, Col } from 'antd'
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -31,8 +31,7 @@ import {
   getLabelStyle,
   flexBetweenStyle,
   actionCardStyle,
-  prefixIconStyle,
-  twoColumnGridStyle
+  prefixIconStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
@@ -59,6 +58,7 @@ const WorkOrderForm = () => {
   const [annexures, setAnnexures] = useState<any[]>([])
   const [clientInfo, setClientInfo] = useState<any>(null)
   const [scopeMatrix, setScopeMatrix] = useState<any[]>([])
+  const [sourceQuotationId, setSourceQuotationId] = useState<number | null>(null)
   const [form] = Form.useForm()
   const navigate = useNavigate()
   const location = useLocation()
@@ -103,6 +103,7 @@ const WorkOrderForm = () => {
       const q = response.quotation
 
       if (q) {
+        setSourceQuotationId(q.id)
         const projId = q.lead?.project_id || q.project_id
         if (projId) {
           form.setFieldsValue({ project_id: projId })
@@ -133,6 +134,8 @@ const WorkOrderForm = () => {
 
         if (q.client_scope || q.contractor_scope || q.terms_conditions || q.annexure) {
           form.setFieldsValue({
+            client_scope: q.client_scope,
+            contractor_scope: q.contractor_scope,
             terms_conditions: q.terms_conditions || (q.annexure?.clauses?.join('\n') || '')
           })
         }
@@ -149,7 +152,7 @@ const WorkOrderForm = () => {
 
   const fetchWorkItemTypes = async () => {
     try {
-      const response = await workItemTypeService.getWorkItemTypes()
+      const response = await workItemTypeService.getWorkItemTypes({ is_active: true })
       setWorkItemTypes(response.data || [])
     } catch (error) {
       console.error('Failed to fetch work item types')
@@ -214,6 +217,7 @@ const WorkOrderForm = () => {
     try {
       const response = await workOrderService.getWorkOrder(Number(id))
       const wo = response.workOrder
+      setSourceQuotationId(wo.quotation_id || null)
       form.setFieldsValue(wo)
 
       const parsedItems = (wo.items || []).map((item: any) => ({
@@ -283,10 +287,13 @@ const WorkOrderForm = () => {
         })),
         discount_percentage: discount,
         payment_terms: values.payment_terms,
+        client_scope: values.client_scope,
+        contractor_scope: values.contractor_scope,
         scope_matrix: scopeMatrix,
         terms_conditions: values.terms_conditions,
         po_wo_document_url: values.po_wo_document_url,
         status: values.status,
+        quotation_id: sourceQuotationId,
       }
 
       if (id) {
@@ -420,96 +427,103 @@ const WorkOrderForm = () => {
         <Form.Item name="status" hidden>
           <Input />
         </Form.Item>
-        <div style={twoColumnGridStyle}>
-          <SectionCard title="Order Authorization" icon={<ProjectOutlined />}>
-            <Form.Item
-              label={<span style={getLabelStyle()}>Assigned Project</span>}
-              name="project_id"
-              rules={[{ required: true, message: 'Please select a project!' }]}
-            >
-              <Select
-                placeholder="Select project"
-                disabled={!!id}
-                size="large"
-                style={largeInputStyle}
-                showSearch
-                onChange={onProjectChange}
-                optionFilterProp="children"
+        <Form.Item name="status" hidden>
+          <Input />
+        </Form.Item>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={12}>
+            <SectionCard title="Order Authorization" icon={<ProjectOutlined />}>
+              <Form.Item
+                label={<span style={getLabelStyle()}>Assigned Project</span>}
+                name="project_id"
+                rules={[{ required: true, message: 'Please select a project!' }]}
               >
-                {projects.map((project) => (
-                  <Option key={project.id} value={project.id}>
-                    {project.project_code} - {project.name}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
+                <Select
+                  placeholder="Select project"
+                  disabled={!!id}
+                  size="large"
+                  style={largeInputStyle}
+                  showSearch
+                  onChange={onProjectChange}
+                  optionFilterProp="children"
+                >
+                  {projects.map((project) => (
+                    <Option key={project.id} value={project.id}>
+                      {project.project_code} - {project.name}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
 
-            {clientInfo && (
-              <InfoCard title="💼 Client Information">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <Text strong style={{ fontSize: 16 }}>{clientInfo.company_name}</Text>
-                  <Text type="secondary">Client Code: {clientInfo.client_code}</Text>
+              {clientInfo && (
+                <InfoCard title="💼 Client Information">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <Text strong style={{ fontSize: 16 }}>{clientInfo.company_name}</Text>
+                    <Text type="secondary">Client Code: {clientInfo.client_code}</Text>
 
-                  {(() => {
-                    const keyContact = clientInfo.contacts?.find((c: any) => c.is_primary)
-                      || clientInfo.contacts?.[0]
+                    {(() => {
+                      const keyContact = clientInfo.contacts?.find((c: any) => c.is_primary)
+                        || clientInfo.contacts?.[0]
 
-                    const contactName = keyContact?.contact_name || clientInfo.contact_person
-                    const contactPhone = keyContact?.phone || clientInfo.phone
-                    const contactEmail = keyContact?.email || clientInfo.email
+                      const contactName = keyContact?.contact_name || clientInfo.contact_person
+                      const contactPhone = keyContact?.phone || clientInfo.phone
+                      const contactEmail = keyContact?.email || clientInfo.email
 
-                    return (
-                      <>
-                        {contactName && <Text type="secondary">Contact: {contactName}</Text>}
-                        {contactPhone && <Text type="secondary">Phone: {contactPhone}</Text>}
-                        {contactEmail && <Text type="secondary">Email: {contactEmail}</Text>}
-                      </>
-                    )
-                  })()}
-                </div>
+                      return (
+                        <>
+                          {contactName && <Text type="secondary">Contact: {contactName}</Text>}
+                          {contactPhone && <Text type="secondary">Phone: {contactPhone}</Text>}
+                          {contactEmail && <Text type="secondary">Email: {contactEmail}</Text>}
+                        </>
+                      )
+                    })()}
+                  </div>
+                </InfoCard>
+              )}
+
+              <Form.Item
+                label={<span style={getLabelStyle()}>Subcontractor / Vendor (Optional)</span>}
+                name="vendor_id"
+                extra="Associate this work order with a specific vendor to track subcontracted costs."
+              >
+                <Select
+                  placeholder="Select subcontractor/vendor if applicable"
+                  size="large"
+                  style={largeInputStyle}
+                  showSearch
+                  allowClear
+                  optionFilterProp="children"
+                >
+                  {vendors.map((vendor) => (
+                    <Option key={vendor.id} value={vendor.id}>
+                      {vendor.name} - {vendor.vendor_type}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </SectionCard>
+          </Col>
+
+          <Col xs={24} md={12}>
+            <SectionCard title="Financial Controls" icon={<WalletOutlined />}>
+              <Form.Item label={<span style={getLabelStyle()}>Contract Discount (%)</span>} name="discount_percentage">
+                <InputNumber
+                  style={{ width: '100%', ...largeInputStyle }}
+                  min={0}
+                  max={100}
+                  controls={false}
+                  size="large"
+                  placeholder="0"
+                  prefix={<PercentageOutlined style={prefixIconStyle} />}
+                />
+              </Form.Item>
+
+              <InfoCard title="💡 Calculation Note">
+                Total order value is auto-calculated based on item rates and adjusted with any applicable discount.
               </InfoCard>
-            )}
-
-            <Form.Item
-              label={<span style={getLabelStyle()}>Subcontractor / Vendor (Optional)</span>}
-              name="vendor_id"
-              extra="Associate this work order with a specific vendor to track subcontracted costs."
-            >
-              <Select
-                placeholder="Select subcontractor/vendor if applicable"
-                size="large"
-                style={largeInputStyle}
-                showSearch
-                allowClear
-                optionFilterProp="children"
-              >
-                {vendors.map((vendor) => (
-                  <Option key={vendor.id} value={vendor.id}>
-                    {vendor.name} - {vendor.vendor_type}
-                  </Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </SectionCard>
-
-          <SectionCard title="Financial Controls" icon={<WalletOutlined />}>
-            <Form.Item label={<span style={getLabelStyle()}>Contract Discount (%)</span>} name="discount_percentage">
-              <InputNumber
-                style={{ width: '100%', ...largeInputStyle }}
-                min={0}
-                max={100}
-                controls={false}
-                size="large"
-                placeholder="0"
-                prefix={<PercentageOutlined style={prefixIconStyle} />}
-              />
-            </Form.Item>
-
-            <InfoCard title="💡 Calculation Note">
-              Total order value is auto-calculated based on item rates and adjusted with any applicable discount.
-            </InfoCard>
-          </SectionCard>
-        </div>
+            </SectionCard>
+          </Col>
+        </Row>
 
         <div style={{ marginTop: theme.spacing.lg }}>
           <SectionCard
@@ -521,6 +535,7 @@ const WorkOrderForm = () => {
               dataSource={items.map((item, index) => ({ ...item, index, key: index }))}
               pagination={false}
               bordered
+              scroll={{ x: 1000 }}
               locale={{ emptyText: <div style={{ padding: '30px' }}><Text type="secondary">No work items defined. Click "Add Work Item" to start.</Text></div> }}
               summary={() => (
                 <Table.Summary>
@@ -564,6 +579,7 @@ const WorkOrderForm = () => {
                   pagination={false}
                   size="small"
                   bordered
+                  scroll={{ x: 800 }}
                   rowKey="key"
                   columns={[
                     {
@@ -608,29 +624,33 @@ const WorkOrderForm = () => {
 
             <Divider />
 
-            <div style={twoColumnGridStyle}>
-              <Form.Item label={<span style={getLabelStyle()}>Terms & Conditions</span>}>
-                <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Select placeholder="Select from Master" style={{ width: 200 }} onChange={(val) => applyTemplate(val, 'terms_conditions')} allowClear>
-                    {annexures.filter(a => a.type === 'general_terms' || a.type === 'terms_conditions' || a.name.includes('Terms')).map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
-                  </Select>
-                </div>
-                <Form.Item name="terms_conditions" noStyle>
-                  <TextArea rows={6} placeholder="Standard terms..." style={largeInputStyle} />
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <Form.Item label={<span style={getLabelStyle()}>Terms & Conditions</span>}>
+                  <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Select placeholder="Select from Master" style={{ width: 200 }} onChange={(val) => applyTemplate(val, 'terms_conditions')} allowClear>
+                      {annexures.filter(a => a.type === 'general_terms' || a.type === 'terms_conditions' || a.name.includes('Terms')).map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
+                    </Select>
+                  </div>
+                  <Form.Item name="terms_conditions" noStyle>
+                    <TextArea rows={6} placeholder="Standard terms..." style={largeInputStyle} />
+                  </Form.Item>
                 </Form.Item>
-              </Form.Item>
+              </Col>
 
-              <Form.Item label={<span style={getLabelStyle()}>Payment Schedule & Terms</span>}>
-                <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Select placeholder="Select from Master" style={{ width: 200 }} onChange={(val) => applyTemplate(val, 'payment_terms')} allowClear>
-                    {annexures.filter(a => a.type === 'payment_terms').map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
-                  </Select>
-                </div>
-                <Form.Item name="payment_terms" noStyle>
-                  <TextArea rows={6} placeholder="Payment schedule..." style={largeInputStyle} />
+              <Col xs={24} md={12}>
+                <Form.Item label={<span style={getLabelStyle()}>Payment Schedule & Terms</span>}>
+                  <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Select placeholder="Select from Master" style={{ width: 200 }} onChange={(val) => applyTemplate(val, 'payment_terms')} allowClear>
+                      {annexures.filter(a => a.type === 'payment_terms').map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
+                    </Select>
+                  </div>
+                  <Form.Item name="payment_terms" noStyle>
+                    <TextArea rows={6} placeholder="Payment schedule..." style={largeInputStyle} />
+                  </Form.Item>
                 </Form.Item>
-              </Form.Item>
-            </div>
+              </Col>
+            </Row>
 
             <Form.Item label={<span style={getLabelStyle()}>Signed Work Order (PDF/Image)</span>} name="po_wo_document_url">
               <FileUpload folder="work_orders" placeholder="Upload Signed Copy" />
@@ -643,12 +663,12 @@ const WorkOrderForm = () => {
         </div>
 
         <Card style={actionCardStyle}>
-          <div style={flexBetweenStyle}>
+          <div style={{ ...flexBetweenStyle, flexWrap: 'wrap', gap: 16 }}>
             <Text type="secondary">
               <InfoCircleOutlined style={{ marginRight: '8px' }} />
               Authorized work orders trigger procurement and financial tracking.
             </Text>
-            <Space size="middle">
+            <Space size="middle" wrap>
               {id && (
                 <Button
                   icon={<PrinterOutlined />}

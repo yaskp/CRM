@@ -21,7 +21,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, Controller } from 'react-hook-form'
 import dayjs from 'dayjs'
 import { PageContainer } from '../../components/common/PremiumComponents'
-import { flexBetweenStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
 const { TextArea } = Input
@@ -394,7 +393,6 @@ const GRNInternalForm = () => {
       render: (_: any, record: GRNItem, index: number) => {
         const poQty = record.ordered_quantity || 0
         const invQty = record.quantity || 0
-        const excessAuto = Math.max(0, invQty - poQty)
         return (
           <InputNumber
             style={{ width: '100%', borderColor: invQty > poQty && poQty > 0 ? '#faad14' : undefined }}
@@ -578,7 +576,7 @@ const GRNInternalForm = () => {
       <Card loading={loading} style={{ marginBottom: '24px', borderRadius: '12px', overflow: 'hidden', padding: 0 }} styles={{ body: { padding: 0 } }}>
         {/* Top Header Area */}
         <div style={{ background: '#f8fbfc', padding: '20px 24px', borderBottom: '1px solid #e1e8ed' }}>
-          <div style={flexBetweenStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
             <Typography.Title level={4} style={{ margin: 0 }}>
               {id ? 'Modify Goods Receipt' : 'Create Goods Receipt'}
             </Typography.Title>
@@ -594,7 +592,7 @@ const GRNInternalForm = () => {
         <div style={{ padding: '24px' }}>
           <Row gutter={24}>
             {/* Metadata Panel */}
-            <Col span={10}>
+            <Col xs={24} lg={10}>
               <div style={{ background: '#edf4ff', padding: '20px', borderRadius: '8px', height: '100%' }}>
                 <Row gutter={[16, 16]}>
                   <Col span={24}>
@@ -705,25 +703,25 @@ const GRNInternalForm = () => {
             </Col>
 
             {/* Logistics Panel */}
-            <Col span={14}>
+            <Col xs={24} lg={14}>
               <div style={{ padding: '0 0 0 12px' }}>
                 <Row gutter={[16, 16]}>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item label="Challan Number">
                       <Controller name="challan_number" control={control} render={({ field }) => <Input {...field} placeholder="0" />} />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item label="Supplier Invoice Number">
                       <Controller name="supplier_invoice_number" control={control} render={({ field }) => <Input {...field} placeholder="0" />} />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item label="Lorry / Vehicle Number">
                       <Controller name="truck_number" control={control} render={({ field }) => <Input {...field} placeholder="0" />} />
                     </Form.Item>
                   </Col>
-                  <Col span={12}>
+                  <Col xs={24} sm={12}>
                     <Form.Item label="E-Way Bill Number">
                       <Controller name="eway_bill_number" control={control} render={({ field }) => <Input {...field} placeholder="0" />} />
                     </Form.Item>
@@ -731,11 +729,11 @@ const GRNInternalForm = () => {
                 </Row>
 
                 <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #f0f0f0', borderRadius: '12px' }}>
-                  <Row justify="space-around">
-                    <Col>{uploadBox('Challan / E-Way / LR', 'challan_image', challanImg)}</Col>
-                    <Col>{uploadBox('Supplier Invoice', 'invoice_image', invoiceImg)}</Col>
-                    <Col>{uploadBox('Goods Photo', 'goods_image', goodsImg)}</Col>
-                    <Col>{uploadBox('Receiver Image', 'receiver_image', receiverImg)}</Col>
+                  <Row gutter={[16, 16]} justify="space-around">
+                    <Col xs={12} sm={6}>{uploadBox('Challan / E-Way / LR', 'challan_image', challanImg)}</Col>
+                    <Col xs={12} sm={6}>{uploadBox('Supplier Invoice', 'invoice_image', invoiceImg)}</Col>
+                    <Col xs={12} sm={6}>{uploadBox('Goods Photo', 'goods_image', goodsImg)}</Col>
+                    <Col xs={12} sm={6}>{uploadBox('Receiver Image', 'receiver_image', receiverImg)}</Col>
                   </Row>
                 </div>
               </div>
@@ -751,6 +749,7 @@ const GRNInternalForm = () => {
               pagination={false}
               bordered
               size="middle"
+              scroll={{ x: 'max-content' }}
             />
             {!po_id_val && (
               <Button type="dashed" block icon={<PlusOutlined />} onClick={addItem} style={{ marginTop: '16px', height: '40px' }}>

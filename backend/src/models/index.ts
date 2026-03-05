@@ -358,6 +358,8 @@ BudgetHead.hasMany(Expense, { foreignKey: 'budget_head_id', as: 'expenses' })
 
 // Work Templates
 WorkTemplate.hasMany(WorkTemplateItem, { foreignKey: 'template_id', as: 'items' })
+WorkTemplate.belongsTo(WorkItemType, { foreignKey: 'primary_work_item_type_id', as: 'primaryWorkItemType' })
+WorkTemplate.belongsTo(WorkItemType, { foreignKey: 'sub_work_item_type_id', as: 'subWorkItemType' })
 WorkTemplateItem.belongsTo(WorkTemplate, { foreignKey: 'template_id', as: 'template' })
 WorkTemplateItem.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
 WorkItemType.hasMany(WorkTemplateItem, { foreignKey: 'work_item_type_id', as: 'templateItems' })

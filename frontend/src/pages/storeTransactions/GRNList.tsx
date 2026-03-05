@@ -139,6 +139,7 @@ const GRNList = () => {
       title: 'Actions',
       key: 'actions',
       width: 220,
+      fixed: 'right' as const,
       render: (_: any, record: any) => (
         <Space size="middle">
           <Button
@@ -187,7 +188,7 @@ const GRNList = () => {
         icon={<FileTextOutlined />}
       />
 
-      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: theme.spacing.lg }}>
         <Col xs={24} sm={8}>
           <Card hoverable style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.sm }}>
             <Statistic
@@ -221,18 +222,20 @@ const GRNList = () => {
       </Row>
 
       <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <Space size="middle" wrap>
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} sm={10} lg={8}>
             <Search
               placeholder="Search by GRN number..."
-              style={{ width: 300, ...largeInputStyle }}
+              style={{ width: '100%', ...largeInputStyle }}
               size="large"
               onSearch={(value) => fetchTransactions({ search: value })}
               prefix={<SearchOutlined style={prefixIconStyle} />}
             />
+          </Col>
+          <Col xs={24} sm={8} lg={6}>
             <Select
               placeholder="All Statuses"
-              style={{ width: 180, ...largeInputStyle }}
+              style={{ width: '100%', ...largeInputStyle }}
               size="large"
               allowClear
               onChange={(value) => fetchTransactions({ status: value })}
@@ -243,18 +246,19 @@ const GRNList = () => {
               <Select.Option value="approved">✅ Approved</Select.Option>
               <Select.Option value="rejected">❌ Rejected</Select.Option>
             </Select>
-          </Space>
-
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/inventory/grn/new')}
-            size="large"
-            style={getPrimaryButtonStyle(180)}
-          >
-            Create New GRN
-          </Button>
-        </div>
+          </Col>
+          <Col xs={24} sm={6} lg={4}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/inventory/grn/new')}
+              size="large"
+              style={{ ...getPrimaryButtonStyle(), width: '100%' }}
+            >
+              Create GRN
+            </Button>
+          </Col>
+        </Row>
       </Card>
 
       <Card style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
@@ -263,7 +267,7 @@ const GRNList = () => {
           dataSource={transactions}
           loading={loading}
           rowKey="id"
-          scroll={{ x: 1100 }}
+          scroll={{ x: 1000 }}
           pagination={{
             ...pagination,
             showSizeChanger: true,

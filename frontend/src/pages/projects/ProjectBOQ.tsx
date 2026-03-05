@@ -494,49 +494,53 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                 <Col span={24}>
                     <Card
                         title={
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Space size="large">
-                                    <Space>
-                                        <BuildOutlined style={{ color: theme.colors.primary.main }} />
-                                        <Title level={4} style={{ margin: 0 }}>Design Quantities</Title>
-                                    </Space>
-                                    <Select
-                                        placeholder="Select Drawing"
-                                        style={{ width: 250 }}
-                                        value={selectedDrawing?.id}
-                                        onChange={(id) => setSelectedDrawing(drawings.find(d => d.id === id))}
-                                    >
-                                        {drawings.map(d => (
-                                            <Option key={d.id} value={d.id}>{d.drawing_name}</Option>
-                                        ))}
-                                    </Select>
-                                </Space>
-                                <Space>
-                                    <Button
-                                        icon={<SettingOutlined />}
-                                        onClick={() => setBatchModalVisible(true)}
-                                    >
-                                        Batch
-                                    </Button>
-                                    {selectedDrawing?.file_url && (
-                                        <Button
-                                            icon={<EyeOutlined />}
-                                            href={`http://localhost:5000${selectedDrawing.file_url}`}
-                                            target="_blank"
+                            <Row gutter={[16, 16]} align="middle" justify="space-between">
+                                <Col xs={24} lg={12}>
+                                    <Space wrap size="large" style={{ width: '100%' }}>
+                                        <Space>
+                                            <BuildOutlined style={{ color: theme.colors.primary.main }} />
+                                            <Title level={4} style={{ margin: 0 }}>Design Quantities</Title>
+                                        </Space>
+                                        <Select
+                                            placeholder="Select Drawing"
+                                            style={{ width: '100%', minWidth: 200, maxWidth: 300 }}
+                                            value={selectedDrawing?.id}
+                                            onChange={(id) => setSelectedDrawing(drawings.find(d => d.id === id))}
                                         >
-                                            View
+                                            {drawings.map(d => (
+                                                <Option key={d.id} value={d.id}>{d.drawing_name}</Option>
+                                            ))}
+                                        </Select>
+                                    </Space>
+                                </Col>
+                                <Col xs={24} lg={12}>
+                                    <Space wrap style={{ width: '100%', justifyContent: 'flex-end' }}>
+                                        <Button
+                                            icon={<SettingOutlined />}
+                                            onClick={() => setBatchModalVisible(true)}
+                                        >
+                                            Batch
                                         </Button>
-                                    )}
-                                    <Button
-                                        type="primary"
-                                        icon={<PlusOutlined />}
-                                        onClick={() => setPanelModalVisible(true)}
-                                    >
-                                        Add {selectedDrawing?.drawing_type === 'Pile Layout' ? 'Pile' : 'Panel'}
-                                    </Button>
-                                    <Button type="text" icon={<UploadOutlined />} onClick={() => setModalVisible(true)} />
-                                </Space>
-                            </div>
+                                        {selectedDrawing?.file_url && (
+                                            <Button
+                                                icon={<EyeOutlined />}
+                                                href={`http://localhost:5000${selectedDrawing.file_url}`}
+                                                target="_blank"
+                                            >
+                                                View
+                                            </Button>
+                                        )}
+                                        <Button
+                                            type="primary"
+                                            icon={<PlusOutlined />}
+                                            onClick={() => setPanelModalVisible(true)}
+                                        >
+                                            Add {selectedDrawing?.drawing_type === 'Pile Layout' ? 'Pile' : 'Panel'}
+                                        </Button>
+                                        <Button type="text" icon={<UploadOutlined />} onClick={() => setModalVisible(true)} />
+                                    </Space>
+                                </Col>
+                            </Row>
                         }
                     >
                         {!selectedDrawing ? (
@@ -546,34 +550,50 @@ const ProjectBOQManager = ({ projectId }: ProjectBOQProps) => {
                             />
                         ) : (
                             <>
-                                <div style={{ marginBottom: 16, background: '#f6ffed', padding: '12px', borderRadius: '4px', border: '1px solid #b7eb8f', display: 'flex', justifyContent: 'space-between' }}>
-                                    <Statistic title="Total Concrete (m³)" value={totals.concrete} precision={2} valueStyle={{ color: '#3f8600', fontSize: 18 }} />
-                                    <Statistic title="Total Reinf. (Ton)" value={totals.reinforcement} precision={2} valueStyle={{ color: '#096dd9', fontSize: 18 }} />
-                                    <Statistic title="Total Anchors" value={totals.anchors} valueStyle={{ color: '#cf1322', fontSize: 18 }} />
-                                    <Statistic title="Total Anchor Length (m)" value={totals.anchorRM} precision={1} valueStyle={{ color: '#722ed1', fontSize: 18 }} />
+                                <div style={{ marginBottom: 16, background: '#f6ffed', padding: '16px', borderRadius: '4px', border: '1px solid #b7eb8f' }}>
+                                    <Row gutter={[16, 16]}>
+                                        <Col xs={12} sm={6}>
+                                            <Statistic title="Total Concrete (m³)" value={totals.concrete} precision={2} valueStyle={{ color: '#3f8600', fontSize: 16 }} />
+                                        </Col>
+                                        <Col xs={12} sm={6}>
+                                            <Statistic title="Total Reinf. (Ton)" value={totals.reinforcement} precision={2} valueStyle={{ color: '#096dd9', fontSize: 16 }} />
+                                        </Col>
+                                        <Col xs={12} sm={6}>
+                                            <Statistic title="Total Anchors" value={totals.anchors} valueStyle={{ color: '#cf1322', fontSize: 16 }} />
+                                        </Col>
+                                        <Col xs={12} sm={6}>
+                                            <Statistic title="Total Anchor Length (m)" value={totals.anchorRM} precision={1} valueStyle={{ color: '#722ed1', fontSize: 16 }} />
+                                        </Col>
+                                    </Row>
                                 </div>
                                 {selectedRowKeys.length > 0 && (
-                                    <div style={{ marginBottom: 12, background: '#e6f7ff', padding: '10px 16px', borderRadius: '6px', border: '1px solid #91d5ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <Text strong>{selectedRowKeys.length} panel{selectedRowKeys.length > 1 ? 's' : ''} selected</Text>
-                                        <Space>
-                                            <Button size="small" onClick={() => setSelectedRowKeys([])}>Clear</Button>
-                                            <Button
-                                                danger
-                                                size="small"
-                                                icon={<DeleteOutlined />}
-                                                onClick={handleBulkDelete}
-                                            >
-                                                Delete ({selectedRowKeys.length})
-                                            </Button>
-                                            <Button
-                                                type="primary"
-                                                size="small"
-                                                icon={<EditOutlined />}
-                                                onClick={() => openBulkEditWithPreFill()}
-                                            >
-                                                Edit Selected ({selectedRowKeys.length})
-                                            </Button>
-                                        </Space>
+                                    <div style={{ marginBottom: 12, background: '#e6f7ff', padding: '10px 16px', borderRadius: '6px', border: '1px solid #91d5ff' }}>
+                                        <Row gutter={[8, 8]} align="middle" justify="space-between">
+                                            <Col>
+                                                <Text strong>{selectedRowKeys.length} item{selectedRowKeys.length > 1 ? 's' : ''} selected</Text>
+                                            </Col>
+                                            <Col>
+                                                <Space wrap>
+                                                    <Button size="small" onClick={() => setSelectedRowKeys([])}>Clear</Button>
+                                                    <Button
+                                                        danger
+                                                        size="small"
+                                                        icon={<DeleteOutlined />}
+                                                        onClick={handleBulkDelete}
+                                                    >
+                                                        Delete ({selectedRowKeys.length})
+                                                    </Button>
+                                                    <Button
+                                                        type="primary"
+                                                        size="small"
+                                                        icon={<EditOutlined />}
+                                                        onClick={() => openBulkEditWithPreFill()}
+                                                    >
+                                                        Edit Selected ({selectedRowKeys.length})
+                                                    </Button>
+                                                </Space>
+                                            </Col>
+                                        </Row>
                                     </div>
                                 )}
                                 <Table

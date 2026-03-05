@@ -202,8 +202,8 @@ const DailyWorkLogList = () => {
             />
 
             {/* Quick Stats */}
-            <Row gutter={16} style={{ marginBottom: 24 }}>
-                <Col span={6}>
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                <Col xs={24} sm={12} md={6}>
                     <Card variant="borderless" className="premium-card">
                         <Statistic
                             title="Total Entries"
@@ -212,7 +212,7 @@ const DailyWorkLogList = () => {
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
+                <Col xs={24} sm={12} md={6}>
                     <Card variant="borderless" className="premium-card">
                         <Statistic
                             title="Approved"
@@ -222,7 +222,7 @@ const DailyWorkLogList = () => {
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
+                <Col xs={24} sm={12} md={6}>
                     <Card variant="borderless" className="premium-card">
                         <Statistic
                             title="Avg. Efficiency"
@@ -233,7 +233,7 @@ const DailyWorkLogList = () => {
                         />
                     </Card>
                 </Col>
-                <Col span={6}>
+                <Col xs={24} sm={12} md={6}>
                     <Card variant="borderless" className="premium-card">
                         <Statistic
                             title="Manpower Reported"
@@ -245,8 +245,8 @@ const DailyWorkLogList = () => {
             </Row>
 
             <Card className="premium-card" style={{ marginBottom: 24 }}>
-                <Row gutter={16} align="middle">
-                    <Col span={6}>
+                <Row gutter={[16, 16]} align="middle">
+                    <Col xs={24} sm={12} lg={6}>
                         <Text strong style={{ display: 'block', marginBottom: 8 }}>Project</Text>
                         <Select
                             placeholder="All Projects"
@@ -257,14 +257,14 @@ const DailyWorkLogList = () => {
                             {projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
                         </Select>
                     </Col>
-                    <Col span={6}>
+                    <Col xs={24} sm={12} lg={6}>
                         <Text strong style={{ display: 'block', marginBottom: 8 }}>Date Range</Text>
                         <RangePicker
                             style={{ width: '100%' }}
                             onChange={v => setFilters({ ...filters, dateRange: v })}
                         />
                     </Col>
-                    <Col span={6}>
+                    <Col xs={24} sm={12} lg={6}>
                         <Text strong style={{ display: 'block', marginBottom: 8 }}>Status</Text>
                         <Select
                             placeholder="All Status"
@@ -278,8 +278,8 @@ const DailyWorkLogList = () => {
                             <Option value="rejected">Rejected</Option>
                         </Select>
                     </Col>
-                    <Col span={6} style={{ textAlign: 'right', marginTop: 24 }}>
-                        <Button icon={<SearchOutlined />} onClick={fetchLogs} type="primary">
+                    <Col xs={24} sm={12} lg={6} style={{ textAlign: 'right', marginTop: 24 }}>
+                        <Button icon={<SearchOutlined />} onClick={fetchLogs} type="primary" style={{ width: '100%' }}>
                             Search Logs
                         </Button>
                     </Col>
@@ -292,6 +292,7 @@ const DailyWorkLogList = () => {
                     dataSource={logs}
                     loading={loading}
                     rowKey="id"
+                    scroll={{ x: 1000 }}
                     pagination={{
                         ...pagination,
                         onChange: (page, pageSize) => setPagination({ ...pagination, current: page, pageSize }),

@@ -1,18 +1,20 @@
 import { useState, useEffect } from 'react'
-import { Table, Card, Button, Tag, Space, Input, message, Popconfirm, Typography } from 'antd'
+import { Table, Card, Button, Tag, Space, Input, message, Popconfirm, Typography, Row, Col, Select } from 'antd'
 import {
   PlusOutlined,
   EyeOutlined,
   CheckOutlined,
   CloseOutlined,
   RollbackOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  SearchOutlined,
+  FilterOutlined,
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
-import { getPrimaryButtonStyle, largeInputStyle } from '../../styles/styleUtils'
+import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
 const { Search } = Input
@@ -138,15 +140,16 @@ const SRNList = () => {
       title: 'Actions',
       key: 'actions',
       width: 220,
+      fixed: 'right' as const,
       render: (_: any, record: any) => (
         <Space size="middle">
-          <Button type="link" icon={<EyeOutlined />} onClick={() => navigate(`/inventory/srn/${record.id}`)}>View</Button>
+          <Button type="link" icon={<EyeOutlined />} onClick={() => navigate(`/inventory/srn/${record.id}`)} style={{ padding: 0 }}>View</Button>
           {record.creditNote && (
             <Button
               type="link"
               icon={<FileTextOutlined />}
               onClick={() => navigate(`/inventory/srn/${record.id}/print-cn`)}
-              style={{ color: '#1890ff' }}
+              style={{ color: '#1890ff', padding: 0 }}
             >
               Print CN
             </Button>
@@ -154,10 +157,10 @@ const SRNList = () => {
           {(record.status === 'draft' || record.status === 'pending') && (
             <>
               <Popconfirm title="Approve this return?" onConfirm={() => handleApprove(record.id)} okText="Approve">
-                <Button type="link" icon={<CheckOutlined />} style={{ color: '#52c41a' }}>Approve</Button>
+                <Button type="link" icon={<CheckOutlined />} style={{ color: '#52c41a', padding: 0 }}>Approve</Button>
               </Popconfirm>
               <Popconfirm title="Reject this return?" onConfirm={() => handleReject(record.id)}>
-                <Button type="link" icon={<CloseOutlined />} danger>Reject</Button>
+                <Button type="link" icon={<CloseOutlined />} danger style={{ padding: 0 }}>Reject</Button>
               </Popconfirm>
             </>
           )}
@@ -174,34 +177,58 @@ const SRNList = () => {
         icon={<RollbackOutlined />}
       />
 
-      <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Space size="middle">
+      <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} sm={12} lg={8}>
             <Search
               placeholder="Search by SRN number..."
-              style={{ width: 300, ...largeInputStyle }}
+              style={{ width: '100%', ...largeInputStyle }}
+              size="large"
               onSearch={(value) => fetchTransactions({ search: value })}
+              prefix={<SearchOutlined style={prefixIconStyle} />}
             />
-          </Space>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => navigate('/inventory/srn/new')}
-            size="large"
-            style={getPrimaryButtonStyle(180)}
-          >
-            Create New SRN
-          </Button>
-        </div>
+          </Col>
+          <Col xs={24} sm={6} lg={4}>
+            <Select
+              placeholder="All Statuses"
+              style={{ width: '100%', ...largeInputStyle }}
+              size="large"
+              allowClear
+              onChange={(value) => fetchTransactions({ status: value })}
+              suffixIcon={<FilterOutlined style={prefixIconStyle} />}
+            >
+              <Select.Option value="draft">📁 Draft</Select.Option>
+              <Select.Option value="pending">⏳ Pending</Select.Option>
+              <Select.Option value="approved">✅ Approved</Select.Option>
+              <Select.Option value="rejected">❌ Rejected</Select.Option>
+            </Select>
+          </Col>
+          <Col xs={24} sm={6} lg={4}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => navigate('/inventory/srn/new')}
+              size="large"
+              style={{ ...getPrimaryButtonStyle(), width: '100%' }}
+            >
+              Create SRN
+            </Button>
+          </Col>
+        </Row>
       </Card>
 
-      <Card style={{ borderRadius: theme.borderRadius.md }}>
+      <Card style={{ borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
         <Table
           columns={columns}
           dataSource={transactions}
           loading={loading}
           rowKey="id"
-          pagination={pagination}
+          scroll={{ x: 1100 }}
+          pagination={{
+            ...pagination,
+            showSizeChanger: true,
+            showTotal: (total) => `Total ${total} transactions`,
+          }}
           onChange={(pagination) => fetchTransactions({ current: pagination.current, pageSize: pagination.pageSize })}
         />
       </Card>

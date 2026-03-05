@@ -48,14 +48,14 @@ export const actionCardStyle: CSSProperties = {
 // Layout Styles
 export const threeColumnGridStyle: CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
     gap: theme.spacing.lg,
     marginBottom: theme.spacing.lg,
 }
 
 export const twoColumnGridStyle: CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
     gap: theme.spacing.md,
 }
 

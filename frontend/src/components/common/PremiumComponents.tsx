@@ -115,6 +115,8 @@ export const SectionCard: React.FC<SectionCardProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: theme.spacing.md,
         marginBottom: theme.spacing.lg,
         paddingBottom: theme.spacing.md,
         borderBottom: `2px solid ${theme.colors.neutral.gray100}`,

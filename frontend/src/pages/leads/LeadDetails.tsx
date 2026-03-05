@@ -77,10 +77,12 @@ const LeadDetails = () => {
                 title={`Lead: ${lead.name}`}
                 subtitle={`Enquiry Date: ${dayjs(lead.enquiry_date).format('DD MMMM YYYY')}`}
                 icon={<UserOutlined />}
-                extra={[
-                    <Button key="back" icon={<ArrowLeftOutlined />} onClick={() => navigate('/sales/leads')} style={getSecondaryButtonStyle()}>Back</Button>,
-                    <Button key="edit" type="primary" icon={<EditOutlined />} onClick={() => navigate(`/sales/leads/${id}/edit`)} style={getPrimaryButtonStyle()}>Edit Lead</Button>
-                ]}
+                extra={(
+                    <Space wrap>
+                        <Button key="back" icon={<ArrowLeftOutlined />} onClick={() => navigate('/sales/leads')} style={getSecondaryButtonStyle()}>Back</Button>
+                        <Button key="edit" type="primary" icon={<EditOutlined />} onClick={() => navigate(`/sales/leads/${id}/edit`)} style={getPrimaryButtonStyle()}>Edit Lead</Button>
+                    </Space>
+                )}
             />
 
             <Row gutter={[16, 16]}>

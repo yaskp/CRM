@@ -148,14 +148,16 @@ const ProjectDetails = () => {
   return (
     <PageContainer>
       <div style={{ marginBottom: theme.spacing.lg }}>
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate('/sales/projects')}
-          size="large"
-          style={getSecondaryButtonStyle()}
-        >
-          Back to Projects
-        </Button>
+        <Space wrap>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => navigate('/sales/projects')}
+            size="large"
+            style={getSecondaryButtonStyle()}
+          >
+            Back
+          </Button>
+        </Space>
       </div>
 
       <PageHeader
@@ -188,18 +190,18 @@ const ProjectDetails = () => {
                     border: `1px solid ${theme.colors.neutral.gray100}`,
                   }}
                 >
-                  <Row gutter={[24, 24]} align="middle">
-                    <Col xs={24} sm={12} md={6}>
+                  <Row gutter={[24, 24]}>
+                    <Col xs={12} md={6}>
                       <div>
                         <Text style={{ fontSize: 12, color: theme.colors.neutral.gray600, display: 'block' }}>
                           Status
                         </Text>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                           <Tag
                             color={getStatusColor(project.status)}
                             style={{
-                              fontSize: 14,
-                              padding: '4px 12px',
+                              fontSize: 13,
+                              padding: '2px 10px',
                               fontWeight: 600,
                               margin: 0
                             }}
@@ -218,32 +220,32 @@ const ProjectDetails = () => {
                         </div>
                       </div>
                     </Col>
-                    <Col xs={24} sm={12} md={6}>
+                    <Col xs={12} md={6}>
                       <div>
                         <Text style={{ fontSize: 12, color: theme.colors.neutral.gray600, display: 'block' }}>
                           Location
                         </Text>
-                        <Text strong style={{ fontSize: 16, marginTop: 8, display: 'block' }}>
+                        <Text strong style={{ fontSize: 15, marginTop: 8, display: 'block' }}>
                           {project.site_city || 'N/A'}, {project.site_state || 'N/A'}
                         </Text>
                       </div>
                     </Col>
-                    <Col xs={24} sm={12} md={6}>
+                    <Col xs={12} md={6}>
                       <div>
                         <Text style={{ fontSize: 12, color: theme.colors.neutral.gray600, display: 'block' }}>
                           Created By
                         </Text>
-                        <Text strong style={{ fontSize: 16, marginTop: 8, display: 'block' }}>
+                        <Text strong style={{ fontSize: 15, marginTop: 8, display: 'block' }}>
                           {project.creator?.name || 'N/A'}
                         </Text>
                       </div>
                     </Col>
-                    <Col xs={24} sm={12} md={6}>
+                    <Col xs={12} md={6}>
                       <div>
                         <Text style={{ fontSize: 12, color: theme.colors.neutral.gray600, display: 'block' }}>
                           Created On
                         </Text>
-                        <Text strong style={{ fontSize: 16, marginTop: 8, display: 'block' }}>
+                        <Text strong style={{ fontSize: 15, marginTop: 8, display: 'block' }}>
                           {new Date(project.created_at).toLocaleDateString('en-GB')}
                         </Text>
                       </div>
@@ -252,7 +254,7 @@ const ProjectDetails = () => {
 
                   {/* Quick Actions Row */}
                   <Divider style={{ margin: '16px 0' }} />
-                  <Space size="middle" style={{ marginBottom: 16 }}>
+                  <Space size="middle" wrap style={{ width: '100%' }}>
                     <Button
                       type="primary"
                       icon={<SafetyCertificateOutlined />}
@@ -264,6 +266,8 @@ const ProjectDetails = () => {
                           navigate(baseUrl, { state: { project_id: Number(id) } })
                         }
                       }}
+                      block
+                      style={{ maxWidth: 200 }}
                     >
                       Create Work Order
                     </Button>
@@ -279,15 +283,15 @@ const ProjectDetails = () => {
                         onClick={() => navigate(`/sales/clients/${project.client_id}/edit`)}
                         style={getSecondaryButtonStyle()}
                       >
-                        Edit Client Master
+                        Client Details
                       </Button>
                     )}
                   </Space>
                 </Card>
 
                 {/* Detailed Information */}
-                <Row gutter={24}>
-                  <Col xs={24} lg={12}>
+                <Row gutter={[16, 16]}>
+                  <Col xs={24} md={12}>
                     <SectionCard title="Basic Information" icon={<EnvironmentOutlined />}>
                       <Descriptions column={1} bordered size="middle">
                         <Descriptions.Item label={<Text strong>Project Code</Text>}>
@@ -310,7 +314,7 @@ const ProjectDetails = () => {
                   </Col>
 
 
-                  <Col xs={24} lg={12}>
+                  <Col xs={24} md={12}>
                     <SectionCard title="Client & Compliance" icon={<BankOutlined />}>
                       <Descriptions column={1} bordered size="middle">
                         {project.client ? (
@@ -379,7 +383,7 @@ const ProjectDetails = () => {
                     </SectionCard>
                   </Col>
 
-                  <Col xs={24} lg={12}>
+                  <Col xs={24} md={12}>
                     <SectionCard title="Project Timeline" icon={<CalendarOutlined />}>
                       <Descriptions column={1} bordered size="middle">
                         <Descriptions.Item label={<Text strong>Start Date</Text>}>
@@ -399,7 +403,7 @@ const ProjectDetails = () => {
                     </SectionCard>
                   </Col>
 
-                  <Col xs={24} lg={12}>
+                  <Col xs={24} md={12}>
                     <SectionCard title="System Information" icon={<UserOutlined />}>
                       <Descriptions column={1} bordered size="middle">
                         <Descriptions.Item label={<Text strong>Created By</Text>}>
@@ -415,7 +419,7 @@ const ProjectDetails = () => {
                     </SectionCard>
                   </Col>
 
-                  <Col xs={24} lg={12}>
+                  <Col xs={24} md={12}>
                     <SectionCard title="Documents" icon={<FileTextOutlined />}>
                       <Title level={5} style={{ fontSize: 14, marginBottom: 12, color: theme.colors.neutral.gray600 }}>Lead Phase Documents</Title>
                       {project.leads?.length > 0 ? (
@@ -431,12 +435,14 @@ const ProjectDetails = () => {
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 padding: '12px',
-                                marginBottom: 8,
+                                marginBottom: 12,
                                 border: `1px solid ${theme.colors.neutral.gray200}`,
                                 borderRadius: theme.borderRadius.sm,
-                                background: theme.colors.neutral.gray50
+                                background: theme.colors.neutral.gray50,
+                                flexWrap: 'wrap',
+                                gap: 12
                               }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 200px' }}>
                                   <FileTextOutlined style={{ fontSize: 20, color: theme.colors.primary.main }} />
                                   <div>
                                     <Text strong style={{ display: 'block' }}>{doc.name}</Text>
@@ -475,12 +481,14 @@ const ProjectDetails = () => {
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             padding: '12px',
-                            marginBottom: 8,
+                            marginBottom: 12,
                             border: `1px solid ${theme.colors.neutral.gray200}`,
                             borderRadius: theme.borderRadius.sm,
-                            background: theme.colors.neutral.gray50
+                            background: theme.colors.neutral.gray50,
+                            flexWrap: 'wrap',
+                            gap: 12
                           }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 200px' }}>
                               <FileTextOutlined style={{ fontSize: 20, color: theme.colors.primary.main }} />
                               <div>
                                 <Text strong style={{ display: 'block' }}>{doc.document_name}</Text>
@@ -494,6 +502,7 @@ const ProjectDetails = () => {
                               href={`http://localhost:5000${doc.file_path}`}
                               target="_blank"
                               icon={<DownloadOutlined />}
+                              size="large"
                             />
                           </div>
                         ))
@@ -520,33 +529,36 @@ const ProjectDetails = () => {
             ),
             children: (
               <>
-                <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
-                  <Space.Compact size="large">
+                <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'center' }}>
+                  <Space wrap size={[8, 8]} style={{ justifyContent: 'center', width: '100%' }}>
                     <Button
                       type={structureView === 'panels' ? 'primary' : 'default'}
                       onClick={() => setStructureView('panels')}
                       icon={<ApartmentOutlined />}
-                      style={{ width: 160 }}
+                      size="large"
+                      className="responsive-btn"
                     >
-                      D-Wall Panels
+                      Panels
                     </Button>
                     <Button
                       type={structureView === 'piles' ? 'primary' : 'default'}
                       onClick={() => setStructureView('piles')}
                       icon={<PlusOutlined />}
-                      style={{ width: 140 }}
+                      size="large"
+                      className="responsive-btn"
                     >
-                      Pile Work
+                      Piles
                     </Button>
                     <Button
                       type={structureView === 'anchors' ? 'primary' : 'default'}
                       onClick={() => setStructureView('anchors')}
                       icon={<PlusOutlined />}
-                      style={{ width: 140 }}
+                      size="large"
+                      className="responsive-btn"
                     >
-                      Anchor Work
+                      Anchors
                     </Button>
-                  </Space.Compact>
+                  </Space>
                 </div>
 
                 {structureView === 'panels' && <ProjectPanels projectId={Number(id)} />}

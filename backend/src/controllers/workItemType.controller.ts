@@ -3,13 +3,12 @@ import { Response, NextFunction } from 'express'
 import { AuthRequest } from '../middleware/auth.middleware'
 import WorkItemType from '../models/WorkItemType'
 import { createError } from '../middleware/errorHandler'
-
 import { getPagination, getPaginationData } from '../utils/pagination'
 import { Op } from 'sequelize'
 
 export const getAllWorkItemTypes = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { search, page, limit, parent_id, only_parents } = req.query
+        const { search, page, limit, parent_id, only_parents, is_active } = req.query
         const { limit: l, offset, page: p } = getPagination({ page: page as any, limit: limit as any })
 
         const where: any = {}
@@ -19,14 +18,12 @@ export const getAllWorkItemTypes = async (req: AuthRequest, res: Response, next:
                 { code: { [Op.like]: `%${search}%` } }
             ]
         }
-
-        if (parent_id) {
-            where.parent_id = parent_id
-        }
-
-        if (only_parents === 'true') {
-            where.parent_id = null
-        }
+        if (parent_id) where.parent_id = parent_id
+        if (only_parents === 'true') where.parent_id = null
+        // Filter by active status when explicitly requested
+        if (is_active === 'true') where.is_active = true
+        else if (is_active === 'false') where.is_active = false
+        // If is_active not specified → return all (admin management view)
 
         const { count, rows: types } = await WorkItemType.findAndCountAll({
             where,
@@ -48,18 +45,10 @@ export const getAllWorkItemTypes = async (req: AuthRequest, res: Response, next:
 export const createWorkItemType = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const { name, code, uom, description, parent_id } = req.body
-
-        if (!name) {
-            throw createError('Name is required', 400)
-        }
+        if (!name) throw createError('Name is required', 400)
 
         const newItem = await WorkItemType.create({
-            name,
-            code,
-            uom,
-            description,
-            parent_id,
-            is_active: true
+            name, code, uom, description, parent_id, is_active: true
         })
 
         res.status(201).json({
@@ -81,24 +70,11 @@ export const updateWorkItemType = async (req: AuthRequest, res: Response, next: 
         const { name, code, uom, description, is_active, parent_id } = req.body
 
         const item = await WorkItemType.findByPk(id)
-        if (!item) {
-            throw createError('Work item type not found', 404)
-        }
+        if (!item) throw createError('Work item type not found', 404)
 
-        await item.update({
-            name,
-            code,
-            uom,
-            description,
-            is_active,
-            parent_id
-        })
+        await item.update({ name, code, uom, description, is_active, parent_id })
 
-        res.json({
-            success: true,
-            message: 'Work item type updated successfully',
-            data: item
-        })
+        res.json({ success: true, message: 'Work item type updated successfully', data: item })
     } catch (error: any) {
         if (error.name === 'SequelizeUniqueConstraintError') {
             return next(createError('A work item type with this name already exists', 409))
@@ -110,18 +86,21 @@ export const updateWorkItemType = async (req: AuthRequest, res: Response, next: 
 export const deleteWorkItemType = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
-
         const item = await WorkItemType.findByPk(id)
-        if (!item) {
-            throw createError('Work item type not found', 404)
+        if (!item) throw createError('Work item type not found', 404)
+
+        // If deleting a primary type, cascade delete its sub-types too
+        const childCount = await WorkItemType.count({ where: { parent_id: Number(id) } })
+        if (childCount > 0) {
+            await WorkItemType.destroy({ where: { parent_id: Number(id) } })
         }
 
-        // Soft delete by setting is_active false
-        await item.update({ is_active: false })
+        // Hard delete
+        await item.destroy()
 
         res.json({
             success: true,
-            message: 'Work item type deleted successfully'
+            message: `Deleted permanently${childCount > 0 ? ` (and ${childCount} sub-type${childCount > 1 ? 's' : ''} removed)` : ''}`
         })
     } catch (error) {
         next(error)
@@ -130,70 +109,53 @@ export const deleteWorkItemType = async (req: AuthRequest, res: Response, next: 
 
 export const importWorkItemTypes = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { items } = req.body;
+        const { items } = req.body
 
         if (!Array.isArray(items) || items.length === 0) {
-            throw createError('No items provided for import', 400);
+            throw createError('No items provided for import', 400)
         }
 
         const results = {
             success: [] as any[],
             errors: [] as any[],
             duplicates: [] as any[]
-        };
+        }
 
         for (const item of items) {
             try {
-                const { name, code, uom, description, parent_category } = item;
+                const { name, code, uom, description, parent_category } = item
 
                 if (!name) {
-                    results.errors.push({
-                        item,
-                        error: 'Name is required'
-                    });
-                    continue;
+                    results.errors.push({ item, error: 'Name is required' })
+                    continue
                 }
 
-                let parent_id = null;
+                let parent_id = null
                 if (parent_category) {
-                    const parentData = await WorkItemType.findOne({ where: { name: parent_category } });
+                    const parentData = await WorkItemType.findOne({ where: { name: parent_category } })
                     if (parentData) {
-                        parent_id = parentData.id;
+                        parent_id = parentData.id
                     } else {
                         results.errors.push({
                             item,
                             error: `Parent Category '${parent_category}' not found. Ensure it exists or is listed earlier in the CSV.`
-                        });
-                        continue;
+                        })
+                        continue
                     }
                 }
 
-                // Check for duplicates
-                const existing = await WorkItemType.findOne({ where: { name } });
-
+                const existing = await WorkItemType.findOne({ where: { name } })
                 if (existing) {
-                    results.duplicates.push({
-                        item,
-                        error: `Work item type ${name} already exists`
-                    });
-                    continue;
+                    results.duplicates.push({ item, error: `Work item type ${name} already exists` })
+                    continue
                 }
 
                 const newItem = await WorkItemType.create({
-                    name,
-                    code,
-                    uom,
-                    description,
-                    parent_id,
-                    is_active: true
-                });
-
-                results.success.push(newItem);
+                    name, code, uom, description, parent_id, is_active: true
+                })
+                results.success.push(newItem)
             } catch (error: any) {
-                results.errors.push({
-                    item,
-                    error: error.message || 'Internal error'
-                });
+                results.errors.push({ item, error: error.message || 'Internal error' })
             }
         }
 
@@ -201,8 +163,8 @@ export const importWorkItemTypes = async (req: AuthRequest, res: Response, next:
             success: true,
             message: `Import completed: ${results.success.length} imported, ${results.duplicates.length} duplicates skipped, ${results.errors.length} errors`,
             data: results
-        });
+        })
     } catch (error) {
-        next(error);
+        next(error)
     }
 }

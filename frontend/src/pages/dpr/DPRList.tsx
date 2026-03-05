@@ -245,8 +245,8 @@ const DPRList = () => {
       </Row>
 
       <Card style={{ marginBottom: theme.spacing.lg, borderRadius: theme.borderRadius.md, boxShadow: theme.shadows.base }}>
-        <Row gutter={16} align="middle">
-          <Col xs={24} sm={6}>
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} sm={12} lg={6}>
             <Search
               placeholder="Search by location..."
               style={{ width: '100%', ...largeInputStyle }}
@@ -254,7 +254,7 @@ const DPRList = () => {
               allowClear
             />
           </Col>
-          <Col xs={24} sm={6}>
+          <Col xs={24} sm={12} lg={6}>
             <Select
               placeholder="All Projects"
               style={{ width: '100%', ...largeInputStyle }}
@@ -265,22 +265,22 @@ const DPRList = () => {
               {projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
             </Select>
           </Col>
-          <Col xs={24} sm={6}>
+          <Col xs={24} sm={12} lg={6}>
             <RangePicker
               size="large"
               style={{ ...largeInputStyle, width: '100%' }}
               onChange={v => setFilters({ ...filters, dateRange: v })}
             />
           </Col>
-          <Col xs={24} sm={6} style={{ textAlign: 'right' }}>
+          <Col xs={24} sm={12} lg={6}>
             <Button
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => navigate('/operations/dpr/new')}
               size="large"
-              style={getPrimaryButtonStyle(260)}
+              style={{ ...getPrimaryButtonStyle(), width: '100%' }}
             >
-              New Daily Progress Report
+              New Daily Report
             </Button>
           </Col>
         </Row>

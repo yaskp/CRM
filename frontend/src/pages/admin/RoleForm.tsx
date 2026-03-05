@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Checkbox, Row, Col, Typography } from 'antd'
+import { Form, Input, Button, Card, message, Checkbox, Row, Col, Typography, Space } from 'antd'
 import { SafetyOutlined, KeyOutlined, TeamOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { roleService } from '../../services/api/roles'
@@ -9,7 +9,6 @@ import {
     getLabelStyle,
     getPrimaryButtonStyle,
     getSecondaryButtonStyle,
-    flexBetweenStyle,
     actionCardStyle,
     prefixIconStyle
 } from '../../styles/styleUtils'
@@ -145,11 +144,11 @@ const RoleForm = () => {
 
                 {/* Action Buttons */}
                 <Card style={actionCardStyle}>
-                    <div style={flexBetweenStyle}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
                         <Text style={{ color: '#666', fontSize: 14 }}>
                             All fields marked with <span style={{ color: '#ff4d4f' }}>*</span> are required
                         </Text>
-                        <div style={{ display: 'flex', gap: 12 }}>
+                        <Space wrap>
                             <Button
                                 onClick={() => navigate('/admin/roles')}
                                 size="large"
@@ -166,7 +165,7 @@ const RoleForm = () => {
                             >
                                 {isEdit ? 'Update' : 'Create'} Role
                             </Button>
-                        </div>
+                        </Space>
                     </div>
                 </Card>
             </Form>

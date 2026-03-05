@@ -125,7 +125,7 @@ const RoleList = () => {
             />
 
             {/* Statistics Cards */}
-            <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+            <Row gutter={[16, 16]} style={{ marginBottom: theme.spacing.lg }}>
                 <Col xs={24} sm={12} md={8}>
                     <Card
                         hoverable
@@ -188,17 +188,19 @@ const RoleList = () => {
                     border: `1px solid ${theme.colors.neutral.gray100}`,
                 }}
             >
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => navigate('/admin/roles/new')}
-                        size="large"
-                        style={getPrimaryButtonStyle(130)}
-                    >
-                        Add Role
-                    </Button>
-                </div>
+                <Row justify="end">
+                    <Col xs={24} sm={auto} style={{ textAlign: window.innerWidth < 576 ? 'left' : 'right' }}>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => navigate('/admin/roles/new')}
+                            size="large"
+                            style={{ ...getPrimaryButtonStyle(130), width: window.innerWidth < 576 ? '100%' : 'auto' }}
+                        >
+                            Add Role
+                        </Button>
+                    </Col>
+                </Row>
             </Card>
 
             {/* Roles Table */}

@@ -58,7 +58,8 @@ export const annexureController = {
             const annexure = await Annexure.findByPk(id)
 
             if (!annexure) {
-                return res.status(404).json({ message: 'Annexure not found' })
+                res.status(404).json({ message: 'Annexure not found' })
+                return
             }
 
             res.json({ annexure })
@@ -107,11 +108,11 @@ export const annexureController = {
                 name, description, clauses, type, client_scope, contractor_scope, scope_matrix,
                 payment_terms, delivery_terms, quality_terms, warranty_terms, penalty_clause
             } = req.body
-
             const annexure = await Annexure.findByPk(id)
 
             if (!annexure) {
-                return res.status(404).json({ message: 'Annexure not found' })
+                res.status(404).json({ message: 'Annexure not found' })
+                return
             }
 
             await annexure.update({
@@ -143,7 +144,8 @@ export const annexureController = {
             const annexure = await Annexure.findByPk(id)
 
             if (!annexure) {
-                return res.status(404).json({ message: 'Annexure not found' })
+                res.status(404).json({ message: 'Annexure not found' })
+                return
             }
 
             await annexure.update({ is_active: false })
@@ -160,7 +162,8 @@ export const annexureController = {
             const { items } = req.body;
 
             if (!Array.isArray(items) || items.length === 0) {
-                return res.status(400).json({ message: 'No items provided for import' });
+                res.status(400).json({ message: 'No items provided for import' });
+                return;
             }
 
             const results = {

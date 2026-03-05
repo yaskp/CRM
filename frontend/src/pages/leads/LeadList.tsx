@@ -305,7 +305,7 @@ const LeadList = () => {
       />
 
       {/* Statistics Cards */}
-      <Row gutter={16} style={{ marginBottom: theme.spacing.lg }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: theme.spacing.lg }}>
         <Col xs={24} sm={12} md={6}>
           <Card
             hoverable
@@ -382,44 +382,52 @@ const LeadList = () => {
           border: `1px solid ${theme.colors.neutral.gray100}`,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-          <Space wrap>
-            <Search
-              placeholder="Search leads..."
-              allowClear
-              style={{ width: 300 }}
-              prefix={<SearchOutlined style={prefixIconStyle} />}
+        <Row gutter={[16, 16]} justify="space-between" align="middle">
+          <Col xs={24} lg={18}>
+            <Row gutter={[12, 12]}>
+              <Col xs={24} sm={14} md={12}>
+                <Search
+                  placeholder="Search leads..."
+                  allowClear
+                  style={{ width: '100%' }}
+                  prefix={<SearchOutlined style={prefixIconStyle} />}
+                  size="large"
+                  onSearch={(value) => {
+                    setFilters({ ...filters, search: value, page: 1 })
+                    fetchLeads()
+                  }}
+                />
+              </Col>
+              <Col xs={24} sm={10} md={8}>
+                <Select
+                  placeholder="Filter by status"
+                  allowClear
+                  style={{ width: '100%', ...largeInputStyle }}
+                  size="large"
+                  suffixIcon={<FilterOutlined style={prefixIconStyle} />}
+                  onChange={(value) => setFilters({ ...filters, status: value || '', page: 1 })}
+                >
+                  <Option value="new">🆕 New</Option>
+                  <Option value="contacted">📞 Contacted</Option>
+                  <Option value="qualified">✅ Qualified</Option>
+                  <Option value="converted">🎉 Converted</Option>
+                  <Option value="lost">❌ Lost</Option>
+                </Select>
+              </Col>
+            </Row>
+          </Col>
+          <Col xs={24} lg={6}>
+            <Button
+              type="primary"
+              icon={<UserAddOutlined />}
+              onClick={() => navigate('/sales/leads/new')}
               size="large"
-              onSearch={(value) => {
-                setFilters({ ...filters, search: value, page: 1 })
-                fetchLeads()
-              }}
-            />
-            <Select
-              placeholder="Filter by status"
-              allowClear
-              style={{ width: 200, ...largeInputStyle }}
-              size="large"
-              suffixIcon={<FilterOutlined style={prefixIconStyle} />}
-              onChange={(value) => setFilters({ ...filters, status: value || '', page: 1 })}
+              style={{ ...getPrimaryButtonStyle(), width: '100%' }}
             >
-              <Option value="new">🆕 New</Option>
-              <Option value="contacted">📞 Contacted</Option>
-              <Option value="qualified">✅ Qualified</Option>
-              <Option value="converted">🎉 Converted</Option>
-              <Option value="lost">❌ Lost</Option>
-            </Select>
-          </Space>
-          <Button
-            type="primary"
-            icon={<UserAddOutlined />}
-            onClick={() => navigate('/sales/leads/new')}
-            size="large"
-            style={getPrimaryButtonStyle(150)}
-          >
-            Create Lead
-          </Button>
-        </div>
+              Create Lead
+            </Button>
+          </Col>
+        </Row>
       </Card>
 
       {/* Leads Table */}

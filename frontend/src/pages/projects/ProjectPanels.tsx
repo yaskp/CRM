@@ -365,27 +365,31 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
             <Col xs={24} lg={18}>
                 <Card
                     title={
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Space>
-                                <AppstoreOutlined style={{ color: theme.colors.primary.main }} />
-                                <Title level={4} style={{ margin: 0 }}>
-                                    {selectedDrawing ? `Panel Progress: ${selectedDrawing.drawing_name}` : 'Panel Progress Board'}
-                                </Title>
-                            </Space>
-                            <Space>
-                                <Button onClick={handleOpenBatchModal}>Batch</Button>
-                                <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenPanelModal}>Add Panel</Button>
-                                {selectedDrawing?.file_url && (
-                                    <Button
-                                        icon={<EyeOutlined />}
-                                        href={`http://localhost:5000${selectedDrawing.file_url}`}
-                                        target="_blank"
-                                    >
-                                        View Map
-                                    </Button>
-                                )}
-                            </Space>
-                        </div>
+                        <Row gutter={[16, 16]} align="middle" justify="space-between">
+                            <Col xs={24} md={12}>
+                                <Space>
+                                    <AppstoreOutlined style={{ color: theme.colors.primary.main }} />
+                                    <Title level={4} style={{ margin: 0 }}>
+                                        {selectedDrawing ? `Panel Progress: ${selectedDrawing.drawing_name}` : 'Panel Progress Board'}
+                                    </Title>
+                                </Space>
+                            </Col>
+                            <Col xs={24} md={12}>
+                                <Space wrap style={{ width: '100%', justifyContent: 'flex-end' }}>
+                                    <Button onClick={handleOpenBatchModal}>Batch</Button>
+                                    <Button type="primary" icon={<PlusOutlined />} onClick={handleOpenPanelModal}>Add Panel</Button>
+                                    {selectedDrawing?.file_url && (
+                                        <Button
+                                            icon={<EyeOutlined />}
+                                            href={`http://localhost:5000${selectedDrawing.file_url}`}
+                                            target="_blank"
+                                        >
+                                            View Map
+                                        </Button>
+                                    )}
+                                </Space>
+                            </Col>
+                        </Row>
                     }
                 >
                     <Tabs defaultActiveKey="1" items={[
@@ -429,31 +433,38 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                     ) : (
                                         <>
                                             {selectedRowKeys.length > 0 && (
-                                                <div style={{ marginBottom: 16, background: '#e6f7ff', padding: '10px 16px', borderRadius: '6px', border: '1px solid #91d5ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                    <Text strong>{selectedRowKeys.length} panel{selectedRowKeys.length > 1 ? 's' : ''} selected</Text>
-                                                    <Space>
-                                                        <Button size="small" onClick={() => setSelectedRowKeys([])}>Clear</Button>
-                                                        <Button
-                                                            danger
-                                                            size="small"
-                                                            icon={<DeleteOutlined />}
-                                                            onClick={handleBulkDelete}
-                                                        >
-                                                            Delete ({selectedRowKeys.length})
-                                                        </Button>
-                                                        <Button
-                                                            type="primary"
-                                                            size="small"
-                                                            onClick={() => openBulkEditWithPreFill()}
-                                                        >
-                                                            Bulk Edit ({selectedRowKeys.length})
-                                                        </Button>
-                                                    </Space>
+                                                <div style={{ marginBottom: 16, background: '#e6f7ff', padding: '10px 16px', borderRadius: '6px', border: '1px solid #91d5ff' }}>
+                                                    <Row gutter={[8, 8]} align="middle" justify="space-between">
+                                                        <Col>
+                                                            <Text strong>{selectedRowKeys.length} panel{selectedRowKeys.length > 1 ? 's' : ''} selected</Text>
+                                                        </Col>
+                                                        <Col>
+                                                            <Space wrap>
+                                                                <Button size="small" onClick={() => setSelectedRowKeys([])}>Clear</Button>
+                                                                <Button
+                                                                    danger
+                                                                    size="small"
+                                                                    icon={<DeleteOutlined />}
+                                                                    onClick={handleBulkDelete}
+                                                                >
+                                                                    Delete ({selectedRowKeys.length})
+                                                                </Button>
+                                                                <Button
+                                                                    type="primary"
+                                                                    size="small"
+                                                                    onClick={() => openBulkEditWithPreFill()}
+                                                                >
+                                                                    Bulk Edit ({selectedRowKeys.length})
+                                                                </Button>
+                                                            </Space>
+                                                        </Col>
+                                                    </Row>
                                                 </div>
                                             )}
                                             <Table
                                                 dataSource={panels}
                                                 rowKey="id"
+                                                scroll={{ x: 'max-content' }}
                                                 rowSelection={{
                                                     selectedRowKeys,
                                                     onChange: setSelectedRowKeys,
@@ -617,11 +628,11 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                             )
                         }
                     ]} />
-                </Card>
-            </Col>
+                </Card >
+            </Col >
 
             {/* Upload Drawing Modal */}
-            <Modal
+            < Modal
                 title="Upload New Layout/Shop Drawing"
                 open={modalVisible}
                 onOk={() => form.submit()}
@@ -655,7 +666,7 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                         </Upload>
                     </Form.Item>
                 </Form>
-            </Modal>
+            </Modal >
 
             <AddPanelModal
                 open={panelModalVisible}
@@ -693,7 +704,7 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                 selectedCount={selectedRowKeys.length}
                 initialValues={bulkEditInitialValues}
             />
-        </Row>
+        </Row >
     )
 }
 

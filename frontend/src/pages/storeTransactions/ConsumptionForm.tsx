@@ -29,6 +29,7 @@ import {
     getLabelStyle,
     flexBetweenStyle,
     actionCardStyle,
+    twoColumnGridStyle,
     threeColumnGridStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
@@ -63,7 +64,7 @@ const ConsumptionForm = () => {
                 materialService.getMaterials(),
                 warehouseService.getWarehouses(),
                 projectService.getProjects(),
-                workItemTypeService.getWorkItemTypes()
+                workItemTypeService.getWorkItemTypes({ is_active: true })
             ])
             setMaterials(matRes.materials || [])
             // Filter for site warehouses usually, but showing all for flexibility
@@ -267,8 +268,8 @@ const ConsumptionForm = () => {
             />
 
             <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ transaction_date: dayjs() }}>
-                <Row gutter={24}>
-                    <Col span={14}>
+                <Row gutter={[24, 24]}>
+                    <Col xs={24} lg={14}>
                         <SectionCard title="Source Store" icon={<HomeOutlined />}>
                             <Form.Item
                                 label={<span style={getLabelStyle()}>Issuing From (Site Store)</span>}
@@ -288,7 +289,7 @@ const ConsumptionForm = () => {
                             </InfoCard>
                         </SectionCard>
                     </Col>
-                    <Col span={10}>
+                    <Col xs={24} lg={10}>
                         <SectionCard title="Issue Date" icon={<FileTextOutlined />}>
                             <Form.Item
                                 label={<span style={getLabelStyle()}>Date of Consumption</span>}
@@ -350,6 +351,7 @@ const ConsumptionForm = () => {
                         columns={columns}
                         pagination={false}
                         rowKey={(_, i) => i}
+                        scroll={{ x: 800 }}
                         locale={{ emptyText: 'No materials added for consumption' }}
                     />
                 </SectionCard>
@@ -361,7 +363,7 @@ const ConsumptionForm = () => {
                 </SectionCard>
 
                 <div style={actionCardStyle}>
-                    <div style={flexBetweenStyle}>
+                    <div style={{ ...flexBetweenStyle, flexWrap: 'wrap', gap: 12 }}>
                         <Text type="secondary">This transaction will permanently deduct stock from the site store.</Text>
                         <Space>
                             <Button onClick={() => navigate('/inventory/consumption')}>Cancel</Button>
@@ -374,10 +376,6 @@ const ConsumptionForm = () => {
     )
 }
 
-const twoColumnGridStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '16px'
-}
+
 
 export default ConsumptionForm

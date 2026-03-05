@@ -98,20 +98,23 @@ const InventoryDashboard = () => {
                 title="Inventory Tracking Dashboard"
                 subtitle="Consolidated view of stock levels and store movements"
                 icon={<StockOutlined />}
-                extra={[
-                    <Select
-                        key="wh-filter"
-                        style={{ width: 200 }}
-                        placeholder="Filter by Warehouse"
-                        value={selectedWarehouse}
-                        onChange={setSelectedWarehouse}
-                    >
-                        <Option value="all">All Warehouses</Option>
-                        {warehouses.map(wh => (
-                            <Option key={wh.id} value={wh.id}>{wh.name}</Option>
-                        ))}
-                    </Select>
-                ]}
+                extra={
+                    <Space wrap>
+                        <Select
+                            key="wh-filter"
+                            style={{ width: 200 }}
+                            placeholder="Filter by Warehouse"
+                            value={selectedWarehouse}
+                            onChange={setSelectedWarehouse}
+                            size="large"
+                        >
+                            <Option value="all">All Warehouses</Option>
+                            {warehouses.map(wh => (
+                                <Option key={wh.id} value={wh.id}>{wh.name}</Option>
+                            ))}
+                        </Select>
+                    </Space>
+                }
             />
 
             <Row gutter={[16, 16]}>
@@ -163,7 +166,8 @@ const InventoryDashboard = () => {
                             columns={columns}
                             loading={loading}
                             rowKey="id"
-                            pagination={{ pageSize: 5 }}
+                            scroll={{ x: 800 }}
+                            pagination={{ pageSize: 5, showSizeChanger: false }}
                         />
                     </SectionCard>
                 </Col>

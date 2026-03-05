@@ -210,7 +210,7 @@ export const refreshToken = async (req: AuthRequest, res: Response, next: NextFu
   }
 }
 
-export const logout = async (req: Request, res: Response, next: NextFunction) => {
+export const logout = async (_req: Request, res: Response, next: NextFunction) => {
   try {
     // In a stateless JWT system, logout is handled client-side
     // You can implement token blacklisting here if needed

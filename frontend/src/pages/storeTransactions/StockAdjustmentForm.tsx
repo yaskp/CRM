@@ -173,8 +173,8 @@ const StockAdjustmentForm = () => {
             />
 
             <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ transaction_date: dayjs() }}>
-                <Row gutter={24}>
-                    <Col span={14}>
+                <Row gutter={[24, 24]}>
+                    <Col xs={24} lg={14}>
                         <SectionCard title="Warehouse Selection" icon={<HomeOutlined />}>
                             <Form.Item
                                 label={<span style={getLabelStyle()}>Warehouse / Yard</span>}
@@ -191,7 +191,7 @@ const StockAdjustmentForm = () => {
                             </Form.Item>
                         </SectionCard>
                     </Col>
-                    <Col span={10}>
+                    <Col xs={24} lg={10}>
                         <SectionCard title="Verification Date" icon={<FileTextOutlined />}>
                             <Form.Item
                                 label={<span style={getLabelStyle()}>Audit Date</span>}
@@ -214,6 +214,7 @@ const StockAdjustmentForm = () => {
                         columns={columns}
                         pagination={false}
                         rowKey={(_, i) => i}
+                        scroll={{ x: 800 }}
                         locale={{ emptyText: 'No items selected for adjustment' }}
                     />
                 </SectionCard>
@@ -225,7 +226,7 @@ const StockAdjustmentForm = () => {
                 </SectionCard>
 
                 <div style={actionCardStyle}>
-                    <div style={flexBetweenStyle}>
+                    <div style={{ ...flexBetweenStyle, flexWrap: 'wrap', gap: 12 }}>
                         <Text type="secondary">Adjustment will be logged in the Inventory Ledger for audit.</Text>
                         <Space>
                             <Button onClick={() => navigate('/inventory/stock')}>Cancel</Button>

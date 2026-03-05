@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Table, Button, Input, Select, Tag, Space, message, Popconfirm, Avatar, Tooltip, Badge } from 'antd'
+import { Table, Button, Input, Select, Tag, Space, message, Popconfirm, Avatar, Tooltip, Badge, Row, Col } from 'antd'
 import {
     PlusOutlined,
     SearchOutlined,
@@ -333,14 +333,14 @@ const ClientList = () => {
                 subtitle="Manage your clients and customer relationships"
                 icon={<TeamOutlined />}
                 extra={
-                    <Space>
+                    <Space wrap style={{ width: '100%', justifyContent: 'flex-end' }}>
                         <Button
                             icon={<ApartmentOutlined />}
                             onClick={() => navigate('/sales/client-groups')}
                             size="large"
                             style={getSecondaryButtonStyle()}
                         >
-                            Manage Groups
+                            Groups
                         </Button>
                         <Button
                             type="primary"
@@ -349,53 +349,63 @@ const ClientList = () => {
                             size="large"
                             style={getPrimaryButtonStyle()}
                         >
-                            Add New Client
+                            Add Client
                         </Button>
                     </Space>
                 }
             />
 
-            <div style={{ marginBottom: 24, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                <Input
-                    placeholder="Search by name, code, email, phone..."
-                    prefix={<SearchOutlined />}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    style={{ width: 300 }}
-                    size="large"
-                    allowClear
-                />
-                <Select
-                    placeholder="Filter by Status"
-                    value={statusFilter}
-                    onChange={setStatusFilter}
-                    style={{ width: 150 }}
-                    size="large"
-                    allowClear
-                >
-                    <Option value="active">Active</Option>
-                    <Option value="inactive">Inactive</Option>
-                    <Option value="blocked">Blocked</Option>
-                </Select>
-                <Select
-                    placeholder="Filter by Type"
-                    value={typeFilter}
-                    onChange={setTypeFilter}
-                    style={{ width: 150 }}
-                    size="large"
-                    allowClear
-                >
-                    <Option value="individual">Individual</Option>
-                    <Option value="company">Company</Option>
-                    <Option value="government">Government</Option>
-                </Select>
-                <Button
-                    onClick={fetchClients}
-                    size="large"
-                    style={getSecondaryButtonStyle()}
-                >
-                    Refresh
-                </Button>
+            <div style={{ marginBottom: 24 }}>
+                <Row gutter={[16, 16]} align="middle">
+                    <Col xs={24} md={8} lg={6}>
+                        <Input
+                            placeholder="Search by name, code..."
+                            prefix={<SearchOutlined />}
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            style={{ width: '100%' }}
+                            size="large"
+                            allowClear
+                        />
+                    </Col>
+                    <Col xs={24} sm={12} md={5} lg={4}>
+                        <Select
+                            placeholder="Status"
+                            value={statusFilter}
+                            onChange={setStatusFilter}
+                            style={{ width: '100%' }}
+                            size="large"
+                            allowClear
+                        >
+                            <Option value="active">Active</Option>
+                            <Option value="inactive">Inactive</Option>
+                            <Option value="blocked">Blocked</Option>
+                        </Select>
+                    </Col>
+                    <Col xs={24} sm={12} md={5} lg={4}>
+                        <Select
+                            placeholder="Type"
+                            value={typeFilter}
+                            onChange={setTypeFilter}
+                            style={{ width: '100%' }}
+                            size="large"
+                            allowClear
+                        >
+                            <Option value="individual">Individual</Option>
+                            <Option value="company">Company</Option>
+                            <Option value="government">Government</Option>
+                        </Select>
+                    </Col>
+                    <Col xs={24} md={6} lg={4}>
+                        <Button
+                            onClick={fetchClients}
+                            size="large"
+                            style={{ ...getSecondaryButtonStyle(), width: '100%' }}
+                        >
+                            Refresh
+                        </Button>
+                    </Col>
+                </Row>
             </div>
 
             <Table

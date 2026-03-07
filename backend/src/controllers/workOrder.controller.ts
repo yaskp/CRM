@@ -109,10 +109,11 @@ export const createWorkOrder = async (req: AuthRequest, res: Response, next: Nex
     })
 
     // Create work order items with automatic category assignment
-    const workOrderItems = await WorkOrderItem.bulkCreate(
+    await WorkOrderItem.bulkCreate(
       items.map((item: any) => ({
         work_order_id: workOrder.id,
         work_item_type_id: item.work_item_type_id,
+        parent_work_item_type_id: item.parent_work_item_type_id,
         item_type: item.item_type || 'Other',
         category: item.item_type === 'material' ? 'material' : (item.category || 'labour'),
         description: item.description,
@@ -135,7 +136,13 @@ export const createWorkOrder = async (req: AuthRequest, res: Response, next: Nex
       message: 'Work order created successfully',
       workOrder: {
         ...workOrder.toJSON(),
-        items: workOrderItems,
+        items: await WorkOrderItem.findAll({
+          where: { work_order_id: workOrder.id },
+          include: [
+            { association: 'workItemType', attributes: ['id', 'name', 'code'] },
+            { association: 'parentWorkItemType', attributes: ['id', 'name', 'code'] }
+          ]
+        }),
       },
     })
   } catch (error) {
@@ -224,6 +231,10 @@ export const getWorkOrder = async (req: AuthRequest, res: Response, next: NextFu
         },
         {
           association: 'items',
+          include: [
+            { association: 'workItemType', attributes: ['id', 'name', 'code'] },
+            { association: 'parentWorkItemType', attributes: ['id', 'name', 'code'] }
+          ]
         },
         { model: PaymentAllocation, as: 'paymentAllocations' }
       ],
@@ -300,6 +311,7 @@ export const updateWorkOrder = async (req: AuthRequest, res: Response, next: Nex
         items.map((item: any) => ({
           work_order_id: workOrder.id,
           work_item_type_id: item.work_item_type_id,
+          parent_work_item_type_id: item.parent_work_item_type_id,
           item_type: item.item_type || 'Other',
           category: item.item_type === 'material' ? 'material' : (item.category || 'labour'),
           description: item.description,
@@ -307,6 +319,7 @@ export const updateWorkOrder = async (req: AuthRequest, res: Response, next: Nex
           unit: item.unit,
           rate: item.rate,
           amount: item.amount,
+          reference_id: item.reference_id,
         }))
       )
 
@@ -352,7 +365,15 @@ export const updateWorkOrder = async (req: AuthRequest, res: Response, next: Nex
     }
 
     const updatedWO = await WorkOrder.findByPk(id, {
-      include: [{ association: 'items' }],
+      include: [
+        {
+          association: 'items',
+          include: [
+            { association: 'workItemType', attributes: ['id', 'name', 'code'] },
+            { association: 'parentWorkItemType', attributes: ['id', 'name', 'code'] }
+          ]
+        }
+      ],
     })
 
     res.json({

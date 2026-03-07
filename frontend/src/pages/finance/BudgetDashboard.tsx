@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Card, Row, Col, Select, Button, Table, Typography, Statistic, Progress, Modal, InputNumber, message, Space } from 'antd'
-import { DollarOutlined, EditOutlined, FundOutlined, RiseOutlined } from '@ant-design/icons'
+import { EditOutlined, FundOutlined, RiseOutlined } from '@ant-design/icons'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
 import { projectService } from '../../services/api/projects'
 import { budgetService, BudgetAnalysis, BudgetHead } from '../../services/api/budgets'
@@ -158,6 +158,8 @@ const BudgetDashboard = () => {
                             onChange={setSelectedProject}
                             placeholder="Select Project"
                             size="large"
+                            showSearch
+                            optionFilterProp="children"
                         >
                             {projects.map((p: any) => (
                                 <Option key={p.id} value={p.id}>{p.name}</Option>
@@ -183,7 +185,7 @@ const BudgetDashboard = () => {
                             title="Total Estimated Budget"
                             value={totalEstimated}
                             precision={0}
-                            prefix={<DollarOutlined />}
+                            prefix="₹"
                             suffix="INR"
                             valueStyle={{ color: '#1890ff', fontSize: window.innerWidth < 576 ? 18 : 22 }}
                         />
@@ -195,7 +197,7 @@ const BudgetDashboard = () => {
                             title="Total Actual Spent"
                             value={totalSpent}
                             precision={0}
-                            prefix={<DollarOutlined />}
+                            prefix="₹"
                             suffix="INR"
                             valueStyle={{ color: '#fa8c16', fontSize: window.innerWidth < 576 ? 18 : 22 }}
                         />
@@ -309,7 +311,7 @@ const BudgetDashboard = () => {
                                     value={editValues[record.id]}
                                     onChange={(val) => setEditValues(prev => ({ ...prev, [record.id]: val || 0 }))}
                                     formatter={value => `${value} `.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                    parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                    parser={(value) => value?.replace(/₹\s?|(,*)/g, '') as unknown as number}
                                 />
                             )
                         }

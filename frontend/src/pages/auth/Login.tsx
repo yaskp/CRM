@@ -126,19 +126,8 @@ const Login = () => {
             </Button>
           </Form.Item>
 
-          <div style={{ textAlign: 'center' }}>
-            <Text style={{ color: theme.colors.neutral.gray600 }}>
-              Don't have an account?{' '}
-            </Text>
-            <Button
-              type="link"
-              onClick={() => navigate('/register')}
-              style={{ padding: 0, fontWeight: 600 }}
-            >
-              Register Now
-            </Button>
-          </div>
         </Form>
+
 
         {/* Footer */}
         <div style={{

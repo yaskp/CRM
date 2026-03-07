@@ -216,6 +216,7 @@ const AppRoutes = () => {
 
         {/* Operations - DPR */}
         <Route path="operations/dpr" element={<DPRList />} />
+        <Route path="dpr/list" element={<Navigate to="/operations/dpr" replace />} />
         <Route path="operations/dpr/new" element={<UnifiedDailyReport />} />
         <Route path="operations/dpr/:id" element={<DPRDetails />} />
         <Route path="operations/dpr/:id/edit" element={<UnifiedDailyReport />} />

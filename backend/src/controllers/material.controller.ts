@@ -43,8 +43,10 @@ export const createMaterial = async (req: AuthRequest, res: Response, next: Next
 
 export const getMaterials = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { search, category, page = 1, limit = 10 } = req.query
-    const offset = (Number(page) - 1) * Number(limit)
+    const { search, category, page, limit } = req.query
+    const parsedLimit = limit ? Number(limit) : undefined
+    const parsedPage = page ? Number(page) : 1
+    const offset = parsedLimit ? (parsedPage - 1) * parsedLimit : undefined
 
     const where: any = { is_active: true }
     if (category) where.category = category
@@ -57,8 +59,8 @@ export const getMaterials = async (req: AuthRequest, res: Response, next: NextFu
 
     const { count, rows } = await Material.findAndCountAll({
       where,
-      limit: Number(limit),
-      offset,
+      limit: parsedLimit,
+      offset: offset,
       order: [['name', 'ASC']],
     })
 

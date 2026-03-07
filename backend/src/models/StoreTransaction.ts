@@ -49,12 +49,13 @@ interface StoreTransactionAttributes {
   invoice_image?: string
   goods_image?: string
   receiver_image?: string
-  manpower_data?: string
-  machinery_data?: string
   weather_condition?: string
   temperature?: number
   work_hours?: string
   progress_photos?: string
+  manpower_data?: string
+  machinery_data?: string
+  rmc_logs?: string
 
   // D-Wall Specific Technical Fields
   actual_depth?: number
@@ -77,10 +78,6 @@ interface StoreTransactionAttributes {
   grabbing_sqm?: number
   concreting_depth?: number
   concreting_sqm?: number
-
-  // Multi-item progress logs (JSON)
-  pile_work_logs?: string | any[]
-  panel_work_logs?: string | any[]
 
   // ERP Linkage FKs
   work_order_id?: number   // → work_orders  (for contractor billing from DPR)
@@ -136,12 +133,13 @@ class StoreTransaction extends Model<StoreTransactionAttributes, StoreTransactio
   public invoice_image?: string
   public goods_image?: string
   public receiver_image?: string
-  public manpower_data?: string
-  public machinery_data?: string
   public weather_condition?: string
   public temperature?: number
   public work_hours?: string
   public progress_photos?: string
+  public manpower_data?: string
+  public machinery_data?: string
+  public rmc_logs?: string
 
   // D-Wall Specific Technical Fields
   public actual_depth?: number
@@ -164,9 +162,6 @@ class StoreTransaction extends Model<StoreTransactionAttributes, StoreTransactio
   public grabbing_sqm?: number
   public concreting_depth?: number
   public concreting_sqm?: number
-
-  public pile_work_logs?: any
-  public panel_work_logs?: any
 
   public work_order_id?: number
   public quotation_id?: number
@@ -389,14 +384,6 @@ StoreTransaction.init(
       type: DataTypes.STRING(255),
       allowNull: true,
     },
-    manpower_data: {
-      type: DataTypes.JSON,
-      allowNull: true,
-    },
-    machinery_data: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
     weather_condition: {
       type: DataTypes.STRING(50),
       allowNull: true,
@@ -411,6 +398,18 @@ StoreTransaction.init(
     },
     progress_photos: {
       type: DataTypes.JSON,
+      allowNull: true,
+    },
+    manpower_data: {
+      type: DataTypes.TEXT, // Using TEXT for JSON string or DataTypes.JSON if supported
+      allowNull: true,
+    },
+    machinery_data: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    rmc_logs: {
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     actual_depth: {
@@ -491,14 +490,6 @@ StoreTransaction.init(
     },
     concreting_sqm: {
       type: DataTypes.DECIMAL(10, 2),
-      allowNull: true,
-    },
-    pile_work_logs: {
-      type: DataTypes.JSON,
-      allowNull: true,
-    },
-    panel_work_logs: {
-      type: DataTypes.JSON,
       allowNull: true,
     },
     work_order_id: {

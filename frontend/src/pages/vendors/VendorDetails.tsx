@@ -10,7 +10,7 @@ import {
     BankOutlined,
     SafetyOutlined,
     HistoryOutlined,
-    DollarOutlined,
+    WalletOutlined,
     IdcardOutlined,
     UserOutlined
 } from '@ant-design/icons'
@@ -24,7 +24,6 @@ const { Text } = Typography
 const VendorDetails = () => {
     const { id } = useParams()
     const navigate = useNavigate()
-    const [loading, setLoading] = useState(false)
     const [vendor, setVendor] = useState<any>(null)
 
     useEffect(() => {
@@ -34,14 +33,11 @@ const VendorDetails = () => {
     }, [id])
 
     const fetchVendor = async () => {
-        setLoading(true)
         try {
             const response = await vendorService.getVendorById(Number(id))
             setVendor(response.vendor)
         } catch (error) {
             console.error('Failed to fetch vendor', error)
-        } finally {
-            setLoading(false)
         }
     }
 
@@ -86,7 +82,7 @@ const VendorDetails = () => {
                         <Button
                             key="pay"
                             type="primary"
-                            icon={<DollarOutlined />}
+                            icon={<WalletOutlined />}
                             onClick={() => navigate(`/finance/transactions/new?vendor_id=${id}&category=vendor`)}
                             style={{ ...getPrimaryButtonStyle(), background: '#722ed1', borderColor: '#722ed1' }}
                         >

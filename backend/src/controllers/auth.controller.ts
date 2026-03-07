@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken'
 import '../models/index' // Import all models to ensure associations are loaded
 import User from '../models/User'
 import Role from '../models/Role'
+import Permission from '../models/Permission'
 import { createError } from '../middleware/errorHandler'
 import { AuthRequest } from '../middleware/auth.middleware'
 import { Op } from 'sequelize'
@@ -96,8 +97,14 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         {
           model: Role,
           as: 'roles',
-          attributes: ['id', 'name', 'description'],
           through: { attributes: [] },
+          include: [
+            {
+              model: Permission,
+              as: 'permissions',
+              through: { attributes: [] }
+            }
+          ]
         },
       ],
     })
@@ -123,9 +130,16 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const roles = (user as any).roles?.map((role: any) => role.name) || []
     const roleIds = (user as any).roles?.map((role: any) => role.id) || []
 
+    // Get unique permission names from all roles
+    const permissions = Array.from(new Set(
+      (user as any).roles?.flatMap((role: any) =>
+        role.permissions?.map((p: any) => p.name) || []
+      )
+    ))
+
     // Generate token
     const token = jwt.sign(
-      { id: user.id, email: user.email, employee_id: user.employee_id, company_id: user.company_id, roles },
+      { id: user.id, email: user.email, employee_id: user.employee_id, company_id: user.company_id, roles, permissions },
       JWT_SECRET as string,
       { expiresIn: JWT_EXPIRES_IN as any }
     )
@@ -141,6 +155,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         employee_id: user.employee_id,
         roles,
         roleIds,
+        permissions,
+        location: user.location,
       },
     })
   } catch (error) {
@@ -151,13 +167,19 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
 export const getMe = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const user = await User.findByPk(req.user!.id, {
-      attributes: ['id', 'name', 'email', 'employee_id', 'phone', 'company_id'],
+      attributes: ['id', 'name', 'email', 'employee_id', 'phone', 'company_id', 'location'],
       include: [
         {
           model: Role,
           as: 'roles',
-          attributes: ['id', 'name', 'description'],
           through: { attributes: [] },
+          include: [
+            {
+              model: Permission,
+              as: 'permissions',
+              through: { attributes: [] }
+            }
+          ]
         },
       ],
     })
@@ -169,6 +191,13 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
     const roles = (user as any).roles?.map((role: any) => role.name) || []
     const roleIds = (user as any).roles?.map((role: any) => role.id) || []
 
+    // Get unique permission names from all roles
+    const permissions = Array.from(new Set(
+      (user as any).roles?.flatMap((role: any) =>
+        role.permissions?.map((p: any) => p.name) || []
+      )
+    ))
+
     res.json({
       success: true,
       user: {
@@ -177,9 +206,11 @@ export const getMe = async (req: AuthRequest, res: Response, next: NextFunction)
         email: user.email,
         employee_id: user.employee_id,
         phone: user.phone,
+        location: user.location,
         company_id: user.company_id,
         roles,
         roleIds,
+        permissions,
       },
     })
   } catch (error) {

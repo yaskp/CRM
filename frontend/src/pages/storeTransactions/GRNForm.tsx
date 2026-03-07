@@ -119,12 +119,12 @@ const GRNInternalForm = () => {
   const fetchMetadata = async () => {
     try {
       const [matRes, whRes, projRes, vendRes, poRes, woRes] = await Promise.all([
-        materialService.getMaterials(),
-        warehouseService.getWarehouses(),
-        projectService.getProjects(),
-        vendorService.getVendors(),
-        purchaseOrderService.getPurchaseOrders(),
-        workOrderService.getWorkOrders(),
+        materialService.getMaterials({ limit: 5000 }),
+        warehouseService.getWarehouses({ limit: 1000 }),
+        projectService.getProjects({ limit: 1000 }),
+        vendorService.getVendors({ limit: 1000 }),
+        purchaseOrderService.getPurchaseOrders({ limit: 1000 }),
+        workOrderService.getWorkOrders({ limit: 1000 }),
       ])
 
       setMaterials(matRes.materials || [])
@@ -359,9 +359,16 @@ const GRNInternalForm = () => {
                 })
               }}
               showSearch
-              optionFilterProp="children"
+              optionFilterProp="label"
+              filterOption={(input, option: any) =>
+                (option?.label || '').toLowerCase().includes(input.toLowerCase())
+              }
             >
-              {materials.map((m) => <Option key={m.id} value={m.id}>{m.name}</Option>)}
+              {materials.map((m) => (
+                <Option key={m.id} value={m.id} label={`${m.name} ${m.code || ''}`}>
+                  {m.name}
+                </Option>
+              ))}
             </Select>
           )}
           {record.item_status === 'Defective' && <Tag color="orange" style={{ margin: 0, fontSize: '10px' }}>Quality Issue</Tag>}
@@ -631,6 +638,8 @@ const GRNInternalForm = () => {
                         setItems([])
                       }}
                       disabled={!filterProjectId}
+                      showSearch
+                      optionFilterProp="children"
                     >
                       {workOrders
                         .filter(wo => wo.project_id === filterProjectId && (wo.status === 'active' || wo.status === 'approved' || wo.status === 'completed'))

@@ -47,8 +47,8 @@ const StockAdjustmentForm = () => {
     const fetchMetadata = async () => {
         try {
             const [matRes, whRes] = await Promise.all([
-                materialService.getMaterials(),
-                warehouseService.getWarehouses(),
+                materialService.getMaterials({ limit: 5000 }),
+                warehouseService.getWarehouses({ limit: 1000 }),
             ])
             setMaterials(matRes.materials || [])
             setWarehouses(whRes.warehouses || [])
@@ -84,7 +84,7 @@ const StockAdjustmentForm = () => {
         setItems(newItems)
     }
 
-    const onFinish = async (values: any) => {
+    const onFinish = async (_values: any) => {
         if (items.length === 0) {
             message.error('Please add at least one material to adjust')
             return
@@ -135,7 +135,13 @@ const StockAdjustmentForm = () => {
             dataIndex: 'adjustment_type',
             width: 150,
             render: (val: any, _: any, index: number) => (
-                <Select value={val} onChange={v => updateItem(index, 'adjustment_type', v)} style={{ width: '100%' }}>
+                <Select
+                    value={val}
+                    onChange={v => updateItem(index, 'adjustment_type', v)}
+                    style={{ width: '100%' }}
+                    showSearch
+                    optionFilterProp="children"
+                >
                     <Option value="excess">Excess (+)</Option>
                     <Option value="shortage">Shortage (-)</Option>
                     <Option value="damage">Damage (-)</Option>
@@ -184,6 +190,8 @@ const StockAdjustmentForm = () => {
                                 <Select
                                     placeholder="Select Store"
                                     size="large"
+                                    showSearch
+                                    optionFilterProp="children"
                                     onChange={v => fetchStock(v)}
                                 >
                                     {warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)}
@@ -213,7 +221,7 @@ const StockAdjustmentForm = () => {
                         dataSource={items}
                         columns={columns}
                         pagination={false}
-                        rowKey={(_, i) => i}
+                        rowKey={(_, i) => String(i)}
                         scroll={{ x: 800 }}
                         locale={{ emptyText: 'No items selected for adjustment' }}
                     />

@@ -118,18 +118,22 @@ const WorkOrderDetails = () => {
 
     const itemColumns = [
         {
-            title: 'Work Type',
-            dataIndex: 'item_type',
-            key: 'item_type',
-            render: (text: string) => {
-                const formatted = text ? text.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Other';
-                return <Tag color="blue">{formatted}</Tag>;
-            }
+            title: 'Main Work Type',
+            dataIndex: ['parentWorkItemType', 'name'],
+            key: 'parent_work_type',
+            render: (name: string, record: any) => name || record.item_type || 'Other'
+        },
+        {
+            title: 'Sub-Work Type',
+            dataIndex: ['workItemType', 'name'],
+            key: 'sub_work_type',
+            render: (name: string) => <Tag color="blue">{name}</Tag>
         },
         {
             title: 'Description',
             dataIndex: 'description',
             key: 'description',
+            render: (text: string) => <Text type="secondary" style={{ fontSize: 13 }}>{text}</Text>
         },
         {
             title: 'Quantity',

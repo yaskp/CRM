@@ -8,7 +8,9 @@ import {
     UserOutlined,
     TeamOutlined,
     CheckCircleOutlined,
-    CloseCircleOutlined
+    CloseCircleOutlined,
+    KeyOutlined,
+    PhoneOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { userService } from '../../services/api/users'
@@ -66,6 +68,38 @@ const UserList = () => {
         })
     }
 
+    const handleResetPassword = (id: number) => {
+        let newPassword = ''
+        Modal.confirm({
+            title: 'Reset User Password',
+            content: (
+                <div style={{ marginTop: 16 }}>
+                    <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                        Enter the new password for this user:
+                    </Text>
+                    <Input.Password
+                        placeholder="Enter new password"
+                        onChange={(e) => newPassword = e.target.value}
+                    />
+                </div>
+            ),
+            okText: 'Reset',
+            cancelText: 'Cancel',
+            onOk: async () => {
+                if (!newPassword || newPassword.length < 6) {
+                    message.error('Password must be at least 6 characters')
+                    return Promise.reject()
+                }
+                try {
+                    await userService.resetPassword(id, { newPassword })
+                    message.success('Password reset successfully')
+                } catch (error: any) {
+                    message.error(error.response?.data?.message || 'Failed to reset password')
+                }
+            },
+        })
+    }
+
     const getStats = () => {
         const activeUsers = users.filter((u: any) => u.is_active).length
         const inactiveUsers = users.length - activeUsers
@@ -76,28 +110,24 @@ const UserList = () => {
 
     const columns = [
         {
-            title: 'Name',
-            dataIndex: 'name',
-            key: 'name',
-            width: 200,
-        },
-        {
-            title: 'Email',
-            dataIndex: 'email',
-            key: 'email',
-            ellipsis: true,
-        },
-        {
-            title: 'Employee ID',
-            dataIndex: 'employee_id',
-            key: 'employee_id',
-            width: 150,
+            title: 'User Details',
+            key: 'user_details',
+            width: 250,
+            render: (_: any, record: any) => (
+                <Space direction="vertical" size={0}>
+                    <Text strong>{record.name}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{record.email}</Text>
+                    <Tag icon={<PhoneOutlined />} color="cyan" style={{ marginTop: 4 }}>
+                        {record.phone || 'No Mobile'}
+                    </Tag>
+                </Space>
+            ),
         },
         {
             title: 'Roles',
             dataIndex: 'roles',
             key: 'roles',
-            width: 250,
+            width: 200,
             render: (roles: any[]) => (
                 <>
                     {roles && roles.map(role => (
@@ -137,6 +167,14 @@ const UserList = () => {
                         style={{ padding: 0 }}
                     >
                         Edit
+                    </Button>
+                    <Button
+                        type="link"
+                        icon={<KeyOutlined />}
+                        onClick={() => handleResetPassword(record.id)}
+                        style={{ padding: 0, color: '#faad14' }}
+                    >
+                        Reset
                     </Button>
                     <Button
                         type="link"

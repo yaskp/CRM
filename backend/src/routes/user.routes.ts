@@ -15,4 +15,8 @@ router.post('/', authorize(['Admin', 'SuperAdmin']), userController.createUser)
 router.put('/:id', authorize(['Admin', 'SuperAdmin']), userController.updateUser)
 router.delete('/:id', authorize(['Admin', 'SuperAdmin']), userController.deleteUser)
 
+// Password management
+router.post('/change-password', userController.changePassword)
+router.post('/:id/reset-password', authorize(['Admin', 'SuperAdmin']), userController.resetPassword)
+
 export default router

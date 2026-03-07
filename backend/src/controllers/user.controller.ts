@@ -4,11 +4,10 @@ import User from '../models/User'
 import Role from '../models/Role'
 import { createError } from '../middleware/errorHandler'
 import { Op } from 'sequelize'
-import bcrypt from 'bcryptjs'
 
 export const getUsers = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { search, role, page = 1, limit = 10 } = req.query
+        const { search, page = 1, limit = 10 } = req.query
         const offset = (Number(page) - 1) * Number(limit)
 
         const where: any = {}
@@ -16,7 +15,9 @@ export const getUsers = async (req: AuthRequest, res: Response, next: NextFuncti
             where[Op.or] = [
                 { name: { [Op.like]: `%${search}%` } },
                 { email: { [Op.like]: `%${search}%` } },
-                { employee_id: { [Op.like]: `%${search}%` } }
+                { employee_id: { [Op.like]: `%${search}%` } },
+                { username: { [Op.like]: `%${search}%` } },
+                { phone: { [Op.like]: `%${search}%` } }
             ]
         }
 
@@ -24,13 +25,12 @@ export const getUsers = async (req: AuthRequest, res: Response, next: NextFuncti
             where,
             limit: Number(limit),
             offset,
-            attributes: { exclude: ['password'] },
+            attributes: { exclude: ['password_hash'] },
             include: [
                 {
                     model: Role,
                     as: 'roles',
                     through: { attributes: [] }
-                    // Filter by role if provided
                 }
             ],
             distinct: true
@@ -55,7 +55,7 @@ export const getUser = async (req: AuthRequest, res: Response, next: NextFunctio
     try {
         const { id } = req.params
         const user = await User.findByPk(id, {
-            attributes: { exclude: ['password'] },
+            attributes: { exclude: ['password_hash'] },
             include: [{ model: Role, as: 'roles', through: { attributes: [] } }]
         })
 
@@ -74,18 +74,26 @@ export const getUser = async (req: AuthRequest, res: Response, next: NextFunctio
 
 export const createUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
-        const { name, email, password, employee_id, role_ids, is_active } = req.body
+        const { name, email, password, phone, location, role_ids, is_active } = req.body
 
-        const existingUser = await User.findOne({ where: { email } })
+        const existingUser = await User.findOne({
+            where: {
+                [Op.or]: [{ email }, { employee_id: phone }, { username: phone }]
+            }
+        })
+
         if (existingUser) {
-            throw createError('Email already registered', 400)
+            throw createError('Email or Mobile Number (User ID) already registered', 400)
         }
 
         const user = await User.create({
             name,
             email,
-            password, // Model hooks will hash this
-            employee_id,
+            password_hash: password, // Model hooks will hash this
+            phone,
+            location,
+            employee_id: phone, // User ID as per requirement
+            username: phone,    // Username as per requirement
             is_active: is_active ?? true,
             company_id: req.user?.company_id // Default to creator's company
         })
@@ -94,13 +102,17 @@ export const createUser = async (req: AuthRequest, res: Response, next: NextFunc
             await user.setRoles(role_ids)
         }
 
+        // Logic to send reset password on common email id would go here
+        // console.log(`New user created. Credentials sent to common email. Password: ${password}`)
+
         res.status(201).json({
             success: true,
-            message: 'User created successfully',
+            message: 'User created successfully. Login ID is user mobile number.',
             user: {
                 id: user.id,
                 name: user.name,
-                email: user.email
+                email: user.email,
+                username: user.username
             }
         })
     } catch (error) {
@@ -111,7 +123,7 @@ export const createUser = async (req: AuthRequest, res: Response, next: NextFunc
 export const updateUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params
-        const { name, email, employee_id, role_ids, is_active } = req.body
+        const { name, email, phone, location, role_ids, is_active } = req.body
 
         const user = await User.findByPk(id)
         if (!user) {
@@ -121,7 +133,10 @@ export const updateUser = async (req: AuthRequest, res: Response, next: NextFunc
         await user.update({
             name,
             email,
-            employee_id,
+            phone,
+            location,
+            employee_id: phone, // Keep sync if changed
+            username: phone,
             is_active
         })
 
@@ -146,7 +161,6 @@ export const deleteUser = async (req: AuthRequest, res: Response, next: NextFunc
             throw createError('User not found', 404)
         }
 
-        // Prevent deleting yourself
         if (user.id === req.user?.id) {
             throw createError('Cannot delete your own account', 400)
         }
@@ -160,3 +174,54 @@ export const deleteUser = async (req: AuthRequest, res: Response, next: NextFunc
         next(error)
     }
 }
+
+export const resetPassword = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { id } = req.params
+        const { newPassword } = req.body
+
+        if (!newPassword) {
+            throw createError('New password is required', 400)
+        }
+
+        const user = await User.findByPk(id)
+        if (!user) {
+            throw createError('User not found', 404)
+        }
+
+        await user.update({ password_hash: newPassword })
+
+        res.json({
+            success: true,
+            message: 'Password reset successfully. Please share the new password with the user.'
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+
+export const changePassword = async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+        const { currentPassword, newPassword } = req.body
+
+        const user = await User.findByPk(req.user!.id)
+        if (!user) {
+            throw createError('User not found', 404)
+        }
+
+        const isMatch = await user.comparePassword(currentPassword)
+        if (!isMatch) {
+            throw createError('Invalid current password', 401)
+        }
+
+        await user.update({ password_hash: newPassword })
+
+        res.json({
+            success: true,
+            message: 'Password changed successfully'
+        })
+    } catch (error) {
+        next(error)
+    }
+}
+

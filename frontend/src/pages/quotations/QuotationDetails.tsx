@@ -254,13 +254,29 @@ const QuotationDetails = () => {
 
     const itemColumns = [
         {
+            title: 'Work Category',
+            key: 'category',
+            width: 180,
+            render: (_: any, record: any) => (
+                <Text strong>{record.parentWorkItemType?.name || '-'}</Text>
+            )
+        },
+        {
+            title: 'Sub-Work Type',
+            key: 'sub_type',
+            width: 180,
+            render: (_: any, record: any) => (
+                <Text>{record.workItemType?.name || '-'}</Text>
+            )
+        },
+        {
             title: 'Description',
             dataIndex: 'description',
             key: 'description',
             width: 320,
             render: (text: string, record: any) => (
                 <div style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                    <Text strong>{text}</Text>
+                    <Text italic>{text}</Text>
                     {record.material && (
                         <div style={{ fontSize: '12px', color: theme.colors.neutral.gray500 }}>
                             Code: {record.material.material_code}
@@ -420,7 +436,7 @@ const QuotationDetails = () => {
                                 return (
                                     <>
                                         <Table.Summary.Row>
-                                            <Table.Summary.Cell index={0} colSpan={4} align="right">
+                                            <Table.Summary.Cell index={0} colSpan={6} align="right">
                                                 <Text type="secondary">Sub Total</Text>
                                             </Table.Summary.Cell>
                                             <Table.Summary.Cell index={1} align="right">
@@ -429,7 +445,7 @@ const QuotationDetails = () => {
                                         </Table.Summary.Row>
                                         {Number(quotation.discount_percentage) > 0 && (
                                             <Table.Summary.Row>
-                                                <Table.Summary.Cell index={0} colSpan={4} align="right">
+                                                <Table.Summary.Cell index={0} colSpan={6} align="right">
                                                     <Text type="secondary">Discount ({quotation.discount_percentage}%)</Text>
                                                 </Table.Summary.Cell>
                                                 <Table.Summary.Cell index={1} align="right">
@@ -438,7 +454,7 @@ const QuotationDetails = () => {
                                             </Table.Summary.Row>
                                         )}
                                         <Table.Summary.Row style={{ background: theme.colors.primary.light }}>
-                                            <Table.Summary.Cell index={0} colSpan={4} align="right">
+                                            <Table.Summary.Cell index={0} colSpan={6} align="right">
                                                 <Text strong style={{ fontSize: '16px', color: theme.colors.primary.main }}>Final Amount</Text>
                                             </Table.Summary.Cell>
                                             <Table.Summary.Cell index={1} align="right">

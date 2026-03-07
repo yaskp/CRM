@@ -55,7 +55,7 @@ const WorkOrderPrint = () => {
     const { wo, project, vendor, client } = data
 
     // The "To" party: vendor if sub-contractor WO, otherwise VH SHRI Enterprise (internal)
-    const toParty = vendor ? vendor : { name: 'VH SHRI Enterprise', address: 'B-104, Rajhans Bonista, B/H Ramchowk, Ghod Dod Road, Surat-395007' }
+    const toParty = vendor ? vendor : { name: 'VH SHRI Enterprise', address: 'B-701, Rajhans Bonista, B/H Ramchowk, Ghod Dod Road, Surat-395007' }
 
     const styles = {
         page: { padding: '40px 48px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'Arial, sans-serif', fontSize: 13 },

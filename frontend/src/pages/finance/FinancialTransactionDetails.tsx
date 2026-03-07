@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, Tag, Button, Space, message, Row, Col, Typography, Divider, Table } from 'antd'
 import {
     ArrowLeftOutlined,
-    DollarCircleOutlined,
+    WalletOutlined,
     ProjectOutlined,
     InfoCircleOutlined,
     BankOutlined,
@@ -120,7 +120,7 @@ const FinancialTransactionDetails = () => {
             <PageHeader
                 title={`Transaction: ${transaction.transaction_number}`}
                 subtitle={`Recorded on ${dayjs(transaction.created_at).format('DD MMM YYYY')}`}
-                icon={<DollarCircleOutlined />}
+                icon={<WalletOutlined />}
                 extra={[
                     <Button key="back" icon={<ArrowLeftOutlined />} onClick={() => navigate('/finance/transactions')} style={getSecondaryButtonStyle()}>Back to List</Button>
                 ]}

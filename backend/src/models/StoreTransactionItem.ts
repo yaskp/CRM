@@ -4,7 +4,7 @@ import { sequelize } from '../database/connection'
 interface StoreTransactionItemAttributes {
   id: number
   transaction_id: number
-  material_id: number
+  material_id?: number
   quantity: number
   ordered_quantity: number
   accepted_quantity: number
@@ -25,15 +25,18 @@ interface StoreTransactionItemAttributes {
   issued_quantity?: number
   returned_quantity?: number
   drawing_panel_id?: number
+  quotation_item_id?: number
+  log_progress?: boolean
+  remarks?: string
   created_at?: Date
 }
 
-interface StoreTransactionItemCreationAttributes extends Optional<StoreTransactionItemAttributes, 'id' | 'created_at'> { }
+interface StoreTransactionItemCreationAttributes extends Optional<StoreTransactionItemAttributes, 'id' | 'created_at' | 'log_progress' | 'ordered_quantity' | 'accepted_quantity' | 'rejected_quantity' | 'excess_quantity' | 'shortage_quantity' | 'variance_type'> { }
 
 class StoreTransactionItem extends Model<StoreTransactionItemAttributes, StoreTransactionItemCreationAttributes> implements StoreTransactionItemAttributes {
   public id!: number
   public transaction_id!: number
-  public material_id!: number
+  public material_id?: number
   public quantity!: number
   public ordered_quantity!: number
   public accepted_quantity!: number
@@ -54,6 +57,9 @@ class StoreTransactionItem extends Model<StoreTransactionItemAttributes, StoreTr
   public issued_quantity?: number
   public returned_quantity?: number
   public drawing_panel_id?: number
+  public quotation_item_id?: number
+  public log_progress?: boolean
+  public remarks?: string
   public readonly created_at!: Date
 }
 
@@ -74,7 +80,7 @@ StoreTransactionItem.init(
     },
     material_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       references: {
         model: 'materials',
         key: 'id',
@@ -172,6 +178,23 @@ StoreTransactionItem.init(
         model: 'drawing_panels',
         key: 'id'
       }
+    },
+    quotation_item_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'quotation_items',
+        key: 'id'
+      }
+    },
+    log_progress: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
+    },
+    remarks: {
+      type: DataTypes.TEXT,
+      allowNull: true
     },
     created_at: {
       type: DataTypes.DATE,

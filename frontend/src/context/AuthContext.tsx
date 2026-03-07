@@ -7,23 +7,17 @@ interface User {
   email: string
   employee_id: string
   roles: string[]
+  permissions: string[]
 }
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  register: (data: RegisterData) => Promise<void>
   logout: () => void
 }
 
-interface RegisterData {
-  name: string
-  email: string
-  password: string
-  employee_id: string
-  phone?: string
-}
+
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
@@ -53,11 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(response.user)
   }
 
-  const register = async (data: RegisterData) => {
-    const response = await authService.register(data)
-    localStorage.setItem('token', response.token)
-    setUser(response.user)
-  }
+
 
   const logout = () => {
     localStorage.removeItem('token')
@@ -65,7 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   )

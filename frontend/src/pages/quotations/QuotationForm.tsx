@@ -417,11 +417,22 @@ const QuotationForm = () => {
                         optionFilterProp="label"
                         disabled={!record.parent_work_item_type_id}
                     >
-                        {workItemTypes.filter(t => t.parent_id === record.parent_work_item_type_id || t.id === record.parent_work_item_type_id).map(t => (
-                            <Option key={t.id} value={t.id} label={`${t.name} ${t.code || ''}`}>
-                                {`${t.name} ${t.code ? `(${t.code})` : ''}`}
-                            </Option>
-                        ))}
+                        {(() => {
+                            const parentId = Number(record.parent_work_item_type_id);
+                            if (!parentId) return null;
+
+                            const subTypes = workItemTypes.filter(t => Number(t.parent_id) === parentId);
+                            const currentParent = workItemTypes.find(t => Number(t.id) === parentId);
+
+                            // Combine parent and its sub-types for the dropdown
+                            const options = currentParent ? [currentParent, ...subTypes] : subTypes;
+
+                            return options.map(t => (
+                                <Option key={t.id} value={t.id} label={`${t.name} ${t.code || ''}`}>
+                                    {`${t.name} ${t.code ? `(${t.code})` : ''}`}
+                                </Option>
+                            ));
+                        })()}
                     </Select>
                 )
             }
@@ -437,10 +448,13 @@ const QuotationForm = () => {
                         value={record.reference_id}
                         onChange={v => handleItemChange(record.key, 'reference_id', v)}
                         style={{ width: '100%' }}
-                        optionFilterProp="children"
+                        optionFilterProp="label"
+                        filterOption={(input, option: any) =>
+                            (option?.label || '').toLowerCase().includes(input.toLowerCase())
+                        }
                     >
                         {materials.map(m => (
-                            <Option key={m.id} value={m.id}>
+                            <Option key={m.id} value={m.id} label={`${m.name} ${m.material_code}`}>
                                 {m.name} ({m.material_code})
                             </Option>
                         ))}
@@ -556,14 +570,21 @@ const QuotationForm = () => {
                 }}
             >
                 <style>{`
+                    .ant-select-single .ant-select-selector {
+                        height: auto !important;
+                        min-height: 32px !important;
+                        padding-top: 4px !important;
+                        padding-bottom: 4px !important;
+                    }
                     .ant-select-selection-item {
                         white-space: normal !important;
                         word-break: break-word !important;
                         line-height: 1.4 !important;
-                        padding-top: 4px !important;
-                        padding-bottom: 4px !important;
                         display: flex !important;
                         align-items: center !important;
+                    }
+                    .ant-select-single.ant-select-lg .ant-select-selector {
+                        min-height: 40px !important;
                     }
                     .ant-select-single.ant-select-show-arrow .ant-select-selection-item {
                         padding-right: 18px !important;

@@ -11,7 +11,7 @@ import {
     CheckCircleOutlined,
     BankOutlined,
     DownloadOutlined,
-    DollarOutlined
+    WalletOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { purchaseOrderService } from '../../services/api/purchaseOrders'
@@ -307,7 +307,7 @@ const PurchaseOrderDetails = () => {
                             {purchaseOrder.status === 'approved' && (
                                 <Button
                                     type="primary"
-                                    icon={<DollarOutlined />}
+                                    icon={<WalletOutlined />}
                                     onClick={() => navigate(`/finance/transactions/new?vendor_id=${purchaseOrder.vendor_id}&project_id=${purchaseOrder.project_id}&category=vendor`)}
                                     block
                                     style={{ background: '#722ed1', borderColor: '#722ed1' }}

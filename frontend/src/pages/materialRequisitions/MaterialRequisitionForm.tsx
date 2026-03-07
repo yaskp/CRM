@@ -81,7 +81,7 @@ const MaterialRequisitionForm = () => {
 
     const fetchMaterials = async () => {
         try {
-            const response = await materialService.getMaterials()
+            const response = await materialService.getMaterials({ limit: 5000 })
             setMaterials(response.materials || [])
         } catch (error) {
             console.error('Failed to fetch materials:', error)
@@ -90,7 +90,7 @@ const MaterialRequisitionForm = () => {
 
     const fetchProjects = async () => {
         try {
-            const response = await projectService.getProjects()
+            const response = await projectService.getProjects({ limit: 1000 })
             setProjects(response.projects || [])
         } catch (error) {
             console.error('Failed to fetch projects:', error)
@@ -258,7 +258,10 @@ const MaterialRequisitionForm = () => {
                             <Select
                                 placeholder="Select project"
                                 showSearch
-                                optionFilterProp="children"
+                                optionFilterProp="label"
+                                filterOption={(input, option: any) =>
+                                    (option?.label || '').toLowerCase().includes(input.toLowerCase())
+                                }
                                 size="large"
                                 style={largeInputStyle}
                                 onChange={(val) => {
@@ -266,7 +269,7 @@ const MaterialRequisitionForm = () => {
                                 }}
                             >
                                 {projects.map(project => (
-                                    <Option key={project.id} value={project.id}>
+                                    <Option key={project.id} value={project.id} label={`${project.name} ${project.project_code || project.code}`}>
                                         {project.name} ({project.project_code || project.code})
                                     </Option>
                                 ))}
@@ -304,7 +307,7 @@ const MaterialRequisitionForm = () => {
                             name="priority"
                             rules={[{ required: true, message: 'Please select priority' }]}
                         >
-                            <Select size="large" style={largeInputStyle}>
+                            <Select size="large" style={largeInputStyle} showSearch optionFilterProp="children">
                                 <Option value="low">🔵 Low</Option>
                                 <Option value="medium">🟡 Medium</Option>
                                 <Option value="high">🟠 High</Option>
@@ -390,7 +393,10 @@ const MaterialRequisitionForm = () => {
                         <Select
                             placeholder="Search and select material"
                             showSearch
-                            optionFilterProp="children"
+                            optionFilterProp="label"
+                            filterOption={(input, option: any) =>
+                                (option?.label || '').toLowerCase().includes(input.toLowerCase())
+                            }
                             size="large"
                             style={largeInputStyle}
                             onChange={(value) => {
@@ -401,7 +407,7 @@ const MaterialRequisitionForm = () => {
                             }}
                         >
                             {materials.map(material => (
-                                <Option key={material.id} value={material.id}>
+                                <Option key={material.id} value={material.id} label={`${material.name} ${material.code}`}>
                                     {material.name} ({material.code})
                                 </Option>
                             ))}

@@ -117,11 +117,11 @@ const PurchaseOrderForm = () => {
     const fetchMetadata = async () => {
         try {
             const results = await Promise.allSettled([
-                projectService.getProjects(),
-                vendorService.getVendors(),
-                materialService.getMaterials(),
-                warehouseService.getWarehouses(),
-                annexureService.getAnnexures({ limit: 999 }),
+                projectService.getProjects({ limit: 1000 }),
+                vendorService.getVendors({ limit: 1000 }),
+                materialService.getMaterials({ limit: 5000 }),
+                warehouseService.getWarehouses({ limit: 1000 }),
+                annexureService.getAnnexures({ limit: 1000 }),
                 masterService.getBranches()
             ])
 
@@ -633,6 +633,8 @@ const PurchaseOrderForm = () => {
                                 placeholder="Select Branch"
                                 size="large"
                                 style={largeInputStyle}
+                                showSearch
+                                optionFilterProp="children"
                                 suffixIcon={<BankOutlined />}
                             >
                                 {branches.map((b: any) => (
@@ -691,7 +693,12 @@ const PurchaseOrderForm = () => {
                             rules={[{ required: true, message: 'Select delivery type' }]}
                             initialValue="central_warehouse"
                         >
-                            <Select size="large" style={largeInputStyle}>
+                            <Select
+                                size="large"
+                                style={largeInputStyle}
+                                showSearch
+                                optionFilterProp="children"
+                            >
                                 <Option value="central_warehouse">To Central Warehouse</Option>
                                 <Option value="direct_to_site">Direct to Project Site</Option>
                                 <Option value="mixed">Mixed / Other</Option>
@@ -795,18 +802,22 @@ const PurchaseOrderForm = () => {
                                                             placeholder="Select Material"
                                                             onChange={(val) => onMaterialChange(val, index)}
                                                             showSearch
-                                                            optionFilterProp="children"
+                                                            optionFilterProp="label"
+                                                            filterOption={(input, option: any) =>
+                                                                (option?.label || '').toLowerCase().includes(input.toLowerCase())
+                                                            }
                                                         >
                                                             {(showBoqOnly && selectedProjectId && procurementFor === 'project' && boqItems.length > 0
                                                                 ? materials.filter(m => boqItems.some(bi => bi.material_id === m.id))
                                                                 : materials
                                                             ).map(m => (
-                                                                <Option key={m.id} value={m.id}>
-                                                                    {m.name} ({m.material_code})
-                                                                    {/* Only show BOQ tag if we have BOQ items loaded, relevant for project procurement */}
-                                                                    {procurementFor === 'project' && boqItems.find(bi => bi.material_id === m.id) && (
-                                                                        <Tag color="blue" style={{ marginLeft: 8 }}>BOQ</Tag>
-                                                                    )}
+                                                                <Option key={m.id} value={m.id} label={`${m.name} ${m.material_code}`}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                        <span>{m.name} ({m.material_code})</span>
+                                                                        {procurementFor === 'project' && boqItems.find(bi => bi.material_id === m.id) && (
+                                                                            <Tag color="blue" style={{ marginLeft: 8 }}>BOQ</Tag>
+                                                                        )}
+                                                                    </div>
                                                                 </Option>
                                                             ))}
                                                         </Select>

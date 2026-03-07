@@ -30,4 +30,14 @@ export const userService = {
         const response = await api.delete(`/users/${id}`)
         return response.data
     },
+
+    resetPassword: async (id: number, data: { newPassword: string }) => {
+        const response = await api.post(`/users/${id}/reset-password`, data)
+        return response.data
+    },
+
+    changePassword: async (data: { currentPassword: string; newPassword: string }) => {
+        const response = await api.post('/users/change-password', data)
+        return response.data
+    },
 }

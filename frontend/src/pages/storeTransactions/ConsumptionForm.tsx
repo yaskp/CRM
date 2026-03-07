@@ -61,10 +61,10 @@ const ConsumptionForm = () => {
     const fetchMetadata = async () => {
         try {
             const [matRes, whRes, projRes, witRes] = await Promise.all([
-                materialService.getMaterials(),
-                warehouseService.getWarehouses(),
-                projectService.getProjects(),
-                workItemTypeService.getWorkItemTypes({ is_active: true })
+                materialService.getMaterials({ limit: 5000 }),
+                warehouseService.getWarehouses({ limit: 1000 }),
+                projectService.getProjects({ limit: 1000 }),
+                workItemTypeService.getWorkItemTypes({ is_active: true, limit: 1000 })
             ])
             setMaterials(matRes.materials || [])
             // Filter for site warehouses usually, but showing all for flexibility
@@ -279,6 +279,8 @@ const ConsumptionForm = () => {
                                 <Select
                                     placeholder="Select Store"
                                     size="large"
+                                    showSearch
+                                    optionFilterProp="children"
                                     onChange={v => fetchStock(v)}
                                 >
                                     {warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)}
@@ -309,24 +311,24 @@ const ConsumptionForm = () => {
                             name="project_id"
                             rules={[{ required: true }]}
                         >
-                            <Select placeholder="Select Project" onChange={handleProjectChange}>
+                            <Select placeholder="Select Project" onChange={handleProjectChange} showSearch optionFilterProp="children">
                                 {projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
                             </Select>
                         </Form.Item>
                         <Form.Item label={<span style={getLabelStyle()}>Building</span>} name="building_id">
-                            <Select placeholder="Select Building" allowClear onChange={handleBuildingChange}>
+                            <Select placeholder="Select Building" allowClear onChange={handleBuildingChange} showSearch optionFilterProp="children">
                                 {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
                             </Select>
                         </Form.Item>
                         <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
-                            <Select placeholder="Select Floor" allowClear onChange={handleFloorChange}>
+                            <Select placeholder="Select Floor" allowClear onChange={handleFloorChange} showSearch optionFilterProp="children">
                                 {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
                             </Select>
                         </Form.Item>
                     </div>
                     <div style={twoColumnGridStyle}>
                         <Form.Item label={<span style={getLabelStyle()}>Zone/Flat (Optional)</span>} name="zone_id">
-                            <Select placeholder="Select Zone" allowClear>
+                            <Select placeholder="Select Zone" allowClear showSearch optionFilterProp="children">
                                 {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
                             </Select>
                         </Form.Item>
@@ -350,7 +352,7 @@ const ConsumptionForm = () => {
                         dataSource={items}
                         columns={columns}
                         pagination={false}
-                        rowKey={(_, i) => i}
+                        rowKey={(_, i) => String(i)}
                         scroll={{ x: 800 }}
                         locale={{ emptyText: 'No materials added for consumption' }}
                     />

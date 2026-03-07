@@ -55,15 +55,15 @@ DPRRmcLog.init(
             allowNull: true,
         },
         in_time: {
-            type: DataTypes.STRING(10),
+            type: DataTypes.STRING(100),
             allowNull: true,
         },
         start_time: {
-            type: DataTypes.STRING(10),
+            type: DataTypes.STRING(100),
             allowNull: true,
         },
         out_time: {
-            type: DataTypes.STRING(10),
+            type: DataTypes.STRING(100),
             allowNull: true,
         },
         remarks: {

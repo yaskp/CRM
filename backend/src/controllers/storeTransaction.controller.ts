@@ -8,6 +8,7 @@ import Inventory from '../models/Inventory'
 import InventoryLedger from '../models/InventoryLedger'
 import Warehouse from '../models/Warehouse'
 import Project from '../models/Project'
+import ProjectContact from '../models/ProjectContact'
 import User from '../models/User'
 import Material from '../models/Material'
 import Client from '../models/Client'
@@ -19,6 +20,7 @@ import DPRRmcLog from '../models/DPRRmcLog'
 import DPRPanelWorkLog from '../models/DPRPanelWorkLog'
 import DPRPileWorkLog from '../models/DPRPileWorkLog'
 import DPRManpowerLog from '../models/DPRManpowerLog'
+import DPRMachineryBreakdownLog from '../models/DPRMachineryBreakdownLog'
 import CreditNote from '../models/CreditNote'
 import CreditNoteItem from '../models/CreditNoteItem'
 import { numberingService } from '../utils/numberingService'
@@ -409,7 +411,6 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       tremie_pipe_count,
       theoretical_concrete_qty,
       overbreak_percentage,
-      machinery_data,
       grabbing_start_time,
       grabbing_end_time,
       concrete_grade,
@@ -418,12 +419,17 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       concreting_depth,
       concreting_sqm,
       pile_work_logs,
-      panel_work_logs
+      panel_work_logs,
+      machinery_breakdowns,
+      quotation_id
     } = req.body
 
-    if (!warehouse_id || !items || items.length === 0) {
-      throw createError('Source warehouse and items are required', 400)
+    if (!warehouse_id) {
+      throw createError('Source warehouse is required', 400)
     }
+
+    // Allow empty items for DPR/Consumption as they might only log labor, machinery or progress
+    const itemsArray = Array.isArray(items) ? items : []
 
     const temp_number = numberingService.generateTempNumber('CON')
 
@@ -440,13 +446,13 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       to_zone_id,
       drawing_panel_id,
       transaction_date,
-      status: 'draft',
+      status: req.body.status || 'draft',
       remarks,
-      manpower_data,
       weather_condition,
       temperature,
       work_hours,
       progress_photos,
+      quotation_id,
       created_by: req.user!.id,
 
       // D-Wall Fields
@@ -463,7 +469,6 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       tremie_pipe_count,
       theoretical_concrete_qty,
       overbreak_percentage,
-      machinery_data,
       grabbing_start_time,
       grabbing_end_time,
       concrete_grade,
@@ -471,8 +476,11 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       grabbing_sqm,
       concreting_depth,
       concreting_sqm,
-      pile_work_logs,
-      panel_work_logs
+      manpower_data, // NOW persists to main table
+      rmc_logs: JSON.stringify(rmc_logs),
+      machinery_data: JSON.stringify(machinery_breakdowns),
+      // NOTE: pile_work_logs, panel_work_logs, manpower_data, machinery_data
+      // are now in normalized tables — not stored on StoreTransaction directly
     }
 
     const consumption = await StoreTransaction.create(consumptionData, { transaction })
@@ -497,9 +505,10 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
     }
 
     const transactionItems = await StoreTransactionItem.bulkCreate(
-      items.map((item: any) => ({
+      itemsArray.map((item: any) => ({
         transaction_id: consumption.id,
         material_id: item.material_id,
+        quotation_item_id: item.quotation_item_id,
         quantity: item.quantity,
         wastage_quantity: item.wastage_quantity || 0,
         issued_quantity: item.issued_quantity || 0,
@@ -507,7 +516,9 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
         work_done_quantity: item.work_done_quantity || 0,
         work_item_type_id: item.work_item_type_id,
         drawing_panel_id: item.drawing_panel_id,
-        unit: item.unit
+        unit: item.unit,
+        remarks: item.remarks,
+        log_progress: item.log_progress ?? true
       })),
       { transaction }
     )
@@ -605,6 +616,29 @@ export const createConsumption = async (req: AuthRequest, res: Response, next: N
       }
     }
 
+    // ── Dual-write: Normalized DPR Machinery Breakdown Logs ────────────────────
+    if (machinery_breakdowns && Array.isArray(machinery_breakdowns) && machinery_breakdowns.length > 0) {
+      await DPRMachineryBreakdownLog.bulkCreate(
+        machinery_breakdowns.map((b: any) => ({
+          transaction_id: consumption.id,
+          project_id: project_id,
+          report_date: transaction_date,
+          equipment_id: b.equipment_id || null,
+          equipment_name: b.equipment_name || null,
+          equipment_type: b.equipment_type || null,
+          registration_number: b.registration_number || null,
+          breakdown_start: b.breakdown_start || null,
+          breakdown_end: b.breakdown_end || null,
+          breakdown_hours: b.breakdown_hours || null,
+          breakdown_reason: b.breakdown_reason || null,
+          breakdown_description: b.breakdown_description || null,
+          action_taken: b.action_taken || null,
+          status: b.status || 'pending',
+        })),
+        { transaction }
+      )
+    }
+
     await transaction.commit()
 
     res.status(201).json({
@@ -696,6 +730,7 @@ export const getTransactions = async (req: AuthRequest, res: Response, next: Nex
           association: 'creditNote',
           include: [{ model: CreditNoteItem, as: 'items', include: [{ model: Material, as: 'material', attributes: ['name', 'material_code', 'unit'] }] }]
         },
+        { association: 'quotation' }
       ],
     })
 
@@ -788,9 +823,18 @@ export const getTransaction = async (req: AuthRequest, res: Response, next: Next
             },
             {
               association: 'workItemType',
+            },
+            {
+              association: 'quotationItem',
             }
           ],
         },
+        { association: 'quotation' },
+        { association: 'rmcLogs' },
+        { association: 'manpowerLogs' },
+        { association: 'machineryBreakdownLogs' },
+        { association: 'panelWorkLogs', include: [{ association: 'panel' }] },
+        { association: 'pileWorkLogs', include: [{ association: 'pile' }] },
         {
           association: 'creditNote',
           include: [{ model: CreditNoteItem, as: 'items', include: [{ model: Material, as: 'material', attributes: ['name', 'material_code', 'unit'] }] }]
@@ -856,7 +900,8 @@ export const downloadDPRPDF = async (req: AuthRequest, res: Response, next: Next
           model: Project,
           as: 'project',
           include: [
-            { model: Client, as: 'client' }
+            { model: Client, as: 'client' },
+            { model: ProjectContact, as: 'contacts' }
           ]
         },
         { association: 'toBuilding' },
@@ -871,7 +916,21 @@ export const downloadDPRPDF = async (req: AuthRequest, res: Response, next: Next
             { association: 'workItemType' }
           ]
         },
-        { model: DPRRmcLog, as: 'rmcLogs' }
+        { model: DPRRmcLog, as: 'rmcLogs' },
+        { association: 'manpowerLogs' },
+        { association: 'machineryBreakdownLogs' },
+        {
+          association: 'panelWorkLogs',
+          include: [{ association: 'panel' }]
+        },
+        {
+          association: 'pileWorkLogs',
+          include: [{ association: 'pile' }]
+        },
+        {
+          association: 'drawingPanel',
+          include: [{ association: 'drawing' }]
+        },
       ]
     })
 
@@ -1362,7 +1421,6 @@ export const updateStoreTransaction = async (req: AuthRequest, res: Response, ne
       slump_flow,
       tremie_pipe_count,
       theoretical_concrete_qty,
-      machinery_data,
       grabbing_start_time,
       grabbing_end_time,
       concrete_grade,
@@ -1371,7 +1429,8 @@ export const updateStoreTransaction = async (req: AuthRequest, res: Response, ne
       concreting_depth,
       concreting_sqm,
       panel_work_logs,
-      pile_work_logs
+      pile_work_logs,
+      machinery_breakdowns   // NEW: normalized breakdown array
     } = req.body
 
     const storeTransaction = await StoreTransaction.findByPk(id)
@@ -1393,7 +1452,6 @@ export const updateStoreTransaction = async (req: AuthRequest, res: Response, ne
       drawing_panel_id,
       transaction_date,
       remarks,
-      manpower_data,
       progress_photos,
       weather_condition,
       temperature,
@@ -1410,7 +1468,6 @@ export const updateStoreTransaction = async (req: AuthRequest, res: Response, ne
       slump_flow,
       tremie_pipe_count,
       theoretical_concrete_qty,
-      machinery_data,
       grabbing_start_time,
       grabbing_end_time,
       concrete_grade,
@@ -1418,8 +1475,9 @@ export const updateStoreTransaction = async (req: AuthRequest, res: Response, ne
       grabbing_sqm,
       concreting_depth,
       concreting_sqm,
-      panel_work_logs: panel_work_logs ? (Array.isArray(panel_work_logs) ? panel_work_logs : JSON.parse(panel_work_logs)) : undefined,
-      pile_work_logs: pile_work_logs ? (Array.isArray(pile_work_logs) ? pile_work_logs : JSON.parse(pile_work_logs)) : undefined,
+      manpower_data,
+      rmc_logs: JSON.stringify(rmc_logs),
+      machinery_data: JSON.stringify(machinery_breakdowns),
     }, { transaction })
 
     // Update Items: Delete and Re-create for simplicity in updates
@@ -1429,13 +1487,17 @@ export const updateStoreTransaction = async (req: AuthRequest, res: Response, ne
         await StoreTransactionItem.create({
           transaction_id: Number(storeTransaction.id),
           material_id: item.material_id,
+          quotation_item_id: item.quotation_item_id,
+          drawing_panel_id: item.drawing_panel_id,
           quantity: item.quantity,
           issued_quantity: item.issued_quantity,
           returned_quantity: item.returned_quantity,
-          wastage_quantity: item.wastage_quantity,
-          work_done_quantity: item.work_done_quantity,
+          wastage_quantity: item.wastage_quantity || item.wastage,
+          work_done_quantity: item.work_done_quantity || 0,
           work_item_type_id: item.work_item_type_id,
-          unit: item.unit
+          unit: item.unit,
+          remarks: item.remarks,
+          log_progress: item.log_progress ?? true
         } as any, { transaction })
       }
     }
@@ -1532,6 +1594,32 @@ export const updateStoreTransaction = async (req: AuthRequest, res: Response, ne
         }
       } catch (e) {
         console.error('Failed to update manpower logs:', e)
+      }
+    }
+
+    // ── Normalized Machinery Breakdown Logs: delete + reinsert ─────────────────
+    if (machinery_breakdowns && Array.isArray(machinery_breakdowns)) {
+      await DPRMachineryBreakdownLog.destroy({ where: { transaction_id: id } as any, transaction })
+      if (machinery_breakdowns.length > 0) {
+        await DPRMachineryBreakdownLog.bulkCreate(
+          machinery_breakdowns.map((b: any) => ({
+            transaction_id: storeTransaction.id,
+            project_id: project_id || storeTransaction.project_id,
+            report_date: transaction_date || storeTransaction.transaction_date,
+            equipment_id: b.equipment_id || null,
+            equipment_name: b.equipment_name || null,
+            equipment_type: b.equipment_type || null,
+            registration_number: b.registration_number || null,
+            breakdown_start: b.breakdown_start || null,
+            breakdown_end: b.breakdown_end || null,
+            breakdown_hours: b.breakdown_hours || null,
+            breakdown_reason: b.breakdown_reason || null,
+            breakdown_description: b.breakdown_description || null,
+            action_taken: b.action_taken || null,
+            status: b.status || 'pending',
+          })),
+          { transaction }
+        )
       }
     }
 

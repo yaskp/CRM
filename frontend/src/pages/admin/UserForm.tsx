@@ -3,10 +3,11 @@ import { Form, Input, Button, Card, message, Select, Checkbox, Typography, Row, 
 import {
     UserOutlined,
     MailOutlined,
-    IdcardOutlined,
     TeamOutlined,
     LockOutlined,
-    SafetyOutlined
+    SafetyOutlined,
+    PhoneOutlined,
+    EnvironmentOutlined
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { userService } from '../../services/api/users'
@@ -129,15 +130,39 @@ const UserForm = () => {
                             </Form.Item>
 
                             <Form.Item
-                                label={<span style={getLabelStyle()}>Employee ID</span>}
-                                name="employee_id"
+                                label={<span style={getLabelStyle()}>Mobile Number (User ID)</span>}
+                                name="phone"
+                                rules={[
+                                    { required: true, message: 'Please enter mobile number' },
+                                    { pattern: /^[0-9]{10,12}$/, message: 'Please enter a valid mobile number' }
+                                ]}
                             >
                                 <Input
-                                    prefix={<IdcardOutlined style={prefixIconStyle} />}
-                                    placeholder="Enter employee ID"
+                                    prefix={<PhoneOutlined style={prefixIconStyle} />}
+                                    placeholder="Enter mobile number"
+                                    size="large"
+                                    style={largeInputStyle}
+                                    onChange={(e) => {
+                                        // Set employee_id (User ID) to mobile number
+                                        form.setFieldsValue({ employee_id: e.target.value })
+                                    }}
+                                />
+                            </Form.Item>
+
+                            <Form.Item
+                                label={<span style={getLabelStyle()}>Location / Site</span>}
+                                name="location"
+                            >
+                                <Input
+                                    prefix={<EnvironmentOutlined style={prefixIconStyle} />}
+                                    placeholder="Enter location or site name"
                                     size="large"
                                     style={largeInputStyle}
                                 />
+                            </Form.Item>
+
+                            <Form.Item name="employee_id" hidden>
+                                <Input />
                             </Form.Item>
 
                             <Form.Item name="is_active" valuePropName="checked">

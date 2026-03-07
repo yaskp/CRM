@@ -24,10 +24,11 @@ import { useTheme } from '../../context/ThemeContext'
 type MenuItem = Required<MenuProps>['items'][number]
 
 // Helper function to check if user has permission
-const hasPermission = (userRoles: string[], requiredRoles: string[]): boolean => {
-  if (requiredRoles.length === 0) return true
-  if (userRoles.includes('Admin')) return true // Admin has access to everything
-  return requiredRoles.some(role => userRoles.includes(role))
+const hasPermission = (user: any, requiredPermissions: string[]): boolean => {
+  if (!user) return false
+  if (user.roles?.includes('Admin')) return true // Admin has access to everything
+  if (requiredPermissions.length === 0) return true
+  return requiredPermissions.some(perm => user.permissions?.includes(perm))
 }
 
 // Menu item permission mapping
@@ -36,61 +37,60 @@ const menuPermissions: Record<string, string[]> = {
   '/': [],
 
   // Master Data
-  '/master/materials': ['Admin', 'Store Manager'],
-  '/master/warehouses': ['Admin', 'Store Manager'],
-  '/master/vendors': ['Admin', 'Operation Manager', 'Store Manager'],
-  '/master/equipment': ['Admin', 'Operation Manager'],
-  '/master/work-item-types': ['Admin', 'Operation Manager'],
-  '/master/work-templates': ['Admin', 'Operation Manager'],
-  '/master/units': ['Admin', 'Operation Manager', 'Store Manager'],
-  '/master/branches': ['Admin'],
-  '/master/users': ['Admin'],
-  '/master/roles': ['Admin'],
-  '/master/annexures': ['Admin', 'Operation Manager'],
+  '/master/materials': ['materials.read'],
+  '/master/warehouses': ['warehouses.read'],
+  '/master/vendors': ['vendors.read'],
+  '/master/equipment': ['equipment.read'],
+  '/master/work-templates': ['master.work_templates'],
+  '/master/units': ['master.units'],
+  '/master/branches': ['master.branches'],
+  '/master/annexures': ['master.annexures'],
 
   // Sales & CRM
-  '/sales/leads': ['Admin', 'Site Engineer', 'Operation Manager'],
-  '/sales/quotations': ['Admin', 'Operation Manager'],
-  '/sales/clients': ['Admin', 'Operation Manager', 'Head/Accounts'],
-  '/sales/projects': ['Admin', 'Site Engineer', 'Operation Manager', 'Store Manager', 'Head/Accounts'],
+  '/sales/leads': ['leads.read'],
+  '/sales/quotations': ['quotations.read'],
+  '/sales/clients': ['clients.read'],
+  '/sales/projects': ['projects.read'],
 
   // Procurement
-  '/procurement/requisitions': ['Admin', 'Site Engineer', 'Store Manager'],
-  '/procurement/purchase-orders': ['Admin', 'Operation Manager', 'Store Manager', 'Project Manager', 'Site Engineer'],
-  '/procurement/vendors': ['Admin', 'Operation Manager'],
+  '/procurement/requisitions': ['requisitions.read'],
+  '/procurement/purchase-orders': ['purchase_orders.read'],
+  '/procurement/vendors': ['vendors.read'],
 
   // Inventory
-  '/inventory/grn': ['Admin', 'Store Manager'],
+  '/inventory/grn': ['inventory.grn'],
+  '/inventory/stn': ['inventory.stn'],
+  '/inventory/srn': ['inventory.srn'],
+  '/inventory/stock': ['inventory.stock'],
+  '/inventory/dashboard': ['inventory.stock'],
+  '/inventory/daily-work-log': ['dpr.read'],
+  '/inventory/consumption/new': ['dpr.create'],
+  '/inventory/adjustment/new': ['inventory.adjustment'],
 
   // Operations
-  '/operations/work-orders': ['Admin', 'Operation Manager'],
-  '/operations/dpr': ['Admin', 'Site Engineer', 'Operation Manager'],
-  '/operations/bar-bending': ['Admin', 'Site Engineer', 'Operation Manager'],
-  '/operations/equipment': ['Admin', 'Operation Manager'],
-  '/inventory/stn': ['Admin', 'Store Manager'],
-  '/inventory/srn': ['Admin', 'Store Manager'],
-  '/inventory/stock': ['Admin', 'Store Manager', 'Operation Manager', 'Site Engineer', 'Head/Accounts'],
-  '/inventory/dashboard': ['Admin', 'Store Manager', 'Operation Manager'],
-  '/inventory/daily-work-log': ['Admin', 'Store Manager', 'Site Engineer'],
-  '/inventory/consumption/new': ['Admin', 'Store Manager', 'Site Engineer'],
-  '/inventory/adjustment/new': ['Admin', 'Store Manager'],
-  '/reports/procurement-status': ['Admin', 'Operation Manager', 'Project Manager', 'Site Engineer'],
+  '/operations/work-orders': ['work_orders.read'],
+  '/operations/dpr': ['dpr.read'],
+  '/operations/bar-bending': ['bar_bending.read'],
+  '/operations/equipment/rentals': ['equipment.read'],
 
   // Finance
-  '/finance/expenses': ['Admin', 'Site Engineer', 'Operation Manager', 'Head/Accounts'],
-  '/finance/project-consumption': ['Admin', 'Operation Manager', 'Head/Accounts'],
-  '/finance/transactions': ['Admin', 'Head/Accounts'],
-  '/finance/vendor-aging': ['Admin', 'Head/Accounts'],
-  '/finance/approvals': ['Admin', 'Store Manager', 'Operation Manager', 'Head/Accounts'],
+  '/finance/expenses': ['expenses.read'],
+  '/finance/transactions': ['finance.transactions'],
+  '/finance/project-consumption': ['finance.reports'],
+  '/finance/vendor-aging': ['finance.reports'],
+  '/finance/approvals': ['requisitions.approve', 'expenses.approve', 'purchase_orders.approve'],
 
   // Documents
-  '/drawings': ['Admin', 'Site Engineer', 'Operation Manager'],
+  '/drawings': ['drawings.read'],
 
   // Reports
-  '/reports/project': ['Admin', 'Operation Manager', 'Head/Accounts'],
+  '/reports/project': ['projects.read'],
+  '/reports/procurement-status': ['purchase_orders.read'],
 
   // Administration
-  '/admin': ['Admin'],
+  '/admin/users': ['admin.users'],
+  '/admin/roles': ['admin.roles'],
+  '/admin/settings': ['admin.settings'],
 }
 
 const MasterMenu = () => {
@@ -98,7 +98,6 @@ const MasterMenu = () => {
   const location = useLocation()
   const { user } = useAuth()
   const { mode } = useTheme()
-  const userRoles = user?.roles || []
 
   const handleMenuClick = ({ key }: { key: string }) => {
     navigate(key)
@@ -114,8 +113,8 @@ const MasterMenu = () => {
   // Helper to filter menu children by permissions
   const filterMenuItems = (items: any[]): any[] => {
     return items.filter(item => {
-      const requiredRoles = menuPermissions[item.key] || []
-      return hasPermission(userRoles, requiredRoles)
+      const requiredPermissions = menuPermissions[item.key] || []
+      return hasPermission(user, requiredPermissions)
     })
   }
 

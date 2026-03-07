@@ -84,10 +84,10 @@ const DailyWorkLog = () => {
     const fetchMetadata = async () => {
         try {
             const [matRes, whRes, projRes, witRes] = await Promise.all([
-                materialService.getMaterials(),
-                warehouseService.getWarehouses(),
-                projectService.getProjects(),
-                workItemTypeService.getWorkItemTypes({ is_active: true })
+                materialService.getMaterials({ limit: 5000 }),
+                warehouseService.getWarehouses({ limit: 1000 }),
+                projectService.getProjects({ limit: 1000 }),
+                workItemTypeService.getWorkItemTypes({ is_active: true, limit: 1000 })
             ])
             setMaterials(matRes.materials || [])
             setWarehouses(whRes.warehouses || [])
@@ -467,6 +467,8 @@ const DailyWorkLog = () => {
                                     <Select
                                         placeholder="Select store"
                                         size="large"
+                                        showSearch
+                                        optionFilterProp="children"
                                         onChange={fetchStock}
                                     >
                                         {warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)}
@@ -478,7 +480,13 @@ const DailyWorkLog = () => {
                                     name="project_id"
                                     rules={[{ required: true }]}
                                 >
-                                    <Select placeholder="Select project" onChange={handleProjectChange} size="large">
+                                    <Select
+                                        placeholder="Select project"
+                                        onChange={handleProjectChange}
+                                        size="large"
+                                        showSearch
+                                        optionFilterProp="children"
+                                    >
                                         {projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
                                     </Select>
                                 </Form.Item>
@@ -486,19 +494,39 @@ const DailyWorkLog = () => {
 
                             <div style={threeColumnGridStyle}>
                                 <Form.Item label={<span style={getLabelStyle()}>Building</span>} name="building_id">
-                                    <Select placeholder="Select building" allowClear onChange={handleBuildingChange} size="large">
+                                    <Select
+                                        placeholder="Select building"
+                                        allowClear
+                                        onChange={handleBuildingChange}
+                                        size="large"
+                                        showSearch
+                                        optionFilterProp="children"
+                                    >
                                         {buildings.map(b => <Option key={b.id} value={b.id}>{b.name}</Option>)}
                                     </Select>
                                 </Form.Item>
 
                                 <Form.Item label={<span style={getLabelStyle()}>Floor</span>} name="floor_id">
-                                    <Select placeholder="Select floor" allowClear onChange={handleFloorChange} size="large">
+                                    <Select
+                                        placeholder="Select floor"
+                                        allowClear
+                                        onChange={handleFloorChange}
+                                        size="large"
+                                        showSearch
+                                        optionFilterProp="children"
+                                    >
                                         {floors.map(f => <Option key={f.id} value={f.id}>{f.name}</Option>)}
                                     </Select>
                                 </Form.Item>
 
                                 <Form.Item label={<span style={getLabelStyle()}>Zone</span>} name="zone_id">
-                                    <Select placeholder="Select zone" allowClear size="large">
+                                    <Select
+                                        placeholder="Select zone"
+                                        allowClear
+                                        size="large"
+                                        showSearch
+                                        optionFilterProp="children"
+                                    >
                                         {zones.map(z => <Option key={z.id} value={z.id}>{z.name}</Option>)}
                                     </Select>
                                 </Form.Item>

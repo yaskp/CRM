@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Card, Table, Typography, Space, Tag, Input, Row, Col, Statistic, Button } from 'antd'
 import {
-    ClockCircleOutlined,
     SearchOutlined,
     ReloadOutlined,
-    DollarCircleOutlined,
-    UserOutlined
+    WalletOutlined,
+    UserOutlined,
+    ClockCircleOutlined,
+    ArrowLeftOutlined
 } from '@ant-design/icons'
 import { financeService } from '../../services/api/finance'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
@@ -74,8 +75,8 @@ const VendorAgingReport = () => {
             render: (_: any, record: any) => (
                 <Button
                     type="primary"
-                    icon={<DollarCircleOutlined />}
-                    onClick={() => navigate(`/finance/transactions/new?vendorId=${record.id}&category=vendor`)}
+                    icon={<WalletOutlined />}
+                    onClick={() => navigate(`/finance/transactions/new?vendor_id=${record.id}&category=vendor`)}
                 >
                     Pay Vendor
                 </Button>

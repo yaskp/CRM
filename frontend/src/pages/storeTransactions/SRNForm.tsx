@@ -234,10 +234,10 @@ const SRNInternalForm = () => {
   const fetchMetadata = async () => {
     try {
       const [whRes, projRes, vendRes, poRes] = await Promise.all([
-        warehouseService.getWarehouses({ limit: 500 }),
-        projectService.getProjects({ limit: 500 }),
-        vendorService.getVendors({ limit: 500 }),
-        purchaseOrderService.getPurchaseOrders({ limit: 500 }),
+        warehouseService.getWarehouses({ limit: 1000 }),
+        projectService.getProjects({ limit: 1000 }),
+        vendorService.getVendors({ limit: 1000 }),
+        purchaseOrderService.getPurchaseOrders({ limit: 1000 }),
       ])
       setWarehouses(whRes.warehouses || [])
       setProjects(projRes.projects || [])
@@ -542,7 +542,7 @@ const SRNInternalForm = () => {
                       name="source_id"
                       control={control}
                       render={({ field }) => (
-                        <Select {...field} style={{ width: '100%' }} placeholder="Select Source">
+                        <Select {...field} style={{ width: '100%' }} placeholder="Select Source" showSearch optionFilterProp="children">
                           {sourceType === 'project'
                             ? projects.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)
                             : warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)
@@ -584,7 +584,7 @@ const SRNInternalForm = () => {
                       name="destination_id"
                       control={control}
                       render={({ field }) => (
-                        <Select {...field} style={{ width: '100%' }} placeholder="Select Destination" loading={fetchingVendors}>
+                        <Select {...field} style={{ width: '100%' }} placeholder="Select Destination" loading={fetchingVendors} showSearch optionFilterProp="children">
                           {destType === 'warehouse'
                             ? warehouses
                               .filter(w => !(sourceType === 'warehouse' && sourceId === w.id))

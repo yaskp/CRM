@@ -41,6 +41,8 @@ const { Text } = Typography
 
 interface WorkOrderItem {
   work_item_type_id?: number
+  parent_work_item_type_id?: number
+  reference_id?: number
   description?: string
   quantity: number
   unit: string
@@ -119,13 +121,15 @@ const WorkOrderForm = () => {
         if (q.items && q.items.length > 0) {
           const woItems = q.items.map((item: any) => ({
             work_item_type_id: item.work_item_type_id,
+            parent_work_item_type_id: item.parent_work_item_type_id || item.work_item_type_id,
             item_type: item.item_type || 'Other',
             category: item.item_type === 'material' ? 'material' : 'labour',
             description: item.description,
             quantity: Number(item.quantity),
             unit: item.unit,
             rate: Number(item.rate),
-            amount: Number(item.amount)
+            amount: Number(item.amount),
+            reference_id: item.id // Map QuotationItem ID to reference_id
           }))
           setItems(woItems)
 
@@ -152,7 +156,7 @@ const WorkOrderForm = () => {
 
   const fetchWorkItemTypes = async () => {
     try {
-      const response = await workItemTypeService.getWorkItemTypes({ is_active: true })
+      const response = await workItemTypeService.getWorkItemTypes({ is_active: true, limit: 1000 })
       setWorkItemTypes(response.data || [])
     } catch (error) {
       console.error('Failed to fetch work item types')
@@ -161,7 +165,7 @@ const WorkOrderForm = () => {
 
   const fetchProjects = async () => {
     try {
-      const response = await projectService.getProjects({ limit: 100 })
+      const response = await projectService.getProjects({ limit: 1000 })
       setProjects(response.projects || [])
     } catch (error) {
       console.error('Failed to fetch projects')
@@ -170,7 +174,7 @@ const WorkOrderForm = () => {
 
   const fetchVendors = async () => {
     try {
-      const response = await vendorService.getVendors({})
+      const response = await vendorService.getVendors({ limit: 1000 })
       setVendors(response.vendors || [])
     } catch (error) {
       console.error('Failed to fetch vendors')
@@ -179,7 +183,7 @@ const WorkOrderForm = () => {
 
   const fetchAnnexures = async () => {
     try {
-      const response = await annexureService.getAnnexures()
+      const response = await annexureService.getAnnexures({ limit: 1000 })
       setAnnexures(response.annexures || [])
     } catch (error) {
       console.error('Failed to fetch annexures')
@@ -222,9 +226,11 @@ const WorkOrderForm = () => {
 
       const parsedItems = (wo.items || []).map((item: any) => ({
         ...item,
+        parent_work_item_type_id: item.parent_work_item_type_id || item.work_item_type_id,
         quantity: Number(item.quantity),
         rate: Number(item.rate),
-        amount: Number(item.amount)
+        amount: Number(item.amount),
+        reference_id: item.reference_id
       }))
       setItems(parsedItems)
 
@@ -284,6 +290,9 @@ const WorkOrderForm = () => {
           quantity: item.quantity,
           unit: item.unit || 'LS',
           rate: item.rate,
+          amount: item.amount,
+          reference_id: item.reference_id,
+          parent_work_item_type_id: item.parent_work_item_type_id
         })),
         discount_percentage: discount,
         payment_terms: values.payment_terms,
@@ -313,45 +322,78 @@ const WorkOrderForm = () => {
 
   const itemColumns: ColumnsType<WorkOrderItem & { index: number }> = [
     {
-      title: 'Work Type',
+      title: 'Main Work Type',
+      dataIndex: 'parent_work_item_type_id',
+      width: '18%',
+      render: (value, _, index) => {
+        const type = workItemTypes.find(t => t.id === value);
+        if (sourceQuotationId) return <Text strong>{type ? type.name : ''}</Text>
+        return (
+          <Select
+            value={value}
+            onChange={(val) => {
+              updateItem(index, 'parent_work_item_type_id', val)
+              updateItem(index, 'work_item_type_id', undefined)
+            }}
+            style={{ width: '100%' }}
+            size="large"
+            placeholder="Main Type"
+            showSearch
+            optionFilterProp="children"
+          >
+            {workItemTypes.filter(t => !t.parent_id).map((type) => (
+              <Option key={type.id} value={type.id}>{type.name}</Option>
+            ))}
+          </Select>
+        )
+      }
+    },
+    {
+      title: 'Sub-Work Type',
       dataIndex: 'work_item_type_id',
-      width: '20%',
-      render: (value, _, index) => (
-        <Select
-          value={value}
-          onChange={(val) => updateItem(index, 'work_item_type_id', val)}
-          style={{ width: '100%' }}
-          size="large"
-          showSearch
-          optionFilterProp="children"
-          placeholder="Select work type"
-        >
-          {workItemTypes.map((type) => (
-            <Option key={type.id} value={type.id}>
-              {type.name}
-            </Option>
-          ))}
-        </Select>
-      ),
+      width: '18%',
+      render: (value, record, index) => {
+        const type = workItemTypes.find(t => t.id === value);
+        if (sourceQuotationId) return <Text>{type ? type.name : ''}</Text>
+        return (
+          <Select
+            value={value}
+            onChange={(val) => updateItem(index, 'work_item_type_id', val)}
+            style={{ width: '100%' }}
+            size="large"
+            placeholder="Sub Type"
+            showSearch
+            optionFilterProp="children"
+            disabled={!record.parent_work_item_type_id}
+          >
+            {workItemTypes.filter(t => t.parent_id === record.parent_work_item_type_id || t.id === record.parent_work_item_type_id).map((type) => (
+              <Option key={type.id} value={type.id}>{type.name}</Option>
+            ))}
+          </Select>
+        )
+      },
     },
     {
       title: 'Description',
       dataIndex: 'description',
-      width: '25%',
-      render: (value, _, index) => (
-        <Input
-          value={value}
-          onChange={(e) => updateItem(index, 'description', e.target.value)}
-          placeholder="Detailed specs"
-          size="large"
-        />
-      ),
+      width: '24%',
+      render: (value, _, index) => {
+        if (sourceQuotationId) return <Text type="secondary" style={{ fontSize: 13 }}>{value}</Text>
+        return (
+          <TextArea
+            value={value}
+            onChange={(e) => updateItem(index, 'description', e.target.value)}
+            placeholder="Detailed specs"
+            autoSize={{ minRows: 1, maxRows: 4 }}
+          />
+        )
+      },
     },
     {
-      title: 'Quantity',
+      title: 'Qty',
       dataIndex: 'quantity',
-      width: '12%',
-      render: (value, _, index) => (
+      width: '8%',
+      render: (value, _, index) => sourceQuotationId ? <Text>{value}</Text> : (
         <InputNumber
           value={value}
           onChange={(val) => updateItem(index, 'quantity', val || 0)}
@@ -366,8 +408,8 @@ const WorkOrderForm = () => {
     {
       title: 'Unit',
       dataIndex: 'unit',
-      width: '10%',
-      render: (value, _, index) => (
+      width: '8%',
+      render: (value, _, index) => sourceQuotationId ? <Text>{value}</Text> : (
         <Input
           value={value}
           onChange={(e) => updateItem(index, 'unit', e.target.value)}
@@ -379,8 +421,8 @@ const WorkOrderForm = () => {
     {
       title: 'Rate (₹)',
       dataIndex: 'rate',
-      width: '15%',
-      render: (value, _, index) => (
+      width: '10%',
+      render: (value, _, index) => sourceQuotationId ? <Text strong>₹{value?.toLocaleString('en-IN')}</Text> : (
         <InputNumber
           value={value}
           onChange={(val) => updateItem(index, 'rate', val || 0)}
@@ -396,14 +438,14 @@ const WorkOrderForm = () => {
     {
       title: 'Amount',
       dataIndex: 'amount',
-      width: '15%',
+      width: '14%',
       align: 'right' as const,
-      render: (amount: number) => <Text strong>₹{amount?.toLocaleString('en-IN') || 0}</Text>,
+      render: (amount: number) => <Text strong style={{ color: theme.colors.primary.main }}>₹{amount?.toLocaleString('en-IN') || 0}</Text>,
     },
     {
       title: '',
       width: 50,
-      render: (_1: any, _2: any, index: number) => (
+      render: (_1: any, _2: any, index: number) => !sourceQuotationId && (
         <Button
           type="link"
           danger
@@ -413,7 +455,19 @@ const WorkOrderForm = () => {
         />
       ),
     },
-  ]
+  ];
+
+  const filteredColumns = itemColumns.filter(col => {
+    // The delete column has an empty title and width 50, so this filters it out.
+    // All other columns have a title and width > 50.
+    if (sourceQuotationId) {
+      return col.title !== '' && col.width !== 50;
+    }
+    return true; // If not from quotation, show all columns
+  });
+
+  // Calculate colSpan for the summary row based on whether the delete column is visible
+  const colSpanValue = sourceQuotationId ? 6 : 6;
 
   return (
     <PageContainer maxWidth={1100}>
@@ -515,6 +569,7 @@ const WorkOrderForm = () => {
                   size="large"
                   placeholder="0"
                   prefix={<PercentageOutlined style={prefixIconStyle} />}
+                  disabled={!!sourceQuotationId}
                 />
               </Form.Item>
 
@@ -531,7 +586,7 @@ const WorkOrderForm = () => {
             icon={<TagOutlined />}
           >
             <Table
-              columns={itemColumns}
+              columns={filteredColumns}
               dataSource={items.map((item, index) => ({ ...item, index, key: index }))}
               pagination={false}
               bordered
@@ -540,7 +595,7 @@ const WorkOrderForm = () => {
               summary={() => (
                 <Table.Summary>
                   <Table.Summary.Row style={{ backgroundColor: theme.colors.neutral.gray50 }}>
-                    <Table.Summary.Cell index={0} colSpan={5}>
+                    <Table.Summary.Cell index={0} colSpan={colSpanValue}>
                       <Text strong>Sub-Total Consumption Value</Text>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={1} align="right">
@@ -548,20 +603,22 @@ const WorkOrderForm = () => {
                         ₹{calculateTotal().toLocaleString('en-IN')}
                       </Text>
                     </Table.Summary.Cell>
-                    <Table.Summary.Cell index={2} />
+                    {!sourceQuotationId && <Table.Summary.Cell index={2} />}
                   </Table.Summary.Row>
                 </Table.Summary>
               )}
             />
-            <Button
-              type="dashed"
-              onClick={addItem}
-              block
-              icon={<PlusOutlined />}
-              style={{ marginTop: 16 }}
-            >
-              Add Work Item
-            </Button>
+            {!sourceQuotationId && (
+              <Button
+                type="dashed"
+                onClick={addItem}
+                block
+                icon={<PlusOutlined />}
+                style={{ marginTop: 16 }}
+              >
+                Add Work Item
+              </Button>
+            )}
           </SectionCard>
         </div>
 

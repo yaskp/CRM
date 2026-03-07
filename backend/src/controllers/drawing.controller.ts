@@ -15,6 +15,24 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
 
+export const getPanelDetail = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { panelId } = req.params
+    const panel = await DrawingPanel.findByPk(panelId, {
+      include: [
+        { association: 'anchors' },
+        { association: 'drawing' }
+      ]
+    })
+    if (!panel) {
+      throw createError('Panel not found', 404)
+    }
+    res.json({ success: true, panel })
+  } catch (error) {
+    next(error)
+  }
+}
+
 const sanitizeNumber = (val: any): number | undefined => {
   if (val === undefined || val === null || val === '') return undefined
   const num = Number(val)
@@ -328,6 +346,16 @@ export const getPanels = async (req: AuthRequest, res: Response, next: NextFunct
           required: false
         },
         {
+          association: 'structuralLogs',
+          required: false,
+          include: [{ association: 'transaction', attributes: ['status', 'transaction_date'] }],
+        },
+        {
+          association: 'pileLogs',
+          required: false,
+          include: [{ association: 'transaction', attributes: ['status', 'transaction_date'] }],
+        },
+        {
           association: 'dprRecords',
           order: [['report_date', 'DESC']],
         },
@@ -339,9 +367,11 @@ export const getPanels = async (req: AuthRequest, res: Response, next: NextFunct
             { association: 'items' },
             { association: 'rmcLogs' }
           ], // Include items and RMC logs
-          order: [['transaction_date', 'DESC']],
         }
       ],
+      order: [
+        ['consumptions', 'transaction_date', 'DESC']
+      ]
     })
 
     res.json({

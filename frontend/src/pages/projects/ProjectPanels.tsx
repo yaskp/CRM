@@ -471,7 +471,7 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                                     onSelectAll: (selected) => {
                                                         if (selected) {
                                                             const allIds = panels
-                                                                .filter(p => isAdmin || !((p.dprRecords?.length > 0) || (p.consumptions?.length > 0)))
+                                                                .filter(p => isAdmin || !((p.dprRecords?.length > 0) || (p.consumptions?.length > 0) || (p.structuralLogs?.length > 0) || (p.pileLogs?.length > 0)))
                                                                 .map(p => p.id)
                                                             setSelectedRowKeys(allIds)
                                                         } else {
@@ -479,7 +479,7 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                                         }
                                                     },
                                                     getCheckboxProps: (record: any) => ({
-                                                        disabled: !isAdmin && ((record.dprRecords?.length > 0) || (record.consumptions?.length > 0))
+                                                        disabled: !isAdmin && ((record.dprRecords?.length > 0) || (record.consumptions?.length > 0) || (record.structuralLogs?.length > 0) || (record.pileLogs?.length > 0))
                                                     })
                                                 }}
                                                 pagination={{
@@ -523,18 +523,16 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                                         title: 'Progress (DPR)',
                                                         key: 'progress',
                                                         width: 200,
-                                                        render: (_, record) => {
-                                                            const dprs = record.dprRecords || []
-                                                            const consumptions = record.consumptions || []
-                                                            const allLogs = [...consumptions, ...dprs]
+                                                        render: (_, record: any) => {
+                                                            const allLogs = [...(record.consumptions || []), ...(record.dprRecords || []), ...(record.structuralLogs || []), ...(record.pileLogs || [])]
 
                                                             let percent = 0
                                                             let status = 'active'
 
                                                             // Calc Logic
-                                                            const hasConcrete = consumptions.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0)
+                                                            const hasConcrete = allLogs.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0 || Number(d.actual_concrete_qty) > 0)
                                                             const hasRebar = allLogs.some((l: any) => l.cage_id_ref)
-                                                            const maxDepth = Math.max(0, ...allLogs.map((l: any) => Number(l.actual_depth || 0)))
+                                                            const maxDepth = Math.max(0, ...allLogs.map((l: any) => Number(l.actual_depth || l.grabbing_depth || l.achieved_depth || 0)))
                                                             const designDepth = Number(record.design_depth || 1)
 
                                                             if (hasConcrete) {
@@ -554,10 +552,8 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                                         title: 'Status',
                                                         key: 'status',
                                                         width: 120,
-                                                        render: (_, record) => {
-                                                            const dprs = record.dprRecords || []
-                                                            const consumptions = record.consumptions || []
-                                                            const allLogs = [...consumptions, ...dprs]
+                                                        render: (_, record: any) => {
+                                                            const allLogs = [...(record.consumptions || []), ...(record.dprRecords || []), ...(record.structuralLogs || []), ...(record.pileLogs || [])]
 
                                                             const qcIssues: string[] = []
                                                             allLogs.forEach((log: any) => {
@@ -566,13 +562,13 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                                             })
                                                             if (qcIssues.length > 0) return <Tag color="red">QC: {qcIssues.join(',')}</Tag>
 
-                                                            const hasConcrete = consumptions.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0)
+                                                            const hasConcrete = allLogs.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0 || Number(d.actual_concrete_qty) > 0)
                                                             if (hasConcrete) return <Tag color="green">Done</Tag>
 
                                                             const hasRebar = allLogs.some((l: any) => l.cage_id_ref)
                                                             if (hasRebar) return <Tag color="blue">Rebar</Tag>
 
-                                                            const hasExcavation = allLogs.some((l: any) => Number(l.actual_depth) > 0)
+                                                            const hasExcavation = allLogs.some((l: any) => Number(l.actual_depth || l.grabbing_depth || l.achieved_depth) > 0)
                                                             if (hasExcavation) return <Tag color="gold">Digging</Tag>
 
                                                             return <Tag>Planned</Tag>
@@ -582,9 +578,9 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                                         title: 'Excavated Depth',
                                                         key: 'depth_current',
                                                         width: 120,
-                                                        render: (_, record) => {
-                                                            const allLogs = [...(record.dprRecords || []), ...(record.consumptions || [])]
-                                                            const maxDepth = Math.max(0, ...allLogs.map((l: any) => Number(l.actual_depth || 0)))
+                                                        render: (_, record: any) => {
+                                                            const allLogs = [...(record.dprRecords || []), ...(record.consumptions || []), ...(record.structuralLogs || []), ...(record.pileLogs || [])]
+                                                            const maxDepth = Math.max(0, ...allLogs.map((l: any) => Number(l.actual_depth || l.grabbing_depth || l.achieved_depth || 0)))
                                                             return maxDepth > 0 ? <Text strong>{maxDepth.toFixed(2)}m</Text> : '-'
                                                         }
                                                     },
@@ -593,8 +589,8 @@ const ProjectPanels = ({ projectId }: ProjectPanelsProps) => {
                                                         key: 'action',
                                                         width: 100,
                                                         fixed: 'right',
-                                                        render: (_, record) => {
-                                                            const hasDPR = (record.dprRecords?.length > 0) || (record.consumptions?.length > 0)
+                                                        render: (_, record: any) => {
+                                                            const hasDPR = (record.dprRecords?.length > 0) || (record.consumptions?.length > 0) || (record.structuralLogs?.length > 0) || (record.pileLogs?.length > 0)
                                                             const canEdit = !hasDPR || isAdmin
                                                             return (
                                                                 <Space size={0}>

@@ -40,6 +40,11 @@ const seedDatabase = async () => {
       { name: 'leads.read', module: 'leads', action: 'read', description: 'View leads' },
       { name: 'leads.update', module: 'leads', action: 'update', description: 'Update leads' },
 
+      // Clients
+      { name: 'clients.create', module: 'clients', action: 'create', description: 'Create clients' },
+      { name: 'clients.read', module: 'clients', action: 'read', description: 'View clients' },
+      { name: 'clients.update', module: 'clients', action: 'update', description: 'Update clients' },
+
       // Quotations
       { name: 'quotations.create', module: 'quotations', action: 'create', description: 'Create quotations' },
       { name: 'quotations.read', module: 'quotations', action: 'read', description: 'View quotations' },
@@ -55,31 +60,68 @@ const seedDatabase = async () => {
       { name: 'warehouses.read', module: 'warehouses', action: 'read', description: 'View warehouses' },
       { name: 'warehouses.update', module: 'warehouses', action: 'update', description: 'Update warehouses' },
 
-      // Store Transactions
-      { name: 'store.create', module: 'store', action: 'create', description: 'Create store transactions' },
-      { name: 'store.read', module: 'store', action: 'read', description: 'View store transactions' },
-      { name: 'store.approve', module: 'store', action: 'approve', description: 'Approve store transactions' },
+      // Vendors
+      { name: 'vendors.create', module: 'vendors', action: 'create', description: 'Create vendors' },
+      { name: 'vendors.read', module: 'vendors', action: 'read', description: 'View vendors' },
+      { name: 'vendors.update', module: 'vendors', action: 'update', description: 'Update vendors' },
 
-      // Material Requisitions
+      // Procurement
       { name: 'requisitions.create', module: 'requisitions', action: 'create', description: 'Create material requisitions' },
       { name: 'requisitions.read', module: 'requisitions', action: 'read', description: 'View material requisitions' },
       { name: 'requisitions.update', module: 'requisitions', action: 'update', description: 'Update material requisitions' },
       { name: 'requisitions.approve', module: 'requisitions', action: 'approve', description: 'Approve material requisitions' },
+      { name: 'purchase_orders.create', module: 'procurement', action: 'create', description: 'Create purchase orders' },
+      { name: 'purchase_orders.read', module: 'procurement', action: 'read', description: 'View purchase orders' },
+      { name: 'purchase_orders.approve', module: 'procurement', action: 'approve', description: 'Approve purchase orders' },
 
-      // DPR
+      // Inventory
+      { name: 'inventory.grn', module: 'inventory', action: 'create', description: 'Create GRN' },
+      { name: 'inventory.stn', module: 'inventory', action: 'create', description: 'Create STN' },
+      { name: 'inventory.srn', module: 'inventory', action: 'create', description: 'Create SRN' },
+      { name: 'inventory.stock', module: 'inventory', action: 'read', description: 'View stock reports' },
+      { name: 'inventory.adjustment', module: 'inventory', action: 'create', description: 'Adjust stock levels' },
+      { name: 'store.create', module: 'store', action: 'create', description: 'Create store transactions' },
+      { name: 'store.read', module: 'store', action: 'read', description: 'View store transactions' },
+      { name: 'store.approve', module: 'store', action: 'approve', description: 'Approve store transactions' },
+
+      // Operations
+      { name: 'work_orders.create', module: 'operations', action: 'create', description: 'Create work orders' },
+      { name: 'work_orders.read', module: 'operations', action: 'read', description: 'View work orders' },
       { name: 'dpr.create', module: 'dpr', action: 'create', description: 'Create DPR' },
       { name: 'dpr.read', module: 'dpr', action: 'read', description: 'View DPR' },
       { name: 'dpr.update', module: 'dpr', action: 'update', description: 'Update DPR' },
+      { name: 'bar_bending.create', module: 'operations', action: 'create', description: 'Create BBS' },
+      { name: 'bar_bending.read', module: 'operations', action: 'read', description: 'View BBS' },
 
       // Expenses
       { name: 'expenses.create', module: 'expenses', action: 'create', description: 'Create expenses' },
       { name: 'expenses.read', module: 'expenses', action: 'read', description: 'View expenses' },
       { name: 'expenses.approve', module: 'expenses', action: 'approve', description: 'Approve expenses' },
 
+      // Finance
+      { name: 'finance.transactions', module: 'finance', action: 'manage', description: 'Manage financial transactions' },
+      { name: 'finance.reports', module: 'finance', action: 'read', description: 'View financial reports' },
+
       // Equipment
       { name: 'equipment.create', module: 'equipment', action: 'create', description: 'Create equipment' },
       { name: 'equipment.read', module: 'equipment', action: 'read', description: 'View equipment' },
       { name: 'equipment.update', module: 'equipment', action: 'update', description: 'Update equipment' },
+
+      // Documents
+      { name: 'drawings.create', module: 'documents', action: 'create', description: 'Upload drawings' },
+      { name: 'drawings.read', module: 'documents', action: 'read', description: 'View drawings' },
+      { name: 'drawings.delete', module: 'documents', action: 'delete', description: 'Delete drawings' },
+
+      // Master Data
+      { name: 'master.units', module: 'master', action: 'manage', description: 'Manage unit master' },
+      { name: 'master.branches', module: 'master', action: 'manage', description: 'Manage billing units' },
+      { name: 'master.annexures', module: 'master', action: 'manage', description: 'Manage annexures' },
+      { name: 'master.work_templates', module: 'master', action: 'manage', description: 'Manage work templates' },
+
+      // Administration
+      { name: 'admin.users', module: 'admin', action: 'manage', description: 'Manage users' },
+      { name: 'admin.roles', module: 'admin', action: 'manage', description: 'Manage roles and permissions' },
+      { name: 'admin.settings', module: 'admin', action: 'manage', description: 'Manage system settings' },
     ]
 
     await Permission.bulkCreate(permissions, { ignoreDuplicates: true })

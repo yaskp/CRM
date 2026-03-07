@@ -42,9 +42,11 @@ const DrawingVisualizer = ({ panels, loading }: DrawingVisualizerProps) => {
         }
 
         // 2. Check for Green (Concreted)
-        const hasConcrete = consumptions.some((c: any) =>
-            (c.rmcLogs && c.rmcLogs.length > 0)
-        ) || allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0)
+        // Check structural logs first if they exist
+        const hasConcrete = panel.structuralLogs?.some((p: any) => p.actual_concrete_qty > 0) ||
+            panel.pileLogs?.some((p: any) => p.actual_concrete_qty > 0) ||
+            consumptions.some((c: any) => (c.rmcLogs && c.rmcLogs.length > 0)) ||
+            allLogs.some((d: any) => Number(d.concrete_quantity_cubic_meter) > 0)
 
         if (hasConcrete) {
             return {
@@ -56,20 +58,26 @@ const DrawingVisualizer = ({ panels, loading }: DrawingVisualizerProps) => {
         }
 
         // 3. Check for Blue (Rebar Lowered)
-        const hasRebar = allLogs.some((l: any) => l.cage_id_ref)
+        const hasRebar = panel.structuralLogs?.some((p: any) => p.cage_id_ref) ||
+            panel.pileLogs?.some((p: any) => p.steel_installed > 0) ||
+            allLogs.some((l: any) => l.cage_id_ref)
+
         if (hasRebar) {
             return {
                 status: 'Rebar Lowered',
                 color: '#3b82f6', // Blue
                 icon: <SafetyCertificateFilled />,
-                description: 'Cage Lowering Complete'
+                description: 'Cage Lowering Complete / Steel Installed'
             }
         }
 
         // 4. Check for Yellow (Excavating)
-        const hasExcavation = allLogs.some((l: any) => Number(l.actual_depth) > 0)
-        if (hasExcavation) {
-            const maxDepth = Math.max(...allLogs.map(l => Number(l.actual_depth || 0)))
+        const maxDepthLogs = Math.max(0, ...allLogs.map(l => Number(l.actual_depth || 0)))
+        const maxDepthPanel = Math.max(0, ...(panel.structuralLogs || []).map((l: any) => Number(l.grabbing_depth || 0)))
+        const maxDepthPile = Math.max(0, ...(panel.pileLogs || []).map((l: any) => Number(l.achieved_depth || 0)))
+        const maxDepth = Math.max(maxDepthLogs, maxDepthPanel, maxDepthPile)
+
+        if (maxDepth > 0) {
             return {
                 status: 'Excavating',
                 color: '#eab308', // Yellow

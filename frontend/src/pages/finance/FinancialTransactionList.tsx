@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Table, Tag, Button, Space, DatePicker, Select, Typography, message } from 'antd'
 import {
-    DollarOutlined,
+    WalletOutlined,
     PlusOutlined,
     SearchOutlined,
     FileTextOutlined,
@@ -165,7 +165,7 @@ const FinancialTransactionList = () => {
             <PageHeader
                 title="Financial Transactions"
                 subtitle="Central ledger for all payments, receipts, and bank movements across the project lifecycle."
-                icon={<DollarOutlined />}
+                icon={<WalletOutlined />}
                 extra={
                     <Space wrap>
                         <Button
@@ -188,6 +188,8 @@ const FinancialTransactionList = () => {
                         style={{ width: 250, ...largeInputStyle }}
                         size="large"
                         allowClear
+                        showSearch
+                        optionFilterProp="children"
                         onChange={(val) => setFilters({ ...filters, project_id: val })}
                     >
                         {projects.map((p: any) => (

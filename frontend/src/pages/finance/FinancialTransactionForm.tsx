@@ -3,7 +3,7 @@ import { Form, Button, Card, App, Select, Input, InputNumber, Space, Typography,
 import {
     DeleteOutlined,
     SaveOutlined,
-    DollarCircleOutlined,
+    WalletOutlined,
     BankOutlined,
     InfoCircleOutlined,
     SafetyCertificateOutlined
@@ -204,7 +204,7 @@ const FinancialTransactionForm = () => {
             <PageHeader
                 title="Record Financial Transaction"
                 subtitle="Manage payments to vendors, receipts from clients, or general project expenses."
-                icon={<DollarCircleOutlined />}
+                icon={<WalletOutlined />}
             />
 
             <Form form={form} layout="vertical" onFinish={onFinish} initialValues={{ transaction_date: dayjs(), payment_mode: 'neft' }}>
@@ -380,7 +380,7 @@ const FinancialTransactionForm = () => {
                                     )}
                                 </SectionCard>
 
-                                <SectionCard title="Payment Allocation" icon={<DollarCircleOutlined />}>
+                                <SectionCard title="Payment Allocation" icon={<WalletOutlined />}>
                                     {selectedAllocations.length === 0 ? <Text type="secondary">Select pending items to allocate payment.</Text> : (
                                         <div>
                                             {selectedAllocations.map((a, index) => (

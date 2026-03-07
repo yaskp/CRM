@@ -201,7 +201,8 @@ export const importWorkTemplates = async (req: Request, res: Response, next: Nex
                             await WorkTemplateItem.create({
                                 template_id: template.id,
                                 work_item_type_id: workItemType.id,
-                                item_type: (row.item_type || 'labour').toLowerCase(),
+                                parent_work_item_type_id: workItemType.parent_id,
+                                item_type: (row.item_type || 'labour').toLowerCase() as any,
                                 description: row.item_description || workItemType.name,
                                 unit: row.item_unit || workItemType.uom,
                                 sort_order: index

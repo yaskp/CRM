@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Descriptions, Tag, Button, Table, Space, message, Row, Col, Typography, Image } from 'antd'
+import { Descriptions, Tag, Button, Table, Space, message, Row, Col, Typography, Image, List } from 'antd'
 import {
   ArrowLeftOutlined,
   EditOutlined,
@@ -16,6 +16,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
+import { projectContactService } from '../../services/api/projectContacts'
 import { getPrimaryButtonStyle, getSecondaryButtonStyle } from '../../styles/styleUtils'
 
 const { Text, Paragraph } = Typography
@@ -25,6 +26,7 @@ const DPRDetails = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [log, setLog] = useState<any>(null)
+  const [projectContacts, setProjectContacts] = useState<any[]>([])
 
   useEffect(() => {
     if (id) {
@@ -37,6 +39,9 @@ const DPRDetails = () => {
     try {
       const response = await storeTransactionService.getTransaction(Number(id))
       setLog(response.transaction)
+      if (response.transaction?.project_id) {
+        fetchProjectContacts(response.transaction.project_id)
+      }
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to fetch report details')
     } finally {
@@ -44,10 +49,31 @@ const DPRDetails = () => {
     }
   }
 
+  const fetchProjectContacts = async (projectId: number) => {
+    try {
+      const res = await projectContactService.getProjectContacts(projectId)
+      setProjectContacts(res.contacts || [])
+    } catch (error) {
+      console.error('Failed to fetch project contacts', error)
+    }
+  }
+
   if (!log) return null
 
-  const manpowerList = log.manpower_data ? JSON.parse(log.manpower_data) : []
-  const photoList = log.progress_photos ? JSON.parse(log.progress_photos) : []
+  const safeParse = (data: any, fallback: any = []) => {
+    if (!data) return fallback
+    try {
+      return typeof data === 'string' ? JSON.parse(data) : data
+    } catch (e) {
+      console.error('Failed to parse JSON:', e)
+      return fallback
+    }
+  }
+
+  const manpowerList = log.manpowerLogs && log.manpowerLogs.length > 0
+    ? log.manpowerLogs
+    : safeParse(log.manpower_data)
+  const photoList = safeParse(log.progress_photos)
 
   const materialColumns = [
     {
@@ -217,63 +243,88 @@ const DPRDetails = () => {
           </Col>
         </Row>
 
-        {/* 2. Achievements & Consumption */}
-        <SectionCard title="Activities & Consumption" icon={<FileTextOutlined />}>
-          <Table
-            dataSource={log.items}
-            columns={materialColumns}
-            pagination={false}
-            rowKey="id"
-            bordered
-            size="middle"
-            scroll={{ x: 800 }}
-          />
-        </SectionCard>
+        {/* 2. Achievements & Consumption (Only if items exist) */}
+        {log.items && log.items.length > 0 && (
+          <SectionCard title="Activities & Consumption" icon={<FileTextOutlined />}>
+            <Table
+              dataSource={log.items}
+              columns={materialColumns}
+              pagination={false}
+              rowKey="id"
+              bordered
+              size="middle"
+              scroll={{ x: 800 }}
+            />
+          </SectionCard>
+        )}
 
-        {/* 2B. D-Wall Specialized Technical Logs */}
-        {log.drawing_panel_id && (
-          <Row gutter={[24, 24]}>
-            <Col xs={24} lg={14}>
-              <SectionCard title="QC & Technical Compliance Logs" icon={<CheckCircleOutlined />}>
-                <Descriptions bordered column={{ xs: 1, sm: 2 }} size="small">
-                  <Descriptions.Item label="Actual Depth"><b>{log.actual_depth || '-'} m</b></Descriptions.Item>
-                  <Descriptions.Item label="Cage ID">{log.cage_id_ref || '-'}</Descriptions.Item>
-                  <Descriptions.Item label="Verticality X">{log.verticality_x || '-'} %</Descriptions.Item>
-                  <Descriptions.Item label="Verticality Y">{log.verticality_y || '-'} %</Descriptions.Item>
-                  <Descriptions.Item label="Slurry Density">{log.slurry_density || '-'} g/cc</Descriptions.Item>
-                  <Descriptions.Item label="Sand Content">{log.slurry_sand_content || '-'} %</Descriptions.Item>
-                  <Descriptions.Item label="Marsh Viscosity">{log.slurry_viscosity || '-'} sec</Descriptions.Item>
-                  <Descriptions.Item label="Slump Flow">{log.slump_flow || '-'} mm</Descriptions.Item>
-                  <Descriptions.Item label="Start / End Time">
-                    <Tag color="blue">{log.start_time || '-'}</Tag> to <Tag color="blue">{log.end_time || '-'}</Tag>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Theoretical Qty">{log.theoretical_concrete_qty || '-'} cum</Descriptions.Item>
-                  <Descriptions.Item label="Overbreak (%)">
-                    <Tag color={Number(log.overbreak_percentage) > 15 ? 'error' : 'success'}>
-                      {log.overbreak_percentage || '0'} %
-                    </Tag>
-                  </Descriptions.Item>
-                </Descriptions>
-              </SectionCard>
-            </Col>
-            <Col xs={24} lg={10}>
-              <SectionCard title="RMC Delivery Details" icon={<DashboardOutlined />}>
-                <Table
-                  dataSource={log.rmcLogs || []}
-                  size="small"
-                  pagination={false}
-                  rowKey="id"
-                  scroll={{ x: 'max-content' }}
-                  columns={[
-                    { title: 'Truck', dataIndex: 'vehicle_no' },
-                    { title: 'Qty', dataIndex: 'quantity', align: 'right' },
-                    { title: 'Slump', dataIndex: 'slump', align: 'right' },
-                    { title: 'In-Out', render: (_, r: any) => <Text style={{ fontSize: 10 }}>{r.in_time}-{r.out_time}</Text> }
-                  ]}
-                />
-              </SectionCard>
-            </Col>
-          </Row>
+        {/* 2B. Structural Progress (Execution QC) - Dynamic by Panel/Pile logs */}
+        {(log.panelWorkLogs && log.panelWorkLogs.length > 0) && (
+          <SectionCard title="Structural Progress (Panel Execution QC)" icon={<CheckCircleOutlined />}>
+            <Table
+              dataSource={log.panelWorkLogs}
+              size="small"
+              pagination={false}
+              bordered
+              rowKey="id"
+              scroll={{ x: 1200 }}
+              columns={[
+                { title: 'Panel', dataIndex: 'panel_identifier', fixed: 'left', width: 100 },
+                { title: 'Grab Depth', dataIndex: 'grabbing_depth', render: (v) => `${v || 0}m` },
+                { title: 'Grab SQM', dataIndex: 'grabbing_sqm', render: (v) => `${v || 0} m²` },
+                { title: 'Grab Time', render: (_, r: any) => <Text style={{ fontSize: 11 }}>{r.grabbing_start_time}-{r.grabbing_end_time}</Text> },
+                { title: 'Conc. Time', render: (_, r: any) => <Text style={{ fontSize: 11 }}>{r.concrete_start_time}-{r.concrete_end_time}</Text> },
+                { title: 'Grade', dataIndex: 'concrete_grade' },
+                { title: 'Theoretical', dataIndex: 'theoretical_concrete_qty', render: (v) => `${v || 0} cum` },
+                { title: 'Actual', dataIndex: 'actual_concrete_qty', render: (v) => <Text strong color="#0d9488">{v || 0} cum</Text> },
+                { title: 'Cage ID', dataIndex: 'cage_id_ref' },
+              ]}
+            />
+          </SectionCard>
+        )}
+
+        {(log.pileWorkLogs && log.pileWorkLogs.length > 0) && (
+          <SectionCard title="Structural Progress (Pile Execution QC)" icon={<CheckCircleOutlined />}>
+            <Table
+              dataSource={log.pileWorkLogs}
+              size="small"
+              pagination={false}
+              bordered
+              rowKey="id"
+              scroll={{ x: 1000 }}
+              columns={[
+                { title: 'Pile No', dataIndex: 'pile_identifier', fixed: 'left', width: 100 },
+                { title: 'Achieved Depth', dataIndex: 'achieved_depth', render: (v) => `${v || 0}m` },
+                { title: 'Rock Socket', dataIndex: 'rock_socket_length', render: (v) => `${v || 0}m` },
+                { title: 'Work Time', render: (_, r: any) => <Text style={{ fontSize: 11 }}>{r.start_time}-{r.end_time}</Text> },
+                { title: 'Conc. Poured', dataIndex: 'actual_concrete_qty', render: (v) => `${v || 0} cum` },
+                { title: 'Grade', dataIndex: 'concrete_grade' },
+                { title: 'Steel (MT)', dataIndex: 'steel_installed' },
+                { title: 'Rig ID', dataIndex: 'rig_id' },
+                { title: 'Slump', dataIndex: 'slump_test' },
+              ]}
+            />
+          </SectionCard>
+        )}
+
+        {/* 2C. RMC Delivery Details (Only if logs exist) */}
+        {log.rmcLogs && log.rmcLogs.length > 0 && (
+          <SectionCard title="RMC Delivery Details" icon={<DashboardOutlined />}>
+            <Table
+              dataSource={log.rmcLogs || []}
+              size="small"
+              pagination={false}
+              rowKey="id"
+              bordered
+              scroll={{ x: 'max-content' }}
+              columns={[
+                { title: 'Truck No', dataIndex: 'vehicle_no' },
+                { title: 'Quantity', dataIndex: 'quantity', align: 'right', render: (v) => <b>{v} cum</b> },
+                { title: 'Slump', dataIndex: 'slump', align: 'right' },
+                { title: 'In-Out Time', render: (_, r: any) => <Text style={{ fontSize: 11 }}>{r.in_time || '-'} to {r.out_time || '-'}</Text> }
+              ]}
+            />
+          </SectionCard>
         )}
 
         {/* 3. Manpower & Site Conditions */}
@@ -284,7 +335,7 @@ const DPRDetails = () => {
                 dataSource={manpowerList}
                 size="small"
                 pagination={false}
-                rowKey={(r: any) => r.worker_type || Math.random()}
+                rowKey={(r: any) => r.id || r.tempId || r.worker_type || Math.random()}
                 scroll={{ x: 'max-content' }}
                 columns={[
                   { title: 'Category', dataIndex: 'worker_type' },
@@ -296,15 +347,89 @@ const DPRDetails = () => {
             </SectionCard>
           </Col>
           <Col xs={24} lg={12}>
-            <SectionCard title="Site Conditions" icon={<CloudOutlined />}>
-              <Descriptions column={{ xs: 1, sm: 2 }} size="small" bordered>
-                <Descriptions.Item label="Weather">{log.weather_condition || 'Clear'}</Descriptions.Item>
-                <Descriptions.Item label="Work Hours">{log.work_hours || 'N/A'}</Descriptions.Item>
-                <Descriptions.Item label="Temperature">{log.temperature ? `${log.temperature}°C` : 'N/A'}</Descriptions.Item>
-              </Descriptions>
+            <SectionCard title="Allocated Project Team (Current Site Management)" icon={<TeamOutlined />}>
+              <List
+                dataSource={projectContacts}
+                size="small"
+                renderItem={(member: any) => (
+                  <List.Item style={{ padding: '8px 0' }}>
+                    <div style={{ width: '100%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          background: ['client_contact', 'decision_maker', 'accounts'].includes(member.contact_type) ? '#fee2e2' :
+                            member.contact_type === 'labour_contractor' ? '#f0fdf4' : '#e0f2fe',
+                          color: ['client_contact', 'decision_maker', 'accounts'].includes(member.contact_type) ? '#991b1b' :
+                            member.contact_type === 'labour_contractor' ? '#166534' : '#0369a1',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 'bold',
+                          fontSize: '11px'
+                        }}>
+                          {member.name?.charAt(0)}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 600, fontSize: '12px' }}>{member.name}</div>
+                          <div style={{ fontSize: '10px', color: '#64748b' }}>
+                            {member.contact_type === 'labour_contractor' ? (member.company_name || 'Labour Contractor') : (member.contact_type?.replace('_', ' ') || member.designation)}
+                          </div>
+                        </div>
+                        {member.contact_type === 'labour_contractor' && (
+                          <Tag color="green" style={{ margin: 0, fontSize: '10px' }}>
+                            L:{member.labour_count} H:{member.helper_count} O:{member.operator_count}
+                          </Tag>
+                        )}
+                      </div>
+                    </div>
+                  </List.Item>
+                )}
+                locale={{ emptyText: 'No team data' }}
+              />
             </SectionCard>
           </Col>
         </Row>
+
+        {/* Machinery Breakdowns */}
+        {(log.machinery_breakdowns || log.machineryBreakdownLogs?.length > 0) && (
+          <SectionCard title="Machinery & Equipment Status" icon={<DashboardOutlined />}>
+            <Table
+              dataSource={log.machineryBreakdownLogs && log.machineryBreakdownLogs.length > 0
+                ? log.machineryBreakdownLogs
+                : safeParse(log.machinery_data, log.machinery_breakdowns || [])}
+              size="small"
+              pagination={false}
+              bordered
+              columns={[
+                { title: 'Equipment', dataIndex: 'equipment_name' },
+                { title: 'Type', dataIndex: 'equipment_type', render: (val: string) => <Tag>{val?.toUpperCase()}</Tag> },
+                { title: 'Reg. No', dataIndex: 'registration_number' },
+                { title: 'Start', dataIndex: 'breakdown_start' },
+                { title: 'End', dataIndex: 'breakdown_end' },
+                { title: 'Hours', dataIndex: 'breakdown_hours', align: 'right' },
+                { title: 'Reason', dataIndex: 'breakdown_reason' },
+                {
+                  title: 'Status',
+                  dataIndex: 'status',
+                  render: (status: string) => (
+                    <Tag color={status === 'resolved' ? 'success' : 'warning'}>{status?.toUpperCase()}</Tag>
+                  )
+                }
+              ]}
+            />
+          </SectionCard>
+        )}
+
+        {/* Site Conditions */}
+        <SectionCard title="Site Conditions" icon={<CloudOutlined />}>
+          <Descriptions column={{ xs: 1, sm: 3 }} size="small" bordered>
+            <Descriptions.Item label="Weather">{log.weather_condition || 'Clear'}</Descriptions.Item>
+            <Descriptions.Item label="Work Hours">{log.work_hours || 'N/A'}</Descriptions.Item>
+            <Descriptions.Item label="Temperature">{log.temperature ? `${log.temperature}°C` : 'N/A'}</Descriptions.Item>
+          </Descriptions>
+        </SectionCard>
 
         {/* 4. Photos */}
         <SectionCard title="Site Progress Photos" icon={<CameraOutlined />}>

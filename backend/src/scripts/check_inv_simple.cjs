@@ -5,7 +5,7 @@ async function main() {
         host: 'localhost',
         user: 'root',
         password: 'root',
-        database: 'crm_construction'
+        database: 'crm_1'
     });
     const [rows] = await connection.execute('DESCRIBE inventory');
     console.log(JSON.stringify(rows, null, 2));

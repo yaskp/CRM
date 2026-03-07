@@ -207,6 +207,10 @@ export const getQuotation = async (req: AuthRequest, res: Response, next: NextFu
       include: [
         {
           association: 'items',
+          include: [
+            { association: 'workItemType', attributes: ['id', 'name', 'code'] },
+            { association: 'parentWorkItemType', attributes: ['id', 'name', 'code'] }
+          ]
         },
         {
           association: 'lead',

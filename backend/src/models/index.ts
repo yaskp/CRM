@@ -60,6 +60,7 @@ import DPRRmcLog from './DPRRmcLog'
 import DPRPanelWorkLog from './DPRPanelWorkLog'
 import DPRPileWorkLog from './DPRPileWorkLog'
 import DPRManpowerLog from './DPRManpowerLog'
+import DPRMachineryBreakdownLog from './DPRMachineryBreakdownLog'
 import FinancialTransaction from './FinancialTransaction'
 import PaymentAllocation from './PaymentAllocation'
 import DrawingPanelAnchor from './DrawingPanelAnchor'
@@ -122,6 +123,8 @@ Lead.hasMany(Quotation, { foreignKey: 'lead_id', as: 'quotations' })
 
 QuotationItem.belongsTo(Quotation, { foreignKey: 'quotation_id', as: 'quotation' })
 Quotation.hasMany(QuotationItem, { foreignKey: 'quotation_id', as: 'items' })
+QuotationItem.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+QuotationItem.belongsTo(WorkItemType, { foreignKey: 'parent_work_item_type_id', as: 'parentWorkItemType' })
 
 WorkOrder.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 Project.hasMany(WorkOrder, { foreignKey: 'project_id', as: 'workOrders' })
@@ -132,6 +135,8 @@ WorkOrder.hasMany(PaymentAllocation, { foreignKey: 'work_order_id', as: 'payment
 
 WorkOrderItem.belongsTo(WorkOrder, { foreignKey: 'work_order_id', as: 'workOrder' })
 WorkOrder.hasMany(WorkOrderItem, { foreignKey: 'work_order_id', as: 'items' })
+WorkOrderItem.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+WorkOrderItem.belongsTo(WorkItemType, { foreignKey: 'parent_work_item_type_id', as: 'parentWorkItemType' })
 
 Warehouse.belongsTo(Company, { foreignKey: 'company_id', as: 'company' })
 Warehouse.belongsTo(User, { foreignKey: 'warehouse_manager_id', as: 'manager' })
@@ -192,10 +197,17 @@ StoreTransaction.hasMany(DPRManpowerLog, { foreignKey: 'transaction_id', as: 'ma
 DPRManpowerLog.belongsTo(StoreTransaction, { foreignKey: 'transaction_id', as: 'transaction' })
 DPRManpowerLog.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
 DPRManpowerLog.belongsTo(User, { foreignKey: 'user_id', as: 'staffUser' })
+
+// Normalized machinery breakdown logs (one row per breakdown event)
+StoreTransaction.hasMany(DPRMachineryBreakdownLog, { foreignKey: 'transaction_id', as: 'machineryBreakdownLogs' })
+DPRMachineryBreakdownLog.belongsTo(StoreTransaction, { foreignKey: 'transaction_id', as: 'transaction' })
+DPRMachineryBreakdownLog.belongsTo(Project, { foreignKey: 'project_id', as: 'project' })
+DPRMachineryBreakdownLog.belongsTo(Equipment, { foreignKey: 'equipment_id', as: 'equipment' })
 StoreTransactionItem.belongsTo(StoreTransaction, { foreignKey: 'transaction_id', as: 'transaction' })
 StoreTransactionItem.belongsTo(Material, { foreignKey: 'material_id', as: 'material' })
 StoreTransactionItem.belongsTo(PurchaseOrderItem, { foreignKey: 'po_item_id', as: 'poItem' })
 StoreTransactionItem.belongsTo(WorkItemType, { foreignKey: 'work_item_type_id', as: 'workItemType' })
+StoreTransactionItem.belongsTo(QuotationItem, { foreignKey: 'quotation_item_id', as: 'quotationItem' })
 StoreTransaction.belongsTo(ProjectBuilding, { foreignKey: 'to_building_id', as: 'toBuilding' })
 StoreTransaction.belongsTo(ProjectFloor, { foreignKey: 'to_floor_id', as: 'toFloor' })
 StoreTransaction.belongsTo(ProjectZone, { foreignKey: 'to_zone_id', as: 'toZone' })
@@ -272,6 +284,8 @@ Drawing.hasMany(DrawingPanel, { foreignKey: 'drawing_id', as: 'panels' })
 DrawingPanel.belongsTo(Drawing, { foreignKey: 'drawing_id', as: 'drawing' })
 DrawingPanel.belongsTo(User, { foreignKey: 'created_by', as: 'creator' })
 DrawingPanel.hasMany(StoreTransaction, { foreignKey: 'drawing_panel_id', as: 'consumptions' })
+DrawingPanel.hasMany(DPRPanelWorkLog, { foreignKey: 'drawing_panel_id', as: 'structuralLogs' })
+DrawingPanel.hasMany(DPRPileWorkLog, { foreignKey: 'drawing_panel_id', as: 'pileLogs' })
 DrawingPanel.hasMany(PanelProgress, { foreignKey: 'panel_id', as: 'progress' })
 DrawingPanel.hasMany(DrawingPanelAnchor, { foreignKey: 'drawing_panel_id', as: 'anchors' })
 PanelProgress.belongsTo(DrawingPanel, { foreignKey: 'panel_id', as: 'panel' })

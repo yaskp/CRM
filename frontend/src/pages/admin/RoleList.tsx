@@ -189,7 +189,7 @@ const RoleList = () => {
                 }}
             >
                 <Row justify="end">
-                    <Col xs={24} sm={auto} style={{ textAlign: window.innerWidth < 576 ? 'left' : 'right' }}>
+                    <Col xs={24} sm={6} style={{ textAlign: window.innerWidth < 576 ? 'left' : 'right' }}>
                         <Button
                             type="primary"
                             icon={<PlusOutlined />}

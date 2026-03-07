@@ -12,6 +12,7 @@ interface UserAttributes {
   password_hash: string
   company_id?: number
   is_active: boolean
+  location?: string
   last_login?: Date
   created_at?: Date
   updated_at?: Date
@@ -29,6 +30,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public password_hash!: string
   public company_id?: number
   public is_active!: boolean
+  public location?: string
   public last_login?: Date
 
   public readonly created_at!: Date
@@ -91,6 +93,10 @@ User.init(
     is_active: {
       type: DataTypes.BOOLEAN,
       defaultValue: true,
+    },
+    location: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
     },
     last_login: {
       type: DataTypes.DATE,

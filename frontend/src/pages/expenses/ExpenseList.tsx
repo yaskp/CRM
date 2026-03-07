@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Table, Card, Button, Tag, Space, Input, Select, DatePicker, message, Popconfirm, Modal, Image, Row, Col, Statistic, Typography, Tooltip, Avatar } from 'antd'
+import { Table, Card, Button, Tag, Space, Input, Select, message, Popconfirm, Modal, Image, Row, Col, Statistic, Typography, Tooltip, Avatar } from 'antd'
 import {
   PlusOutlined,
-  EyeOutlined,
   CheckOutlined,
   CloseOutlined,
-  MoneyCollectOutlined,
   CalendarOutlined,
-  ProjectOutlined,
   SolutionOutlined,
   SearchOutlined,
   FilterOutlined,
@@ -21,7 +18,7 @@ import { expenseService } from '../../services/api/expenses'
 import { projectService } from '../../services/api/projects'
 import dayjs from 'dayjs'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
-import { getPrimaryButtonStyle, getSecondaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
 const { Search } = Input

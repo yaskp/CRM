@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography, Divider, Tag } from 'antd'
+import { Form, Input, Button, message, Select, DatePicker, InputNumber, Table, Space, Row, Col, Typography } from 'antd'
 import {
-    SaveOutlined,
     PlusOutlined,
     DeleteOutlined,
     AuditOutlined,
@@ -9,10 +8,9 @@ import {
     BlockOutlined,
     FileTextOutlined,
     InfoCircleOutlined,
-    ProjectOutlined,
-    DeploymentUnitOutlined
+    ProjectOutlined
 } from '@ant-design/icons'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { storeTransactionService } from '../../services/api/storeTransactions'
 import { materialService } from '../../services/api/materials'
 import { warehouseService } from '../../services/api/warehouses'
@@ -24,19 +22,17 @@ import dayjs from 'dayjs'
 import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
 import {
     getPrimaryButtonStyle,
-    getSecondaryButtonStyle,
-    largeInputStyle,
     getLabelStyle,
     flexBetweenStyle,
     actionCardStyle,
     twoColumnGridStyle,
     threeColumnGridStyle
 } from '../../styles/styleUtils'
-import { theme } from '../../styles/theme'
+
 
 const { TextArea } = Input
 const { Option } = Select
-const { Text, Title } = Typography
+const { Text } = Typography
 
 const ConsumptionForm = () => {
     const [form] = Form.useForm()
@@ -52,7 +48,6 @@ const ConsumptionForm = () => {
     const [stockMap, setStockMap] = useState<Record<number, number>>({})
 
     const navigate = useNavigate()
-    const { id } = useParams()
 
     useEffect(() => {
         fetchMetadata()

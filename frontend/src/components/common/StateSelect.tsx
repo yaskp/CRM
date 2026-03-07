@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Select, message } from 'antd'
+import { Select } from 'antd'
 import { masterService } from '../../services/api/master'
 
 interface StateSelectProps {

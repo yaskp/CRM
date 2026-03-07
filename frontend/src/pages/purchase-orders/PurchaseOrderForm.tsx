@@ -326,7 +326,7 @@ const PurchaseOrderForm = () => {
                             unit: bi.unit,
                             unit_price: Number(bi.estimated_rate) || 0,
                             tax_percentage: Number(bi.material?.gst_rate) || 0
-                        })).filter(item => item.quantity > 0)
+                        })).filter((item: { quantity: number }) => item.quantity > 0)
 
                         if (formItems.length > 0) {
                             form.setFieldsValue({ items: formItems })
@@ -419,7 +419,7 @@ const PurchaseOrderForm = () => {
         let totalIGST = 0
         let grandTotal = 0
 
-        items.forEach((item: any) => {
+        items.forEach((item: { quantity?: number; unit_price?: number; tax_percentage?: number }) => {
             if (item) {
                 const qty = item.quantity || 0
                 const price = item.unit_price || 0

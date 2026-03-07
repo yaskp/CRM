@@ -5,7 +5,6 @@ import {
     PlusOutlined,
     DeleteOutlined,
     AuditOutlined,
-    HomeOutlined,
     BlockOutlined,
     FileTextOutlined,
     InfoCircleOutlined,
@@ -22,25 +21,23 @@ import { materialService } from '../../services/api/materials'
 import { warehouseService } from '../../services/api/warehouses'
 import { projectService } from '../../services/api/projects'
 import { projectHierarchyService } from '../../services/api/projectHierarchy'
-import { inventoryService } from '../../services/api/inventory'
+
 import { workItemTypeService } from '../../services/api/workItemTypes'
 import dayjs from 'dayjs'
-import { PageContainer, PageHeader, SectionCard, InfoCard } from '../../components/common/PremiumComponents'
+import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'
 import {
     getPrimaryButtonStyle,
     getSecondaryButtonStyle,
-    largeInputStyle,
     getLabelStyle,
     flexBetweenStyle,
     actionCardStyle,
     threeColumnGridStyle
 } from '../../styles/styleUtils'
-import { theme } from '../../styles/theme'
 import type { UploadFile } from 'antd/es/upload/interface'
 
 const { TextArea } = Input
 const { Option } = Select
-const { Text, Title } = Typography
+const { Text } = Typography
 
 interface MaterialItem {
     material_id?: number
@@ -71,7 +68,6 @@ const DailyWorkLog = () => {
     const [workItemTypes, setWorkItemTypes] = useState<any[]>([])
     const [items, setItems] = useState<MaterialItem[]>([])
     const [manpower, setManpower] = useState<ManpowerItem[]>([])
-    const [stockMap, setStockMap] = useState<Record<number, number>>({})
     const [photoList, setPhotoList] = useState<UploadFile[]>([])
     const [selectedWorkType, setSelectedWorkType] = useState<any>(null)
 
@@ -126,19 +122,6 @@ const DailyWorkLog = () => {
             const res = await projectHierarchyService.getZones(floorId)
             setZones(res.data || [])
             form.setFieldsValue({ zone_id: undefined })
-        } catch (e) {
-            console.error(e)
-        }
-    }
-
-    const fetchStock = async (warehouseId: number) => {
-        try {
-            const res = await inventoryService.getInventory({ warehouse_id: warehouseId, limit: 1000 })
-            const map: Record<number, number> = {}
-            res.inventory?.forEach((inv: any) => {
-                map[inv.material_id] = Number(inv.quantity)
-            })
-            setStockMap(map)
         } catch (e) {
             console.error(e)
         }
@@ -469,7 +452,6 @@ const DailyWorkLog = () => {
                                         size="large"
                                         showSearch
                                         optionFilterProp="children"
-                                        onChange={fetchStock}
                                     >
                                         {warehouses.map(w => <Option key={w.id} value={w.id}>{w.name}</Option>)}
                                     </Select>

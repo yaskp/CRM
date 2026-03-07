@@ -325,7 +325,7 @@ const WorkOrderForm = () => {
       title: 'Main Work Type',
       dataIndex: 'parent_work_item_type_id',
       width: '18%',
-      render: (value, _, index) => {
+      render: (value: number, _: any, index: number) => {
         const type = workItemTypes.find(t => t.id === value);
         if (sourceQuotationId) return <Text strong>{type ? type.name : ''}</Text>
         return (
@@ -352,7 +352,7 @@ const WorkOrderForm = () => {
       title: 'Sub-Work Type',
       dataIndex: 'work_item_type_id',
       width: '18%',
-      render: (value, record, index) => {
+      render: (value: number, record: WorkOrderItem, index: number) => {
         const type = workItemTypes.find(t => t.id === value);
         if (sourceQuotationId) return <Text>{type ? type.name : ''}</Text>
         return (
@@ -377,7 +377,7 @@ const WorkOrderForm = () => {
       title: 'Description',
       dataIndex: 'description',
       width: '24%',
-      render: (value, _, index) => {
+      render: (value: string, _: any, index: number) => {
         if (sourceQuotationId) return <Text type="secondary" style={{ fontSize: 13 }}>{value}</Text>
         return (
           <TextArea
@@ -393,7 +393,7 @@ const WorkOrderForm = () => {
       title: 'Qty',
       dataIndex: 'quantity',
       width: '8%',
-      render: (value, _, index) => sourceQuotationId ? <Text>{value}</Text> : (
+      render: (value: number, _: any, index: number) => sourceQuotationId ? <Text>{value}</Text> : (
         <InputNumber
           value={value}
           onChange={(val) => updateItem(index, 'quantity', val || 0)}
@@ -409,7 +409,7 @@ const WorkOrderForm = () => {
       title: 'Unit',
       dataIndex: 'unit',
       width: '8%',
-      render: (value, _, index) => sourceQuotationId ? <Text>{value}</Text> : (
+      render: (value: string, _: any, index: number) => sourceQuotationId ? <Text>{value}</Text> : (
         <Input
           value={value}
           onChange={(e) => updateItem(index, 'unit', e.target.value)}
@@ -422,7 +422,7 @@ const WorkOrderForm = () => {
       title: 'Rate (₹)',
       dataIndex: 'rate',
       width: '10%',
-      render: (value, _, index) => sourceQuotationId ? <Text strong>₹{value?.toLocaleString('en-IN')}</Text> : (
+      render: (value: number, _: any, index: number) => sourceQuotationId ? <Text strong>₹{value?.toLocaleString('en-IN')}</Text> : (
         <InputNumber
           value={value}
           onChange={(val) => updateItem(index, 'rate', val || 0)}

@@ -224,7 +224,7 @@ const CSVImportModal: React.FC<CSVImportModalProps> = ({
                             </Tag>
                             {(results.duplicates?.length || 0) > 0 && (
                                 <Tag color="warning" style={{ padding: '4px 12px', fontSize: 14 }}>
-                                    {results.duplicates.length} Duplicates Skipped
+                                    {results.duplicates?.length} Duplicates Skipped
                                 </Tag>
                             )}
                             {(results.errors?.length || 0) > 0 && (

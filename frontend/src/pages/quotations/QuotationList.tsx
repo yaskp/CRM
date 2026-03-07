@@ -22,7 +22,6 @@ import { theme } from '../../styles/theme'
 import { useAuth } from '../../context/AuthContext'
 
 
-const { Search } = Input
 const { Option } = Select
 const { Text } = Typography
 
@@ -40,6 +39,7 @@ interface Quotation {
 }
 
 const QuotationList = () => {
+  const { Search } = Input
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [loading, setLoading] = useState(false)
   const [filters, setFilters] = useState({

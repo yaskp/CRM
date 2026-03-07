@@ -5,8 +5,7 @@ import {
     ReloadOutlined,
     WalletOutlined,
     UserOutlined,
-    ClockCircleOutlined,
-    ArrowLeftOutlined
+    ClockCircleOutlined
 } from '@ant-design/icons'
 import { financeService } from '../../services/api/finance'
 import { PageContainer, PageHeader, SectionCard } from '../../components/common/PremiumComponents'

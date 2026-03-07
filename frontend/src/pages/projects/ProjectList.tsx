@@ -14,7 +14,6 @@ import { projectService } from '../../services/api/projects'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
 import {
   getPrimaryButtonStyle,
-  getSecondaryButtonStyle,
   largeInputStyle,
   prefixIconStyle
 } from '../../styles/styleUtils'

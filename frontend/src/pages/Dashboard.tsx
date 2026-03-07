@@ -21,7 +21,7 @@ import { PageContainer, PageHeader } from '../components/common/PremiumComponent
 import { getPrimaryButtonStyle, getSecondaryButtonStyle } from '../styles/styleUtils'
 import { theme } from '../styles/theme'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 
 const Dashboard = () => {
   const navigate = useNavigate()

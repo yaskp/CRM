@@ -13,7 +13,7 @@ export const getLabelStyle = (fontWeight: number = 500): CSSProperties => ({
 })
 
 // Button Styles
-export const getPrimaryButtonStyle = (minWidth: number = 160): CSSProperties => ({
+export const getPrimaryButtonStyle = (minWidth: string | number = 160): CSSProperties => ({
     borderRadius: theme.borderRadius.base,
     minWidth,
     height: 44,
@@ -23,7 +23,7 @@ export const getPrimaryButtonStyle = (minWidth: number = 160): CSSProperties => 
     boxShadow: theme.shadows.primary,
 })
 
-export const getSecondaryButtonStyle = (minWidth: number = 120): CSSProperties => ({
+export const getSecondaryButtonStyle = (minWidth: string | number = 120): CSSProperties => ({
     borderRadius: theme.borderRadius.base,
     minWidth,
     height: 44,

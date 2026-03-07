@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Form, Input, Button, Card, message, Switch, Typography, Select } from 'antd'
-import { HomeOutlined, NumberOutlined, EnvironmentOutlined, GlobalOutlined, BankOutlined, ShopOutlined, ProjectOutlined } from '@ant-design/icons'
+import { HomeOutlined, NumberOutlined, EnvironmentOutlined, GlobalOutlined, ProjectOutlined } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { warehouseService } from '../../services/api/warehouses'
 import { projectService } from '../../services/api/projects'

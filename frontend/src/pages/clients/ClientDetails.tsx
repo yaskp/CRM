@@ -10,7 +10,6 @@ import {
     ProjectOutlined,
     UserOutlined,
     IdcardOutlined,
-    ApartmentOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useParams } from 'react-router-dom'
 import { clientService } from '../../services/api/clients'
@@ -62,7 +61,6 @@ const ClientDetails = () => {
     const navigate = useNavigate()
     const { id } = useParams<{ id: string }>()
     const [client, setClient] = useState<Client | null>(null)
-    const [loading, setLoading] = useState(false)
     const [projects, setProjects] = useState<any[]>([])
 
     useEffect(() => {
@@ -73,14 +71,12 @@ const ClientDetails = () => {
     }, [id])
 
     const fetchClient = async () => {
-        setLoading(true)
         try {
             const response = await clientService.getClient(Number(id))
             setClient(response.client)
         } catch (error: any) {
             message.error(error.response?.data?.message || 'Failed to fetch client')
         } finally {
-            setLoading(false)
         }
     }
 

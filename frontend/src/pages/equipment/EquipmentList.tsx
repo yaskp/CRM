@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Table, Card, Button, Tag, Space, Input, Select, message, Row, Col, Statistic, Typography } from 'antd'
 import {
   PlusOutlined,
-  EyeOutlined,
   EditOutlined,
   SearchOutlined,
   SettingOutlined,

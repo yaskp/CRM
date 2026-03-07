@@ -1,10 +1,9 @@
 ﻿import { useEffect, useState } from 'react'
-import { Modal, Form, Row, Col, Input, Select, Divider, Typography } from 'antd'
+import { Modal, Form, Row, Col, Input, Divider, Typography } from 'antd'
 import PileDiagram from './PileDiagram'
 import { theme } from '../../styles/theme'
 
 const { Text } = Typography
-const { Option } = Select
 
 interface BatchPileModalProps {
     open: boolean

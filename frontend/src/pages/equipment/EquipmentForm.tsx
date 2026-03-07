@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, InputNumber, Row, Col, Space, Switch, Typography } from 'antd'
+import { Form, Input, Button, Card, message, Select, Space, Switch, Typography } from 'antd'
 import {
   SaveOutlined,
-  ArrowLeftOutlined,
   SettingOutlined,
   InfoCircleOutlined,
   ThunderboltOutlined,
@@ -24,13 +23,11 @@ import {
   getLabelStyle,
   flexBetweenStyle,
   actionCardStyle,
-  prefixIconStyle,
   twoColumnGridStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
 const { Option } = Select
-const { TextArea } = Input
 const { Text } = Typography
 
 const EquipmentForm = () => {

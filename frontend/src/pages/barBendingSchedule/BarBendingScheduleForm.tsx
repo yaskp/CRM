@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Form, Input, Button, Card, message, Select, InputNumber, Space, Row, Col, Typography } from 'antd'
 import {
   SaveOutlined,
-  ArrowLeftOutlined,
   DeploymentUnitOutlined,
   ProjectOutlined,
   FileTextOutlined,
@@ -27,7 +26,6 @@ import {
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
-const { TextArea } = Input
 const { Option } = Select
 const { Text } = Typography
 

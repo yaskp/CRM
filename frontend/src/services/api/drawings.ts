@@ -5,6 +5,7 @@ export interface CreateDrawingRequest {
   drawing_number?: string
   drawing_name?: string
   drawing_type?: string
+  description?: string
 }
 
 export interface MarkPanelRequest {

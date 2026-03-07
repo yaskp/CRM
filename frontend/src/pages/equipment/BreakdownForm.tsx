@@ -1,13 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, TimePicker, Typography } from 'antd'
+import { Form, Input, Button, Card, message, DatePicker, Row, Col, Space, TimePicker, Typography } from 'antd'
 import {
-  SaveOutlined,
-  ArrowLeftOutlined,
   WarningOutlined,
-  CalendarOutlined,
   ClockCircleOutlined,
   ToolOutlined,
-  FileTextOutlined,
   InfoCircleOutlined,
   CheckCircleOutlined
 } from '@ant-design/icons'
@@ -25,10 +21,8 @@ import {
   getLabelStyle,
   flexBetweenStyle,
   actionCardStyle,
-  prefixIconStyle,
   twoColumnGridStyle
 } from '../../styles/styleUtils'
-import { theme } from '../../styles/theme'
 
 const { TextArea } = Input
 const { Text } = Typography

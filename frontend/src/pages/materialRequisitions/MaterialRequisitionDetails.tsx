@@ -9,7 +9,6 @@ import {
     PrinterOutlined,
     CheckCircleOutlined,
     CloseCircleOutlined,
-    CheckOutlined,
     CloseOutlined,
     PlusOutlined
 } from '@ant-design/icons'
@@ -21,7 +20,7 @@ import { theme } from '../../styles/theme'
 import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from '../../styles/styleUtils'
 import { useAuth } from '../../context/AuthContext'
 
-const { Text, Title } = Typography
+const { Text } = Typography
 
 const MaterialRequisitionDetails = () => {
     const { id } = useParams()
@@ -75,19 +74,7 @@ const MaterialRequisitionDetails = () => {
         return colors[priority] || 'default'
     }
 
-    const openApprovalModal = () => {
-        if (!requisition) return
-        const items = requisition.items?.map((item: any) => ({
-            id: item.id,
-            material_id: item.material_id,
-            material: item.material,
-            requested_quantity: item.requested_quantity,
-            issued_quantity: item.requested_quantity, // Default to full approval
-            unit: item.unit
-        })) || []
-        setApprovalItems(items)
-        setApprovalModalVisible(true)
-    }
+
 
     const handleApprovalSubmit = async () => {
         try {
@@ -159,7 +146,7 @@ const MaterialRequisitionDetails = () => {
             title: 'Material',
             dataIndex: 'material',
             key: 'material',
-            render: (material: any, record: any) => (
+            render: (material: any) => (
                 <div>
                     <Text strong>{material?.name || 'Unknown Item'}</Text>
                     {material?.code && <div style={{ fontSize: '12px', color: theme.colors.neutral.gray500 }}>{material.code}</div>}

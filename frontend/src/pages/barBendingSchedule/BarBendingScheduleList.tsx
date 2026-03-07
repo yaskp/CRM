@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Card, Table, Button, Tag, Select, Space, message, Input, Row, Col, Statistic, Typography } from 'antd'
+import { Card, Table, Button, Tag, Select, Space, message, Row, Col, Statistic, Typography } from 'antd'
 import {
   PlusOutlined,
   EyeOutlined,
   DeploymentUnitOutlined,
   ProjectOutlined,
   BarChartOutlined,
-  CheckCircleOutlined,
   ClockCircleOutlined,
   FilterOutlined,
-  FileTextOutlined,
   BlockOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
@@ -19,7 +17,6 @@ import { PageContainer, PageHeader } from '../../components/common/PremiumCompon
 import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 
-const { Search } = Input
 const { Option } = Select
 const { Text } = Typography
 

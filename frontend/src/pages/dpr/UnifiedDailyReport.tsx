@@ -1199,7 +1199,7 @@ const UnifiedDailyReport = () => {
             title: 'Activity / Material',
             dataIndex: 'material_id', // Reusing material_id for selection
             width: '35%',
-            render: (_: any, record: any, index: number) => {
+            render: (_: any, record: MaterialItem, index: number) => {
                 const combinedOptions = [
                     ...quotationItems.map(qi => ({
                         value: `quot-${qi.id}`,
@@ -1277,7 +1277,7 @@ const UnifiedDailyReport = () => {
             title: 'Consumed Qty',
             dataIndex: 'quantity',
             width: detailedMode ? '10%' : '15%',
-            render: (val: any, record: any, index: number) => (
+            render: (val: any, record: MaterialItem, index: number) => (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <Space.Compact style={{ width: '100%' }}>
                         <InputNumber min={0} precision={3} step={0.001} style={{ width: '65%' }} value={val} onChange={v => updateItem(index, 'quantity', v)} size="small" />
@@ -2536,7 +2536,7 @@ const UnifiedDailyReport = () => {
                                         title: 'Worker Category',
                                         dataIndex: 'worker_type',
                                         width: '40%',
-                                        render: (val, _, idx) => (
+                                        render: (val: any, _: any, idx: number) => (
                                             <Select
                                                 mode="tags"
                                                 placeholder="Pick category..."
@@ -2574,7 +2574,7 @@ const UnifiedDailyReport = () => {
                                     {
                                         title: 'Count (Strength)',
                                         dataIndex: 'count',
-                                        render: (val, _, idx) => (
+                                        render: (val: any, _: any, idx: number) => (
                                             <InputNumber
                                                 min={0}
                                                 precision={0}
@@ -2590,7 +2590,7 @@ const UnifiedDailyReport = () => {
                                     {
                                         title: 'Shift/Hajri',
                                         dataIndex: 'hajri',
-                                        render: (val, _, idx) => (
+                                        render: (val: any, _: any, idx: number) => (
                                             <InputNumber
                                                 min={0}
                                                 precision={2}
@@ -2607,7 +2607,7 @@ const UnifiedDailyReport = () => {
                                     {
                                         title: '',
                                         width: '5%',
-                                        render: (_, __, idx) => (
+                                        render: (_: any, __: any, idx: number) => (
                                             <Button
                                                 danger
                                                 icon={<DeleteOutlined />}

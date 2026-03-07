@@ -1,16 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Upload, Select, Space, Row, Col, Typography } from 'antd'
+import { Form, Input, Button, Card, message, Upload, Select, Space, Typography } from 'antd'
 import {
-  UploadOutlined,
-  ArrowLeftOutlined,
   FilePptOutlined,
   ProjectOutlined,
   FileImageOutlined,
   CloudUploadOutlined,
   InboxOutlined,
   FileTextOutlined,
-  InfoCircleOutlined,
-  SaveOutlined
+  InfoCircleOutlined
 } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { drawingService } from '../../services/api/drawings'
@@ -24,7 +21,6 @@ import {
   getLabelStyle,
   flexBetweenStyle,
   actionCardStyle,
-  prefixIconStyle,
   twoColumnGridStyle
 } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
@@ -66,7 +62,7 @@ const DrawingForm = () => {
         message.error('File must be smaller than 10MB!')
         return false
       }
-      setFileList([file as UploadFile])
+      setFileList([file as unknown as UploadFile])
       return false // Prevent auto upload
     },
     onRemove: () => {

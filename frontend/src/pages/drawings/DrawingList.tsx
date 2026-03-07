@@ -6,7 +6,6 @@ import {
   FilePptOutlined, // Using PPT as a proxy for 'drawing/blueprint'
   ProjectOutlined,
   CloudUploadOutlined,
-  FilterOutlined,
   FileImageOutlined,
   CalendarOutlined,
   FileTextOutlined
@@ -15,7 +14,7 @@ import { useNavigate } from 'react-router-dom'
 import { drawingService } from '../../services/api/drawings'
 import { projectService } from '../../services/api/projects'
 import { PageContainer, PageHeader } from '../../components/common/PremiumComponents'
-import { getPrimaryButtonStyle, getSecondaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
+import { getPrimaryButtonStyle, largeInputStyle, prefixIconStyle } from '../../styles/styleUtils'
 import { theme } from '../../styles/theme'
 import dayjs from 'dayjs'
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Form, Input, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, Radio, Typography } from 'antd'
+import { Form, Button, Card, message, Select, DatePicker, InputNumber, Row, Col, Space, Radio, Typography } from 'antd'
 import {
   SaveOutlined,
   SafetyCertificateOutlined,

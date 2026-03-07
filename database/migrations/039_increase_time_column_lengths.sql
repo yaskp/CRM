@@ -1,0 +1,15 @@
+
+ALTER TABLE dpr_panel_work_logs 
+MODIFY COLUMN grabbing_start_time VARCHAR(100) NULL,
+MODIFY COLUMN grabbing_end_time VARCHAR(100) NULL,
+MODIFY COLUMN concrete_start_time VARCHAR(100) NULL,
+MODIFY COLUMN concrete_end_time VARCHAR(100) NULL;
+
+ALTER TABLE dpr_pile_work_logs
+MODIFY COLUMN start_time VARCHAR(100) NULL,
+MODIFY COLUMN end_time VARCHAR(100) NULL;
+
+ALTER TABLE dpr_rmc_logs
+MODIFY COLUMN in_time VARCHAR(100) NULL,
+MODIFY COLUMN start_time VARCHAR(100) NULL,
+MODIFY COLUMN out_time VARCHAR(100) NULL;

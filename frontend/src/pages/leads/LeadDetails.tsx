@@ -23,6 +23,14 @@ import { getPrimaryButtonStyle, getSecondaryButtonStyle, flexBetweenStyle } from
 
 const { Text } = Typography
 
+const API_FILE_BASE = ((import.meta as any).env?.VITE_API_URL || '').replace('/api', '') || 'http://localhost:5000'
+
+const getFileUrl = (url?: string) => {
+    if (!url) return undefined
+    if (url.startsWith('http')) return url
+    return `${API_FILE_BASE}${url}`
+}
+
 const LeadDetails = () => {
     const { id } = useParams()
     const navigate = useNavigate()
@@ -146,19 +154,70 @@ const LeadDetails = () => {
 
                     {/* Docs */}
                     <SectionCard title="Documents" icon={<FileTextOutlined />} style={{ marginTop: '16px' }}>
-                        <Space wrap size="large">
-                            {lead.soil_report_url ? (
-                                <Button icon={<DownloadOutlined />} href={lead.soil_report_url} target="_blank">Soil Report</Button>
-                            ) : <Text type="secondary" disabled><MinusIcon /> Soil Report (N/A)</Text>}
+                        <Row gutter={[16, 16]}>
+                            {[
+                                { title: 'Soil Report', url: lead.soil_report_url },
+                                { title: 'Layout Plan', url: lead.layout_url },
+                                { title: 'Section Drawing', url: lead.section_url }
+                            ].map((doc, i) => {
+                                const fileUrl = getFileUrl(doc.url)
+                                const isImage = doc.url?.match(/\.(jpeg|jpg|gif|png)$/i)
+                                const isPdf = doc.url?.match(/\.(pdf)$/i)
 
-                            {lead.layout_url ? (
-                                <Button icon={<DownloadOutlined />} href={lead.layout_url} target="_blank">Layout Plan</Button>
-                            ) : <Text type="secondary" disabled><MinusIcon /> Layout Plan (N/A)</Text>}
-
-                            {lead.section_url ? (
-                                <Button icon={<DownloadOutlined />} href={lead.section_url} target="_blank">Section Drawing</Button>
-                            ) : <Text type="secondary" disabled><MinusIcon /> Section Drawing (N/A)</Text>}
-                        </Space>
+                                return (
+                                    <Col xs={12} md={8} key={i}>
+                                        <div style={{
+                                            border: '1px solid #f0f0f0',
+                                            borderRadius: '8px',
+                                            overflow: 'hidden',
+                                            background: '#fff',
+                                            textAlign: 'center',
+                                            boxShadow: '0 1px 4px rgba(0,0,0,0.05)'
+                                        }}>
+                                            {fileUrl ? (
+                                                <div style={{ position: 'relative' }}>
+                                                    {isImage ? (
+                                                        <img
+                                                            src={fileUrl}
+                                                            alt={doc.title}
+                                                            style={{ width: '100%', height: '140px', objectFit: 'cover', cursor: 'pointer' }}
+                                                            onClick={() => window.open(fileUrl, '_blank')}
+                                                        />
+                                                    ) : (
+                                                        <div
+                                                            style={{ height: '140px', display: 'flex', flexFlow: 'column', alignItems: 'center', justifyContent: 'center', background: '#fafafa', cursor: 'pointer' }}
+                                                            onClick={() => window.open(fileUrl, '_blank')}
+                                                        >
+                                                            <FileTextOutlined style={{ fontSize: '40px', color: isPdf ? '#f5222d' : '#1890ff', marginBottom: '8px' }} />
+                                                            <Text type="secondary" style={{ fontSize: '12px' }}>{isPdf ? 'PDF Document' : 'Document File'}</Text>
+                                                        </div>
+                                                    )}
+                                                    <div style={{ position: 'absolute', bottom: 8, right: 8 }}>
+                                                        <Button
+                                                            size="small"
+                                                            type="primary"
+                                                            icon={<DownloadOutlined />}
+                                                            href={fileUrl}
+                                                            target="_blank"
+                                                        >
+                                                            View
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div style={{ padding: '20px 10px', color: '#d9d9d9', height: '140px', display: 'flex', flexDirection: 'column', justifyContent: 'center', background: '#fafafa' }}>
+                                                    <div style={{ fontSize: '24px', marginBottom: '8px' }}><FileTextOutlined /></div>
+                                                    <div style={{ fontSize: '12px', fontWeight: 500 }}>No Attachment</div>
+                                                </div>
+                                            )}
+                                            <div style={{ padding: '10px', borderTop: '1px solid #f0f0f0' }}>
+                                                <div style={{ fontSize: '12px', color: theme.colors.neutral.gray700, fontWeight: 600 }}>{doc.title}</div>
+                                            </div>
+                                        </div>
+                                    </Col>
+                                )
+                            })}
+                        </Row>
                     </SectionCard>
 
                     {lead.remarks && (
@@ -257,7 +316,5 @@ const LeadDetails = () => {
         </PageContainer>
     )
 }
-
-const MinusIcon = () => <span style={{ marginRight: 8 }}>-</span>
 
 export default LeadDetails

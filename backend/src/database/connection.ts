@@ -4,7 +4,7 @@ import dotenv from 'dotenv'
 dotenv.config()
 
 export const sequelize = new Sequelize(
-  process.env.DB_NAME || 'crm_construction',
+  process.env.DB_NAME || 'crm_1',
   process.env.DB_USER || 'root',
   process.env.DB_PASSWORD || '',
   {

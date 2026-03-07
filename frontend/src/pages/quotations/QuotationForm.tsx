@@ -54,15 +54,18 @@ const QuotationForm = () => {
     // Get lead_id from URL query params (when coming from Lead page)
     const searchParams = new URLSearchParams(window.location.search)
     const leadIdFromUrl = searchParams.get('lead_id')
+    const sourceIdFromUrl = searchParams.get('source_id')
 
     useEffect(() => {
         (async () => {
             const initialData = await fetchInitialData()
             if (isEdit && initialData) {
-                await fetchQuotation(initialData.annexures)
+                await fetchQuotation(Number(id), initialData.annexures)
+            } else if (sourceIdFromUrl && initialData) {
+                await fetchQuotation(Number(sourceIdFromUrl), initialData.annexures)
             }
         })()
-    }, [id])
+    }, [id, sourceIdFromUrl])
 
     const fetchInitialData = async () => {
         try {
@@ -82,7 +85,7 @@ const QuotationForm = () => {
             // Filter leads that don't have quotations yet (status: new, contacted, qualified)
             // Or show all if editing
             const allLeads = leadsRes.leads || []
-            const filteredLeads = isEdit ? allLeads : allLeads.filter((lead: any) =>
+            const filteredLeads = (isEdit || !!sourceIdFromUrl) ? allLeads : allLeads.filter((lead: any) =>
                 !lead.status || ['new', 'contacted', 'qualified'].includes(lead.status)
             )
 
@@ -109,10 +112,10 @@ const QuotationForm = () => {
         }
     }
 
-    const fetchQuotation = async (availableAnnexures: any[] = []) => {
+    const fetchQuotation = async (quoteId: number, availableAnnexures: any[] = []) => {
         setLoading(true)
         try {
-            const res = await quotationService.getQuotation(Number(id))
+            const res = await quotationService.getQuotation(quoteId)
             const quote = res.quotation
 
             form.setFieldsValue({
@@ -225,13 +228,13 @@ const QuotationForm = () => {
         } as any)
     }
 
-    const handleItemChange = (key: any, field: string, value: any) => {
+    const handleItemUpdates = (key: any, updates: Record<string, any>) => {
         const newItems = items.map(it => {
             if (it.key === key) {
-                const updated = { ...it, [field]: value }
+                const updated = { ...it, ...updates }
 
-                if (field === 'reference_id' && updated.item_type === 'material') {
-                    const material = materials.find(m => m.id === value)
+                if ('reference_id' in updates && updated.item_type === 'material') {
+                    const material = materials.find(m => m.id === updates.reference_id)
                     if (material) {
                         updated.description = material.name
                         // Convert unit to string if it's an array
@@ -247,6 +250,10 @@ const QuotationForm = () => {
         })
         setItems(newItems)
         calculateTotals(newItems, form.getFieldValue('discount_percentage') || 0)
+    }
+
+    const handleItemChange = (key: any, field: string, value: any) => {
+        handleItemUpdates(key, { [field]: value })
     }
 
     const addItem = (type: string, isReference: boolean = false) => {
@@ -327,6 +334,7 @@ const QuotationForm = () => {
         try {
             const payload = {
                 ...values,
+                source_id: sourceIdFromUrl ? Number(sourceIdFromUrl) : null,
                 valid_until: values.valid_until ? values.valid_until.format('YYYY-MM-DD') : null,
                 items: items.map(({ description, quantity, unit, rate, amount, item_type, reference_id, work_item_type_id, is_reference_only, parent_work_item_type_id }) => ({
                     description,
@@ -380,8 +388,10 @@ const QuotationForm = () => {
                         placeholder="Select Main Type"
                         value={record.parent_work_item_type_id}
                         onChange={v => {
-                            handleItemChange(record.key, 'parent_work_item_type_id', v)
-                            handleItemChange(record.key, 'work_item_type_id', null) // Reset sub-type
+                            handleItemUpdates(record.key, {
+                                parent_work_item_type_id: v,
+                                work_item_type_id: null // Reset sub-type
+                            })
                         }}
                         style={{ width: '100%' }}
                         variant="borderless"
@@ -405,12 +415,25 @@ const QuotationForm = () => {
                         placeholder="Select Sub Type"
                         value={record.work_item_type_id}
                         onChange={v => {
-                            handleItemChange(record.key, 'work_item_type_id', v)
+                            // Validate duplicate combination of Work Type + Sub-Work Type
+                            const isDuplicate = items.some(it =>
+                                it.key !== record.key &&
+                                it.parent_work_item_type_id === record.parent_work_item_type_id &&
+                                it.work_item_type_id === v
+                            )
+
+                            if (isDuplicate) {
+                                message.warning('This Sub-Work Type has already been added under the selected Work Type.')
+                                return
+                            }
+
+                            const updates: any = { work_item_type_id: v }
                             // Auto-fill description if empty and not material
                             if (!record.description && record.item_type !== 'material') {
                                 const found = workItemTypes.find(t => t.id === v)
-                                if (found) handleItemChange(record.key, 'description', found.name)
+                                if (found) updates.description = found.name
                             }
+                            handleItemUpdates(record.key, updates)
                         }}
                         style={{ width: '100%' }}
                         variant="borderless"
@@ -570,18 +593,23 @@ const QuotationForm = () => {
                 }}
             >
                 <style>{`
+                    .ant-select.ant-select-single {
+                        height: auto !important;
+                    }
                     .ant-select-single .ant-select-selector {
                         height: auto !important;
                         min-height: 32px !important;
                         padding-top: 4px !important;
                         padding-bottom: 4px !important;
                     }
-                    .ant-select-selection-item {
+                    .ant-select-single .ant-select-selection-item {
                         white-space: normal !important;
                         word-break: break-word !important;
                         line-height: 1.4 !important;
-                        display: flex !important;
-                        align-items: center !important;
+                        display: block !important;
+                        height: auto !important;
+                        position: relative !important;
+                        inset: unset !important;
                     }
                     .ant-select-single.ant-select-lg .ant-select-selector {
                         min-height: 40px !important;
@@ -604,7 +632,7 @@ const QuotationForm = () => {
                                     style={{ color: 'white' }}
                                 />
                                 <Title level={3} style={{ margin: 0, color: 'white' }}>
-                                    {isEdit ? 'Update Quotation' : 'Create New Quotation'}
+                                    {isEdit ? 'Update Quotation' : sourceIdFromUrl ? 'Revise Quotation' : 'Create New Quotation'}
                                 </Title>
                             </Space>
                             {selectedLead && (
@@ -675,7 +703,16 @@ const QuotationForm = () => {
                                         calculateTotals(items, form.getFieldValue('discount_percentage') || 0, detectedGst)
                                     }}
                                     disabled={!!leadIdFromUrl && !isEdit}
-                                />
+                                >
+                                    {leads.map(l => (
+                                        <Option key={l.id} value={l.id} label={`${l.name} ${l.company_name ? `(${l.company_name})` : ''}`}>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <Text strong>{l.name}</Text>
+                                                {l.company_name && <Text type="secondary" style={{ fontSize: '12px' }}>{l.company_name}</Text>}
+                                            </div>
+                                        </Option>
+                                    ))}
+                                </Select>
                             </Form.Item>
                         </Col>
                         <Col xs={24} sm={12} md={8} lg={6}>

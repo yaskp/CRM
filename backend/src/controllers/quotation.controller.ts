@@ -29,7 +29,8 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
       contractor_scope,
       terms_conditions,
       scope_matrix,
-      items
+      items,
+      source_id
     } = req.body
 
     if (!lead_id || !total_amount) {
@@ -104,6 +105,13 @@ export const createQuotation = async (req: AuthRequest, res: Response, next: Nex
           parent_work_item_type_id: item.parent_work_item_type_id
         }))
         await QuotationItem.bulkCreate(quotationItems, { transaction: t })
+      }
+
+      if (source_id) {
+        await Quotation.update(
+          { status: 'superseded' },
+          { where: { id: source_id }, transaction: t }
+        )
       }
 
       // AUTOMATION: Update Lead and Project status
